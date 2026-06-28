@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { JiraCredentials, ConnectionConfig, JiraProject, Language } from '../types';
 import { Settings, ShieldCheck, HelpCircle, RefreshCw, Server, Check, AlertCircle, Download, Upload } from 'lucide-react';
+import CustomSelect from './CustomSelect';
 
 interface JiraConfigProps {
   language: Language;
@@ -364,23 +365,23 @@ export default function JiraConfig({
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
               {isRtl ? "پروژه‌های دریافت شده" : "Fetched Jira Projects"}
             </label>
-            <div className="relative">
-              <select
-                disabled={availableProjects.length === 0}
-                onChange={(e) => onProjectKeyChange(e.target.value)}
-                value={availableProjects.some(p => p.key === projectKey) ? projectKey : ""}
-                className="w-full text-sm px-3.5 py-2 rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600 transition duration-150 font-medium text-slate-700 disabled:opacity-60 disabled:bg-slate-50"
-              >
-                <option value="">
-                  {availableProjects.length > 0 ? `-- ${t.placeholderProject} --` : `-- ${isRtl ? "اتصال را بررسی کنید" : "Test connection to load"} --`}
-                </option>
-                {availableProjects.map((proj) => (
-                  <option key={proj.key} value={proj.key}>
-                    {proj.key} - {proj.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <CustomSelect
+              disabled={availableProjects.length === 0}
+              options={[
+                {
+                  value: "",
+                  label: availableProjects.length > 0 ? `-- ${t.placeholderProject} --` : `-- ${isRtl ? "اتصال را بررسی کنید" : "Test connection to load"} --`
+                },
+                ...availableProjects.map((proj) => ({
+                  value: proj.key,
+                  label: `${proj.key} - ${proj.name}`
+                }))
+              ]}
+              value={availableProjects.some(p => p.key === projectKey) ? projectKey : ""}
+              onChange={(val) => onProjectKeyChange(val)}
+              showSearch={true}
+              isRtl={isRtl}
+            />
           </div>
         </div>
 

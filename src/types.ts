@@ -10,9 +10,11 @@ export interface RefinedIssue {
   id: string; // Temporary ID like 'epic-1', 'story-1'
   summary: string;
   description: string;
-  issuetype: 'Story' | 'Epic';
+  issuetype: 'Story' | 'Epic' | 'Bug';
   epicReference?: string; // Links to temporary id of Epic in same list
   suggestedLabels?: string[];
+  suggestedPriority?: string;
+  suggestedComponent?: string;
   
   // UI and Lifecycle states
   status: 'draft' | 'creating' | 'success' | 'failed';
@@ -25,6 +27,7 @@ export interface RefinedIssue {
   selectedAssignee?: string; // Selected assignee username
   selectedSprint?: string; // Selected sprint ID/name (for Stories)
   selectedRelease?: string; // Selected release (fixVersions) name/ID (for Epics)
+  selectedPriority?: string; // Selected priority name
 }
 
 export interface JiraSprint {
@@ -38,6 +41,11 @@ export interface JiraVersion {
   id: string;
   name: string;
   released?: boolean;
+  startDate?: string;
+  releaseDate?: string;
+  description?: string;
+  archived?: boolean;
+  overdue?: boolean;
 }
 
 export interface JiraUser {

@@ -3,10 +3,11 @@ import { JiraCredentials, RefinedIssue, ConnectionConfig, JiraProject, JiraEpic,
 import JiraConfig from './components/JiraConfig';
 import DraftInput from './components/DraftInput';
 import RefinedList from './components/RefinedList';
+import JiraRoadmap from './components/JiraRoadmap';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Sparkles, ShieldCheck, AlertCircle, RefreshCw, Languages, 
-  Layers, Settings, Github, Check, GitCommit, Link, Terminal
+  Layers, Settings, Github, Check, GitCommit, Link, Terminal, Calendar
 } from 'lucide-react';
 
 const appTranslations = {
@@ -23,8 +24,9 @@ const appTranslations = {
     toastSuccess: "Stories refined successfully by Gemini!",
     toastError: "Refinement failed. Please check your inputs.",
     connectionAlert: "Please connect to Jira Server first to use the publish features.",
-    tabConnect: "1. Jira Connection & Config",
-    tabWorkspace: "2. Story Refiner Workspace"
+    tabConnect: "1. Connection & Config",
+    tabWorkspace: "2. Story Refiner Workspace",
+    tabRoadmap: "3. PM Roadmap & Releases"
   },
   fa: {
     heroTitle: "تنظیم‌کننده و سازنده خودکار تیکت‌های جیرا (Self-Hosted)",
@@ -40,7 +42,8 @@ const appTranslations = {
     toastError: "خطا در برقراری ارتباط با هوش مصنوعی. لطفاً ورودی‌ها را بررسی کنید.",
     connectionAlert: "جهت استفاده از ویژگی‌های انتشار، ابتدا به سرور جیرا متصل شوید.",
     tabConnect: "۱. اتصال و تنظیمات جیرا",
-    tabWorkspace: "۲. کارگاه ساخت و اصلاح تیکت‌ها"
+    tabWorkspace: "۲. کارگاه ساخت و اصلاح تیکت‌ها",
+    tabRoadmap: "۳. نقشه راه و ریلیزهای محصول"
   }
 };
 
@@ -51,7 +54,7 @@ export default function App() {
   const isRtl = language === 'fa';
 
   // ---------------- STATE DEFINITIONS ----------------
-  const [activeTab, setActiveTab] = useState<'connect' | 'workspace'>('connect');
+  const [activeTab, setActiveTab] = useState<'connect' | 'workspace' | 'roadmap'>('connect');
 
   const [credentials, setCredentials] = useState<JiraCredentials>({
     url: "",
@@ -128,7 +131,7 @@ export default function App() {
   }, [manualComponentsText]);
 
   // ---------------- ACTION HANDLERS ----------------
-  const handleRefine = async (draftText: string, customPrompt: string) => {
+  const handleRefine = async (draftText: string, customPrompt: string, model: string, outputMode: string) => {
     setRefining(true);
     setErrorMsg(null);
     setSuccessMsg(null);
@@ -140,18 +143,64 @@ export default function App() {
         body: JSON.stringify({
           draftText,
           customPrompt,
-          projectKey
+          projectKey,
+          model,
+          outputMode
         })
       });
 
       const data = await response.json();
       if (response.ok && data.issues) {
+        // Collect current list of all available component names
+        const existingComps = [
+          ...availableComponents.map(c => c.name),
+          ...manualComponentsText.split(',').map(s => s.trim()).filter(Boolean)
+        ].filter((v, i, self) => self.indexOf(v) === i);
+
+        // Find any newly suggested components that aren't already registered
+        const newCompsToRegister: string[] = [];
+        data.issues.forEach((issue: any) => {
+          if (issue.suggestedComponent) {
+            const sug = issue.suggestedComponent.trim();
+            if (sug && !existingComps.some(c => c.toLowerCase() === sug.toLowerCase())) {
+              if (!newCompsToRegister.some(r => r.toLowerCase() === sug.toLowerCase())) {
+                newCompsToRegister.push(sug);
+              }
+            }
+          }
+        });
+
+        // Register them dynamically in our manual components list
+        if (newCompsToRegister.length > 0) {
+          const currentManual = manualComponentsText.split(',').map(s => s.trim()).filter(Boolean);
+          const updatedManual = [...currentManual, ...newCompsToRegister].filter((v, i, self) => self.indexOf(v) === i);
+          setManualComponentsText(updatedManual.join(', '));
+          // Append to existingComps so we can match them immediately below
+          existingComps.push(...newCompsToRegister);
+        }
+
         // Map raw issues from Gemini into application active issues
-        const formatted: RefinedIssue[] = data.issues.map((issue: any) => ({
-          ...issue,
-          status: 'draft',
-          suggestedLabels: issue.suggestedLabels || []
-        }));
+        const formatted: RefinedIssue[] = data.issues.map((issue: any) => {
+          // Smart-predict / match component
+          let matchedComponent = "";
+          if (issue.suggestedComponent) {
+            const sug = issue.suggestedComponent.toLowerCase().trim();
+            const found = existingComps.find(c => {
+              const name = c.toLowerCase().trim();
+              return name === sug || name.includes(sug) || sug.includes(name);
+            });
+            matchedComponent = found || issue.suggestedComponent.trim();
+          }
+
+          return {
+            ...issue,
+            status: 'draft',
+            suggestedLabels: issue.suggestedLabels || [],
+            selectedPriority: issue.suggestedPriority || 'Medium',
+            selectedComponent: matchedComponent || undefined
+          };
+        });
+
         setIssues(formatted);
         setSuccessMsg(t.toastSuccess);
         
@@ -434,6 +483,25 @@ export default function App() {
               </span>
             )}
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('roadmap');
+              // Automatically fetch versions and epics when switching to roadmap
+              if (jiraConnected && projectKey) {
+                fetchJiraVersions();
+                fetchExistingEpics();
+              }
+            }}
+            className={`flex items-center gap-2 px-5 py-3 border-b-2 text-xs sm:text-sm font-semibold transition-all duration-150 cursor-pointer ${
+              activeTab === 'roadmap'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Calendar className="w-4 h-4" />
+            {t.tabRoadmap}
+          </button>
         </div>
 
         {/* Tab 1: Connection & Configurations */}
@@ -579,6 +647,23 @@ export default function App() {
                 onFetchSprints={fetchJiraSprints}
               />
             </div>
+          </div>
+        )}
+
+        {/* Tab 3: PM Roadmap & Releases */}
+        {activeTab === 'roadmap' && (
+          <div className="animate-fade-in">
+            <JiraRoadmap
+              language={language}
+              issues={issues}
+              onIssuesChange={setIssues}
+              credentials={credentials}
+              projectKey={projectKey}
+              availableVersions={jiraVersions}
+              onFetchVersions={fetchJiraVersions}
+              fetchingVersions={fetchingVersions}
+              existingEpics={existingEpics}
+            />
           </div>
         )}
       </main>

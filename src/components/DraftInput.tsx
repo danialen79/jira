@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Language } from '../types';
 import { Wand2, Sparkles, FileText, ChevronRight, Plus, Trash2, HelpCircle } from 'lucide-react';
+import CustomSelect from './CustomSelect';
 
 interface DraftInputProps {
   language: Language;
-  onRefine: (draftText: string, customPrompt: string) => Promise<void>;
+  onRefine: (draftText: string, customPrompt: string, model: string, outputMode: string) => Promise<void>;
   loading: boolean;
 }
 
@@ -33,7 +34,16 @@ const translations = {
     promptTextLabel: "AI Rules / Prompt Content",
     promptTextPlaceholder: "e.g., Focus only on mobile design considerations, and specify screen requirements...",
     addBtn: "Save Prompt Template",
-    deleteBtn: "Delete Template"
+    deleteBtn: "Delete Template",
+    modelLabel: "Gemini AI Model / Engine",
+    modelFlash: "Gemini 3.5 Flash (Standard - High Traffic)",
+    modelLite: "Gemini 3.1 Flash Lite (Faster - Alternative)",
+    modelPro: "Gemini 3.1 Pro (Higher Quality / Complex Reasoning)",
+    outputModeLabel: "Refinement Output Scope",
+    outputModeBoth: "Generate Epics, Stories, and Bugs (Mixed)",
+    outputModeEpics: "Generate ONLY Epics",
+    outputModeStories: "Generate ONLY Stories",
+    outputModeBugs: "Generate ONLY Bugs"
   },
   fa: {
     title: "ثبت پیش‌نویس نیازمندی‌ها و استوری‌ها",
@@ -59,7 +69,16 @@ const translations = {
     promptTextLabel: "قوانین هوش مصنوعی / متن پرامپت",
     promptTextPlaceholder: "مثال: برای هر استوری سناریوهای تست خودکار بنویس و موارد لبه را حتماً پوشش بده...",
     addBtn: "ذخیره الگوی جدید",
-    deleteBtn: "حذف الگو"
+    deleteBtn: "حذف الگو",
+    modelLabel: "مدل یا موتور هوش مصنوعی Gemini",
+    modelFlash: "Gemini 3.5 Flash (استاندارد - ترافیک سنگین)",
+    modelLite: "Gemini 3.1 Flash Lite (سریع‌تر - جایگزین پیشنهادی)",
+    modelPro: "Gemini 3.1 Pro (دقت بالاتر / تحلیل عمیق)",
+    outputModeLabel: "محدوده خروجی پیش‌نویس (نوع تیکت‌ها)",
+    outputModeBoth: "تولید همزمان اپیک، استوری و باگ (ترکیبی)",
+    outputModeEpics: "فقط تولید اپیک (Only Epics)",
+    outputModeStories: "فقط تولید استوری (Only Stories)",
+    outputModeBugs: "فقط تولید باگ (Only Bugs)"
   }
 };
 
@@ -69,6 +88,8 @@ export default function DraftInput({ language, onRefine, loading }: DraftInputPr
 
   const [draftText, setDraftText] = useState("");
   const [customPrompt, setCustomPrompt] = useState("");
+  const [selectedModel, setSelectedModel] = useState("gemini-3.5-flash");
+  const [outputMode, setOutputMode] = useState<string>("both");
 
   // States for creating a custom template
   const [newPromptName, setNewPromptName] = useState("");
@@ -148,7 +169,7 @@ export default function DraftInput({ language, onRefine, loading }: DraftInputPr
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!draftText.trim()) return;
-    onRefine(draftText, customPrompt);
+    onRefine(draftText, customPrompt, selectedModel, outputMode);
   };
 
   return (
@@ -188,11 +209,18 @@ export default function DraftInput({ language, onRefine, loading }: DraftInputPr
             {allTemplates.map((tpl) => {
               const isCustom = tpl.id.startsWith("custom-");
               return (
-                <button
+                <div
                   key={tpl.id}
-                  type="button"
                   onClick={() => handleApplyTemplate(tpl.prompt)}
-                  className={`relative p-3 text-start rounded-lg border text-xs transition duration-150 flex flex-col justify-between h-full hover:border-slate-300 hover:bg-slate-50/50 cursor-pointer ${
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleApplyTemplate(tpl.prompt);
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  className={`relative p-3 text-start rounded-lg border text-xs transition duration-150 flex flex-col justify-between h-full hover:border-slate-300 hover:bg-slate-50/50 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${
                     customPrompt === tpl.prompt 
                       ? 'border-blue-500 bg-blue-50/20 ring-1 ring-blue-500/30' 
                       : 'border-slate-200 bg-white'
@@ -220,7 +248,7 @@ export default function DraftInput({ language, onRefine, loading }: DraftInputPr
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   )}
-                </button>
+                </div>
               );
             })}
           </div>
@@ -239,6 +267,46 @@ export default function DraftInput({ language, onRefine, loading }: DraftInputPr
             onChange={(e) => setCustomPrompt(e.target.value)}
             dir="auto"
           />
+        </div>
+
+        {/* Model and Output Scope Configuration */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Gemini Model Selector */}
+          <div>
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-indigo-500 animate-pulse" />
+              {t.modelLabel}
+            </label>
+            <CustomSelect
+              options={[
+                { value: "gemini-3.5-flash", label: t.modelFlash },
+                { value: "gemini-3.1-flash-lite", label: t.modelLite },
+                { value: "gemini-3.1-pro-preview", label: t.modelPro }
+              ]}
+              value={selectedModel}
+              onChange={(val) => setSelectedModel(val)}
+              isRtl={language === 'fa'}
+            />
+          </div>
+
+          {/* Refinement Output Scope Selector */}
+          <div>
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-emerald-500 animate-pulse" />
+              {t.outputModeLabel}
+            </label>
+            <CustomSelect
+              options={[
+                { value: "both", label: t.outputModeBoth },
+                { value: "epics", label: t.outputModeEpics },
+                { value: "stories", label: t.outputModeStories },
+                { value: "bugs", label: t.outputModeBugs }
+              ]}
+              value={outputMode}
+              onChange={(val) => setOutputMode(val)}
+              isRtl={language === 'fa'}
+            />
+          </div>
         </div>
 
         {/* Add Prompt Template Segment */}

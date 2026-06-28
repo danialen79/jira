@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { RefinedIssue, JiraEpic, JiraCredentials, ConnectionConfig, Language, JiraUser, JiraVersion, JiraSprint } from '../types';
 import { MarkdownPreview } from './MarkdownPreview';
+import CustomSelect from './CustomSelect';
 import { 
   Play, CheckCircle2, AlertCircle, Edit2, Check, X, Tag, ExternalLink, 
   Layers, FileText, ArrowUpRight, HelpCircle, RefreshCw, Layers2
@@ -38,10 +39,12 @@ const translations = {
     filterAll: "All Tickets",
     filterEpics: "Epics Only",
     filterStories: "Stories Only",
+    filterBugs: "Bugs Only",
     emptyState: "No refined tickets yet. Input your requirements in the left panel and click 'Refine with Gemini AI' to get started.",
     issueType: "Issue Type",
     epic: "Epic",
     story: "Story",
+    bug: "Bug",
     epicLink: "Linked to Epic Draft:",
     noEpicLink: "No Epic Parent Link",
     createInJira: "Publish Ticket",
@@ -68,10 +71,12 @@ const translations = {
     filterAll: "همه تیکت‌ها",
     filterEpics: "فقط اپیک‌ها",
     filterStories: "فقط استوری‌ها",
+    filterBugs: "فقط باگ‌ها",
     emptyState: "هنوز تیکتی تولید نشده است. در پنل سمت چپ پیش‌نویس‌ها را وارد کرده و دکمه ساختاربندی را بزنید.",
     issueType: "نوع تیکت",
     epic: "اپیک (Epic)",
     story: "استوری (Story)",
+    bug: "باگ (Bug)",
     epicLink: "متصل به درفت اپیک:",
     noEpicLink: "بدون اتصال به اپیک والد",
     createInJira: "انتشار تیکت",
@@ -89,6 +94,77 @@ const translations = {
     errorOccurred: "خطا در جیرا:",
     rePublish: "تلاش مجدد",
     noEpicsToLink: "اپیک موجودی در پروژه پیدا نشد. به جیرا متصل شوید."
+  }
+};
+
+const priorityLabels: Record<Language, Record<string, string>> = {
+  en: {
+    Highest: "Highest",
+    High: "High",
+    Medium: "Medium",
+    Low: "Low",
+    Lowest: "Lowest",
+    priority: "Priority",
+    changePriority: "Change Priority:"
+  },
+  fa: {
+    Highest: "بالاترین",
+    High: "بالا",
+    Medium: "متوسط",
+    Low: "پایین",
+    Lowest: "پایین‌ترین",
+    priority: "اولویت (Priority)",
+    changePriority: "تغییر اولویت:"
+  }
+};
+
+const getPriorityBadgeStyles = (priority?: string) => {
+  const p = (priority || 'Medium').toLowerCase();
+  switch (p) {
+    case 'highest':
+      return 'bg-red-50 text-red-700 border-red-200/60';
+    case 'high':
+      return 'bg-orange-50 text-orange-700 border-orange-200/60';
+    case 'medium':
+      return 'bg-slate-50 text-slate-700 border-slate-200/60';
+    case 'low':
+      return 'bg-blue-50 text-blue-700 border-blue-200/60';
+    case 'lowest':
+      return 'bg-slate-100 text-slate-500 border-slate-200/60';
+    default:
+      return 'bg-slate-50 text-slate-700 border-slate-200/60';
+  }
+};
+
+// Helper to track assignee assignment frequency in local storage
+const trackAssigneeUsage = (username: string) => {
+  if (!username) return;
+  try {
+    const stored = localStorage.getItem('jira_assignee_frequency');
+    const freq = stored ? JSON.parse(stored) : {};
+    freq[username] = (freq[username] || 0) + 1;
+    localStorage.setItem('jira_assignee_frequency', JSON.stringify(freq));
+  } catch (e) {
+    console.error("Failed to track assignee frequency:", e);
+  }
+};
+
+// Helper to sort users: most frequently selected first
+const getSortedUsers = (users: JiraUser[]): JiraUser[] => {
+  try {
+    const stored = localStorage.getItem('jira_assignee_frequency');
+    if (!stored) return users;
+    const freq = JSON.parse(stored);
+    return [...users].sort((a, b) => {
+      const freqA = freq[a.name] || 0;
+      const freqB = freq[b.name] || 0;
+      if (freqA !== freqB) {
+        return freqB - freqA; // High frequency first
+      }
+      return a.displayName.localeCompare(b.displayName); // fallback alphabetical
+    });
+  } catch {
+    return users;
   }
 };
 
@@ -117,16 +193,18 @@ export default function RefinedList({
   const t = translations[language];
   const isRtl = language === 'fa';
 
-  const [filter, setFilter] = useState<'all' | 'epics' | 'stories'>('all');
+  const [filter, setFilter] = useState<'all' | 'epics' | 'stories' | 'bugs'>('all');
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<{ summary: string; description: string; suggestedLabels: string[]; selectedComponent?: string; selectedAssignee?: string; selectedSprint?: string; selectedRelease?: string }>({
+  const [editForm, setEditForm] = useState<{ summary: string; description: string; suggestedLabels: string[]; selectedComponent?: string; selectedAssignee?: string; selectedSprint?: string; selectedRelease?: string; selectedPriority?: string; issuetype: 'Epic' | 'Story' | 'Bug' }>({
     summary: "",
     description: "",
     suggestedLabels: [],
     selectedComponent: "",
     selectedAssignee: "",
     selectedSprint: "",
-    selectedRelease: ""
+    selectedRelease: "",
+    selectedPriority: "",
+    issuetype: "Story"
   });
   const [newLabel, setNewLabel] = useState("");
   const [bulkPublishing, setBulkPublishing] = useState(false);
@@ -170,7 +248,8 @@ export default function RefinedList({
             selectedComponent: targetIssue.selectedComponent, // Passes to server.ts!
             selectedAssignee: targetIssue.selectedAssignee,
             selectedSprint: targetIssue.selectedSprint,
-            selectedRelease: targetIssue.selectedRelease
+            selectedRelease: targetIssue.selectedRelease,
+            selectedPriority: targetIssue.selectedPriority
           }
         })
       });
@@ -244,23 +323,30 @@ export default function RefinedList({
       selectedComponent: issue.selectedComponent || "",
       selectedAssignee: issue.selectedAssignee || "",
       selectedSprint: issue.selectedSprint || "",
-      selectedRelease: issue.selectedRelease || ""
+      selectedRelease: issue.selectedRelease || "",
+      selectedPriority: issue.selectedPriority || "Medium",
+      issuetype: issue.issuetype
     });
     setNewLabel("");
   };
 
   const handleSaveEdit = (id: string) => {
+    if (editForm.selectedAssignee) {
+      trackAssigneeUsage(editForm.selectedAssignee);
+    }
     const updated = issues.map(issue => {
       if (issue.id === id) {
         return {
           ...issue,
           summary: editForm.summary,
           description: editForm.description,
+          issuetype: editForm.issuetype,
           suggestedLabels: editForm.suggestedLabels,
           selectedComponent: editForm.selectedComponent || undefined,
           selectedAssignee: editForm.selectedAssignee || undefined,
           selectedSprint: editForm.selectedSprint || undefined,
-          selectedRelease: editForm.selectedRelease || undefined
+          selectedRelease: editForm.selectedRelease || undefined,
+          selectedPriority: editForm.selectedPriority || undefined
         };
       }
       return issue;
@@ -301,6 +387,7 @@ export default function RefinedList({
   const filteredIssues = issues.filter(issue => {
     if (filter === 'epics') return issue.issuetype === 'Epic';
     if (filter === 'stories') return issue.issuetype === 'Story';
+    if (filter === 'bugs') return issue.issuetype === 'Bug';
     return true;
   });
 
@@ -345,6 +432,13 @@ export default function RefinedList({
                 className={`text-[11px] font-medium px-2.5 py-1.5 rounded-md transition duration-150 cursor-pointer ${filter === 'stories' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
               >
                 {t.filterStories}
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilter('bugs')}
+                className={`text-[11px] font-medium px-2.5 py-1.5 rounded-md transition duration-150 cursor-pointer ${filter === 'bugs' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+              >
+                {t.filterBugs}
               </button>
             </div>
 
@@ -429,14 +523,25 @@ export default function RefinedList({
                 <div className="flex items-center gap-2.5">
                   {/* Issue Type Badge */}
                   <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md flex items-center gap-1.5 ${
-                    isEpic ? 'bg-blue-50 text-blue-700' : 'bg-sky-50 text-sky-700'
+                    issue.issuetype === 'Epic' ? 'bg-blue-50 text-blue-700' :
+                    issue.issuetype === 'Bug' ? 'bg-rose-50 text-rose-700 border border-rose-100' :
+                    'bg-sky-50 text-sky-700'
                   }`}>
-                    {isEpic ? <Layers className="w-3 h-3" /> : <FileText className="w-3 h-3" />}
-                    {isEpic ? t.epic : t.story}
+                    {issue.issuetype === 'Epic' ? <Layers className="w-3 h-3" /> :
+                     issue.issuetype === 'Bug' ? <AlertCircle className="w-3 h-3 text-rose-500" /> :
+                     <FileText className="w-3 h-3" />}
+                    {issue.issuetype === 'Epic' ? t.epic :
+                     issue.issuetype === 'Bug' ? t.bug :
+                     t.story}
                   </span>
 
                   {/* Draft ID label */}
                   <span className="text-[11px] font-mono text-slate-400">#{issue.id}</span>
+
+                  {/* Priority Badge */}
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${getPriorityBadgeStyles(issue.selectedPriority)}`}>
+                    {priorityLabels[language][issue.selectedPriority || 'Medium'] || (issue.selectedPriority || 'Medium')}
+                  </span>
 
                   {/* Jira Link or Status badge */}
                   {issue.status === 'success' && issue.createdKey && (
@@ -513,6 +618,23 @@ export default function RefinedList({
                       />
                     </div>
 
+                    {/* Issue Type Selector in Edit Mode */}
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                        {t.issueType}
+                      </label>
+                      <CustomSelect
+                        options={[
+                          { value: "Epic", label: t.epic },
+                          { value: "Story", label: t.story },
+                          { value: "Bug", label: t.bug }
+                        ]}
+                        value={editForm.issuetype}
+                        onChange={(val) => setEditForm({ ...editForm, issuetype: val as 'Epic' | 'Story' | 'Bug' })}
+                        isRtl={isRtl}
+                      />
+                    </div>
+
                     <div>
                       <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
                         {t.description}
@@ -525,22 +647,38 @@ export default function RefinedList({
                       />
                     </div>
 
+                    {/* Priority Selector in Edit Mode */}
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                        {isRtl ? "اولویت (Priority)" : "Priority"}
+                      </label>
+                      <CustomSelect
+                        options={['Highest', 'High', 'Medium', 'Low', 'Lowest'].map(p => ({
+                          value: p,
+                          label: priorityLabels[language][p] || p
+                        }))}
+                        value={editForm.selectedPriority || "Medium"}
+                        onChange={(val) => setEditForm({ ...editForm, selectedPriority: val })}
+                        isRtl={isRtl}
+                      />
+                    </div>
+
                     {/* Component Selector in Edit Mode */}
                     {availableComponents.length > 0 && (
                       <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
                           {isRtl ? "کامپوننت جیرا" : "Jira Component"}
                         </label>
-                        <select
-                          className="w-full text-xs px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600 bg-white font-medium text-slate-700"
+                        <CustomSelect
+                          options={[
+                            { value: "", label: isRtl ? "بدون کامپوننت" : "No Component" },
+                            ...availableComponents.map(comp => ({ value: comp, label: comp }))
+                          ]}
                           value={editForm.selectedComponent || ""}
-                          onChange={(e) => setEditForm({ ...editForm, selectedComponent: e.target.value })}
-                        >
-                          <option value="">-- {isRtl ? "انتخاب نشده" : "None"} --</option>
-                          {availableComponents.map(comp => (
-                            <option key={comp} value={comp}>{comp}</option>
-                          ))}
-                        </select>
+                          onChange={(val) => setEditForm({ ...editForm, selectedComponent: val })}
+                          showSearch={true}
+                          isRtl={isRtl}
+                        />
                       </div>
                     )}
 
@@ -556,18 +694,30 @@ export default function RefinedList({
                             <span className="text-xs text-slate-400">{isRtl ? "در حال بارگذاری کاربران..." : "Loading Users..."}</span>
                           </div>
                         ) : (
-                          <select
-                            className="w-full text-xs px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600 bg-white font-medium text-slate-700"
+                          <CustomSelect
+                            options={[
+                              { value: "", label: isRtl ? "تخصیص داده نشده" : "Unassigned" },
+                              ...getSortedUsers(availableUsers).map(user => {
+                                const storedFreq = (() => {
+                                  try {
+                                    const stored = localStorage.getItem('jira_assignee_frequency');
+                                    return stored ? JSON.parse(stored) : {};
+                                  } catch { return {}; }
+                                })();
+                                const freqVal = storedFreq[user.name] || 0;
+                                return {
+                                  value: user.name,
+                                  label: user.displayName,
+                                  sublabel: freqVal > 0 ? `${isRtl ? 'پرکاربرد' : 'Frequent'} (${freqVal})` : user.name,
+                                  avatar: user.avatarUrls?.["24x24"]
+                                };
+                              })
+                            ]}
                             value={editForm.selectedAssignee || ""}
-                            onChange={(e) => setEditForm({ ...editForm, selectedAssignee: e.target.value })}
-                          >
-                            <option value="">-- {isRtl ? "تخصیص داده نشده" : "Unassigned"} --</option>
-                            {availableUsers.map(user => (
-                              <option key={user.name} value={user.name}>
-                                {user.displayName} ({user.name})
-                              </option>
-                            ))}
-                          </select>
+                            onChange={(val) => setEditForm({ ...editForm, selectedAssignee: val })}
+                            showSearch={true}
+                            isRtl={isRtl}
+                          />
                         )}
                       </div>
                     )}
@@ -585,18 +735,22 @@ export default function RefinedList({
                           </div>
                         ) : (
                           <div className="flex gap-2 items-center">
-                            <select
-                              className="w-full text-xs px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600 bg-white font-medium text-slate-700"
-                              value={editForm.selectedRelease || ""}
-                              onChange={(e) => setEditForm({ ...editForm, selectedRelease: e.target.value })}
-                            >
-                              <option value="">-- {isRtl ? "انتخاب نشده" : "None / Unreleased"} --</option>
-                              {availableVersions.map(version => (
-                                <option key={version.id} value={version.id}>
-                                  {version.name} {version.released ? `(${isRtl ? 'منتشر شده' : 'released'})` : ''}
-                                </option>
-                              ))}
-                            </select>
+                            <div className="flex-1">
+                              <CustomSelect
+                                options={[
+                                  { value: "", label: isRtl ? "انتخاب نشده" : "None / Unreleased" },
+                                  ...availableVersions.map(version => ({
+                                    value: version.id,
+                                    label: version.name,
+                                    sublabel: version.released ? `(${isRtl ? 'منتشر شده' : 'released'})` : ''
+                                  }))
+                                ]}
+                                value={editForm.selectedRelease || ""}
+                                onChange={(val) => setEditForm({ ...editForm, selectedRelease: val })}
+                                showSearch={true}
+                                isRtl={isRtl}
+                              />
+                            </div>
                             {availableVersions.length === 0 && (
                               <button
                                 type="button"
@@ -626,18 +780,22 @@ export default function RefinedList({
                           </div>
                         ) : (
                           <div className="flex gap-2 items-center">
-                            <select
-                              className="w-full text-xs px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600 bg-white font-medium text-slate-700"
-                              value={editForm.selectedSprint || ""}
-                              onChange={(e) => setEditForm({ ...editForm, selectedSprint: e.target.value })}
-                            >
-                              <option value="">-- {isRtl ? "تخصیص داده نشده (بکلاگ)" : "Backlog"} --</option>
-                              {availableSprints.map(sprint => (
-                                <option key={sprint.id} value={sprint.id}>
-                                  {sprint.name} {sprint.boardName ? `[${sprint.boardName}]` : ''} ({sprint.state})
-                                </option>
-                              ))}
-                            </select>
+                            <div className="flex-1">
+                              <CustomSelect
+                                options={[
+                                  { value: "", label: isRtl ? "تخصیص داده نشده (بکلاگ)" : "Backlog" },
+                                  ...availableSprints.map(sprint => ({
+                                    value: String(sprint.id),
+                                    label: sprint.name,
+                                    sublabel: `${sprint.boardName ? `[${sprint.boardName}] ` : ''}(${sprint.state})`
+                                  }))
+                                ]}
+                                value={editForm.selectedSprint || ""}
+                                onChange={(val) => setEditForm({ ...editForm, selectedSprint: val })}
+                                showSearch={true}
+                                isRtl={isRtl}
+                              />
+                            </div>
                             {availableSprints.length === 0 && (
                               <button
                                 type="button"
@@ -702,22 +860,25 @@ export default function RefinedList({
 
                         {/* Dropdown to link existing Jira epics if connected */}
                         {jiraConnected && issue.status !== 'success' && (
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 min-w-[160px]">
                             <label className="text-[10px] text-slate-500 font-semibold whitespace-nowrap">
                               {t.existingEpics}
                             </label>
-                            <select
-                              value={issue.selectedEpicKey || ""}
-                              onChange={(e) => handleEpicLinkOverride(issue.id, e.target.value)}
-                              className="text-[11px] font-medium bg-white border border-slate-200 rounded px-1.5 py-1 focus:outline-none max-w-[160px] truncate"
-                            >
-                              <option value="">-- {isRtl ? "انتخاب نشده" : "None"} --</option>
-                              {existingEpics.map((epic) => (
-                                <option key={epic.key} value={epic.key}>
-                                  {epic.key} - {epic.summary}
-                                </option>
-                              ))}
-                            </select>
+                            <div className="flex-1">
+                              <CustomSelect
+                                options={[
+                                  { value: "", label: isRtl ? "انتخاب نشده" : "None" },
+                                  ...existingEpics.map((epic) => ({
+                                    value: epic.key,
+                                    label: `${epic.key} - ${epic.summary}`
+                                  }))
+                                ]}
+                                value={issue.selectedEpicKey || ""}
+                                onChange={(val) => handleEpicLinkOverride(issue.id, val)}
+                                showSearch={true}
+                                isRtl={isRtl}
+                              />
+                            </div>
                             {existingEpics.length === 0 && (
                               <button
                                 type="button"
@@ -733,6 +894,41 @@ export default function RefinedList({
                         )}
                       </div>
                     )}
+
+                    {/* Inline Priority Selector (View Mode) */}
+                    <div className="p-3 bg-slate-50/50 rounded-lg border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                      <div className="text-slate-500 font-medium flex items-center gap-1.5">
+                        <span className="inline-block w-2 h-2 rounded-full bg-rose-500"></span>
+                        <span>
+                          {isRtl ? "اولویت انتخاب شده:" : "Selected Priority:"}{" "}
+                          <strong className={`font-semibold border px-1.5 py-0.5 rounded text-[10px] ${getPriorityBadgeStyles(issue.selectedPriority)}`}>
+                            {priorityLabels[language][issue.selectedPriority || 'Medium'] || (issue.selectedPriority || 'Medium')}
+                          </strong>
+                        </span>
+                      </div>
+                      
+                      {issue.status !== 'success' && (
+                        <div className="flex items-center gap-1.5 min-w-[160px]">
+                          <label className="text-[10px] text-slate-500 font-semibold whitespace-nowrap">
+                            {isRtl ? "تغییر اولویت:" : "Change Priority:"}
+                          </label>
+                          <div className="flex-1">
+                            <CustomSelect
+                              options={['Highest', 'High', 'Medium', 'Low', 'Lowest'].map(p => ({
+                                value: p,
+                                label: priorityLabels[language][p] || p
+                              }))}
+                              value={issue.selectedPriority || "Medium"}
+                              onChange={(val) => {
+                                const updated = issues.map(iss => iss.id === issue.id ? { ...iss, selectedPriority: val } : iss);
+                                onIssuesChange(updated);
+                              }}
+                              isRtl={isRtl}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
 
                     {/* Inline Component Selector (View Mode) */}
                     {availableComponents.length > 0 && (
@@ -752,23 +948,25 @@ export default function RefinedList({
                         </div>
                         
                         {issue.status !== 'success' && (
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 min-w-[160px]">
                             <label className="text-[10px] text-slate-500 font-semibold whitespace-nowrap">
                               {isRtl ? "تغییر کامپوننت:" : "Change Component:"}
                             </label>
-                            <select
-                              value={issue.selectedComponent || ""}
-                              onChange={(e) => {
-                                const updated = issues.map(iss => iss.id === issue.id ? { ...iss, selectedComponent: e.target.value || undefined } : iss);
-                                onIssuesChange(updated);
-                              }}
-                              className="text-[11px] font-medium bg-white border border-slate-200 rounded px-1.5 py-1 focus:outline-none max-w-[160px] truncate"
-                            >
-                              <option value="">-- {isRtl ? "بدون کامپوننت" : "No Component"} --</option>
-                              {availableComponents.map(comp => (
-                                <option key={comp} value={comp}>{comp}</option>
-                              ))}
-                            </select>
+                            <div className="flex-1">
+                              <CustomSelect
+                                options={[
+                                  { value: "", label: isRtl ? "بدون کامپوننت" : "No Component" },
+                                  ...availableComponents.map(comp => ({ value: comp, label: comp }))
+                                ]}
+                                value={issue.selectedComponent || ""}
+                                onChange={(val) => {
+                                  const updated = issues.map(iss => iss.id === issue.id ? { ...iss, selectedComponent: val || undefined } : iss);
+                                  onIssuesChange(updated);
+                                }}
+                                showSearch={true}
+                                isRtl={isRtl}
+                              />
+                            </div>
                           </div>
                         )}
                       </div>
@@ -792,28 +990,32 @@ export default function RefinedList({
                         </div>
                         
                         {issue.status !== 'success' && (
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 min-w-[160px]">
                             <label className="text-[10px] text-slate-500 font-semibold whitespace-nowrap">
                               {isRtl ? "تغییر ریلیز:" : "Change Release:"}
                             </label>
                             {fetchingVersions ? (
                               <RefreshCw className="w-3 h-3 animate-spin text-slate-400" />
                             ) : (
-                              <select
-                                value={issue.selectedRelease || ""}
-                                onChange={(e) => {
-                                  const updated = issues.map(iss => iss.id === issue.id ? { ...iss, selectedRelease: e.target.value || undefined } : iss);
-                                  onIssuesChange(updated);
-                                }}
-                                className="text-[11px] font-medium bg-white border border-slate-200 rounded px-1.5 py-1 focus:outline-none max-w-[160px] truncate"
-                              >
-                                <option value="">-- {isRtl ? "انتخاب نشده" : "None"} --</option>
-                                {availableVersions.map(version => (
-                                  <option key={version.id} value={version.id}>
-                                    {version.name}
-                                  </option>
-                                ))}
-                              </select>
+                              <div className="flex-1">
+                                <CustomSelect
+                                  options={[
+                                    { value: "", label: isRtl ? "انتخاب نشده" : "None" },
+                                    ...availableVersions.map(version => ({
+                                      value: version.id,
+                                      label: version.name,
+                                      sublabel: version.released ? `(${isRtl ? 'منتشر شده' : 'released'})` : ''
+                                    }))
+                                  ]}
+                                  value={issue.selectedRelease || ""}
+                                  onChange={(val) => {
+                                    const updated = issues.map(iss => iss.id === issue.id ? { ...iss, selectedRelease: val || undefined } : iss);
+                                    onIssuesChange(updated);
+                                  }}
+                                  showSearch={true}
+                                  isRtl={isRtl}
+                                />
+                              </div>
                             )}
                             {availableVersions.length === 0 && (
                               <button
@@ -849,28 +1051,32 @@ export default function RefinedList({
                         </div>
                         
                         {issue.status !== 'success' && (
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 min-w-[160px]">
                             <label className="text-[10px] text-slate-500 font-semibold whitespace-nowrap">
                               {isRtl ? "تغییر اسپرینت:" : "Change Sprint:"}
                             </label>
                             {fetchingSprints ? (
                               <RefreshCw className="w-3 h-3 animate-spin text-slate-400" />
                             ) : (
-                              <select
-                                value={issue.selectedSprint || ""}
-                                onChange={(e) => {
-                                  const updated = issues.map(iss => iss.id === issue.id ? { ...iss, selectedSprint: e.target.value || undefined } : iss);
-                                  onIssuesChange(updated);
-                                }}
-                                className="text-[11px] font-medium bg-white border border-slate-200 rounded px-1.5 py-1 focus:outline-none max-w-[160px] truncate"
-                              >
-                                <option value="">-- {isRtl ? "بکلاگ" : "Backlog"} --</option>
-                                {availableSprints.map(sprint => (
-                                  <option key={sprint.id} value={sprint.id}>
-                                    {sprint.name} {sprint.boardName ? `[${sprint.boardName}]` : ''}
-                                  </option>
-                                ))}
-                              </select>
+                              <div className="flex-1">
+                                <CustomSelect
+                                  options={[
+                                    { value: "", label: isRtl ? "بکلاگ" : "Backlog" },
+                                    ...availableSprints.map(sprint => ({
+                                      value: String(sprint.id),
+                                      label: sprint.name,
+                                      sublabel: `${sprint.boardName ? `[${sprint.boardName}] ` : ''}(${sprint.state})`
+                                    }))
+                                  ]}
+                                  value={issue.selectedSprint || ""}
+                                  onChange={(val) => {
+                                    const updated = issues.map(iss => iss.id === issue.id ? { ...iss, selectedSprint: val || undefined } : iss);
+                                    onIssuesChange(updated);
+                                  }}
+                                  showSearch={true}
+                                  isRtl={isRtl}
+                                />
+                              </div>
                             )}
                             {availableSprints.length === 0 && (
                               <button
@@ -906,28 +1112,43 @@ export default function RefinedList({
                         </div>
                         
                         {issue.status !== 'success' && (
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 min-w-[160px]">
                             <label className="text-[10px] text-slate-500 font-semibold whitespace-nowrap">
                               {isRtl ? "تغییر مسئول:" : "Change Assignee:"}
                             </label>
                             {fetchingUsers ? (
                               <RefreshCw className="w-3 h-3 animate-spin text-slate-400" />
                             ) : (
-                              <select
-                                value={issue.selectedAssignee || ""}
-                                onChange={(e) => {
-                                  const updated = issues.map(iss => iss.id === issue.id ? { ...iss, selectedAssignee: e.target.value || undefined } : iss);
-                                  onIssuesChange(updated);
-                                }}
-                                className="text-[11px] font-medium bg-white border border-slate-200 rounded px-1.5 py-1 focus:outline-none max-w-[160px] truncate"
-                              >
-                                <option value="">-- {isRtl ? "تخصیص داده نشده" : "Unassigned"} --</option>
-                                {availableUsers.map(user => (
-                                  <option key={user.name} value={user.name}>
-                                    {user.displayName} ({user.name})
-                                  </option>
-                                ))}
-                              </select>
+                              <div className="flex-1">
+                                <CustomSelect
+                                  options={[
+                                    { value: "", label: isRtl ? "تخصیص داده نشده" : "Unassigned" },
+                                    ...getSortedUsers(availableUsers).map(user => {
+                                      const storedFreq = (() => {
+                                        try {
+                                          const stored = localStorage.getItem('jira_assignee_frequency');
+                                          return stored ? JSON.parse(stored) : {};
+                                        } catch { return {}; }
+                                      })();
+                                      const freqVal = storedFreq[user.name] || 0;
+                                      return {
+                                        value: user.name,
+                                        label: user.displayName,
+                                        sublabel: freqVal > 0 ? `${isRtl ? 'پرکاربرد' : 'Frequent'} (${freqVal})` : user.name,
+                                        avatar: user.avatarUrls?.["24x24"]
+                                      };
+                                    })
+                                  ]}
+                                  value={issue.selectedAssignee || ""}
+                                  onChange={(val) => {
+                                    if (val) trackAssigneeUsage(val);
+                                    const updated = issues.map(iss => iss.id === issue.id ? { ...iss, selectedAssignee: val || undefined } : iss);
+                                    onIssuesChange(updated);
+                                  }}
+                                  showSearch={true}
+                                  isRtl={isRtl}
+                                />
+                              </div>
                             )}
                             {availableUsers.length === 0 && (
                               <button

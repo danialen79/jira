@@ -294,13 +294,53 @@ app.post("/api/jira/versions", async (req, res) => {
     const versions = (data || []).map((v: any) => ({
       id: v.id,
       name: v.name,
-      released: v.released
+      released: v.released,
+      startDate: v.startDate,
+      releaseDate: v.releaseDate,
+      description: v.description,
+      archived: v.archived,
+      overdue: v.overdue
     }));
 
     return res.json({ success: true, versions });
   } catch (err: any) {
     console.error("Jira Versions Fetch Error:", err);
     return res.status(500).json({ error: `Failed to fetch versions: ${err.message}` });
+  }
+});
+
+// 4.7.1 Update version details (Dates, released state, description)
+app.post("/api/jira/update-version", async (req, res) => {
+  try {
+    const { creds, versionId, updateData } = req.body;
+    if (!creds || !creds.url || !versionId) {
+      return res.status(400).json({ error: "Jira URL and Version ID are required." });
+    }
+
+    const jiraUrl = normalizeJiraUrl(creds.url);
+    const headers = getJiraHeaders(creds);
+
+    const response = await fetch(`${jiraUrl}/rest/api/2/version/${versionId}`, {
+      method: "PUT",
+      headers: {
+        ...headers,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(updateData)
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      return res.status(response.status).json({ 
+        error: `Failed to update version (${response.status}): ${text || response.statusText}`
+      });
+    }
+
+    const data = await response.json();
+    return res.json({ success: true, version: data });
+  } catch (err: any) {
+    console.error("Jira Version Update Error:", err);
+    return res.status(500).json({ error: `Failed to update version: ${err.message}` });
   }
 });
 
@@ -436,6 +476,11 @@ app.post("/api/jira/create-issue", async (req, res) => {
       fields.components = [{ name: issue.selectedComponent }];
     }
 
+    // If a priority is selected, attach it
+    if (issue.selectedPriority) {
+      fields.priority = { name: issue.selectedPriority };
+    }
+
     // If an assignee is selected, attach it
     if (issue.selectedAssignee) {
       fields.assignee = { name: issue.selectedAssignee };
@@ -447,8 +492,8 @@ app.post("/api/jira/create-issue", async (req, res) => {
       fields.fixVersions = [isId ? { id: issue.selectedRelease } : { name: issue.selectedRelease }];
     }
 
-    // If a sprint is selected (usually for Stories), attach it to Sprint custom field
-    if (issue.issuetype === "Story" && issue.selectedSprint) {
+    // If a sprint is selected (for Stories and Bugs), attach it to Sprint custom field
+    if ((issue.issuetype === "Story" || issue.issuetype === "Bug") && issue.selectedSprint) {
       const sprintField = config?.sprintFieldId || "customfield_10010";
       const sprintIdNum = Number(issue.selectedSprint);
       if (!isNaN(sprintIdNum)) {
@@ -463,8 +508,8 @@ app.post("/api/jira/create-issue", async (req, res) => {
       fields[epicNameField] = issue.summary; // Epic Name is usually just the summary
     }
 
-    // If it is a Story and linked to an Epic
-    if (issue.issuetype === "Story" && issue.epicKey) {
+    // If it is a Story or Bug and linked to an Epic
+    if ((issue.issuetype === "Story" || issue.issuetype === "Bug") && issue.epicKey) {
       fields[epicLinkField] = issue.epicKey.trim();
     }
 
@@ -510,27 +555,40 @@ app.post("/api/jira/create-issue", async (req, res) => {
 // 6. Refine Drafts using Gemini
 app.post("/api/refine", async (req, res) => {
   try {
-    const { draftText, customPrompt, projectKey } = req.body;
+    const { draftText, customPrompt, projectKey, model, outputMode } = req.body;
     if (!draftText) {
       return res.status(400).json({ error: "Draft stories / requirements text is required." });
     }
 
     const ai = getGeminiClient();
 
-    const systemInstruction = `You are a professional Agile Product Owner and Business Analyst. Your task is to process the user's raw drafts, requirements, or bullet points of User Stories and Epics, clean them up, structure them beautifully, and output a structured JSON list.
+    let outputModeInstruction = "";
+    if (outputMode === "epics") {
+      outputModeInstruction = "\nCRITICAL REQUIREMENT: You MUST ONLY generate Epics. Do NOT generate any Stories or Bugs. Every single issue in the output array MUST have its 'issuetype' set to 'Epic'.";
+    } else if (outputMode === "stories") {
+      outputModeInstruction = "\nCRITICAL REQUIREMENT: You MUST ONLY generate Stories. Do NOT generate any Epics or Bugs. Every single issue in the output array MUST have its 'issuetype' set to 'Story'.";
+    } else if (outputMode === "bugs") {
+      outputModeInstruction = "\nCRITICAL REQUIREMENT: You MUST ONLY generate Bugs. Do NOT generate any Epics or Stories. Every single issue in the output array MUST have its 'issuetype' set to 'Bug'.";
+    } else {
+      outputModeInstruction = "\nGenerate Epics, Stories, and Bugs where appropriate based on the drafted requirements, and link Stories and Bugs to their corresponding Epics using 'epicReference'.";
+    }
+
+    const systemInstruction = `You are a professional Agile Product Owner and Business Analyst. Your task is to process the user's raw drafts, requirements, or bullet points of User Stories, Epics, and Bugs, clean them up, structure them beautifully, and output a structured JSON list.
 
 Your output must follow the exact JSON schema provided.
+${outputModeInstruction}
 
 Key Rules:
-1. Detect the user's primary language (especially if they draft in Persian/Farsi, or explicitly ask for Persian in the prompt). If they use Persian or request it, write the summary, description, and details in Persian (Farsi), but keep technical keys like issue type, labels, and ids in English.
-2. Structure stories with a standard agile format:
-   - "As a... I want to... So that..." statement.
-   - A descriptive body.
-   - A clear list of Acceptance Criteria (using standard Given/When/Then or well-defined checklists).
-3. If the raw drafts describe some overarching goals, organize them into "Epic" issues, and make the individual requirements "Story" issues.
-4. If a Story belongs to a drafted Epic, set the 'epicReference' property to the exact 'id' of that drafted Epic (e.g., 'epic-1'). This is crucial so the user can easily link them later.
+1. Detect the user's primary language (especially if they draft in Persian/Farsi, or explicitly ask for Persian in the prompt). If they use Persian or request it, write the summary, description, and details in Persian (Farsi), but keep technical keys like issue type, labels, priorities, and ids in English.
+2. Structure stories and bugs with a standard agile format:
+   - For User Stories: 'As a... I want to... So that...' statement followed by descriptive body and Acceptance Criteria (Given/When/Then or checklists).
+   - For Bugs: A clear 'Steps to Reproduce', 'Expected Result', and 'Actual Result' layout.
+3. If the raw drafts describe some overarching goals, organize them into "Epic" issues, and make the individual requirements or issues "Story" or "Bug" issues.
+4. If a Story or Bug belongs to a drafted Epic, set the 'epicReference' property to the exact 'id' of that drafted Epic (e.g., 'epic-1'). This is crucial so the user can easily link them later.
 5. Provide relevant Agile labels/tags for each issue. No spaces in labels.
-6. The format of the description should use standard markdown or Jira wiki markup. Markdown is highly preferred. Make it neat and clean.`;
+6. Suggest an appropriate priority from: 'Highest', 'High', 'Medium', 'Low', 'Lowest' (usually Medium is default, High/Highest for critical items, Low/Lowest for minor ones).
+7. Suggest a relevant system component or module name (e.g., 'Frontend', 'Backend', 'Database', 'Auth', 'API', 'UI/UX', 'Billing', 'Mobile') in 'suggestedComponent'. Keep it concise.
+8. The format of the description should use standard markdown or Jira wiki markup. Markdown is highly preferred. Make it neat and clean.`;
 
     const userPrompt = `Project Key: ${projectKey || "PROJ"}
 Custom User Instructions/Prompt: ${customPrompt || "Clean up descriptions, structure with Acceptance Criteria, and make them professional."}
@@ -540,56 +598,96 @@ Raw Draft Content:
 ${draftText}
 """`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: userPrompt,
-      config: {
-        systemInstruction,
-        temperature: 0.2, // Lower temperature for structured accuracy
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            issues: {
-              type: Type.ARRAY,
-              description: "Array of structured and refined Jira epics and stories.",
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  id: {
-                    type: Type.STRING,
-                    description: "Temporary ID for referencing (e.g., 'epic-1', 'story-1')."
-                  },
-                  summary: {
-                    type: Type.STRING,
-                    description: "Refined concise summary or title of the Jira ticket."
-                  },
-                  description: {
-                    type: Type.STRING,
-                    description: "The complete formatted description, including 'As a...', detail context, and Acceptance Criteria."
-                  },
-                  issuetype: {
-                    type: Type.STRING,
-                    description: "The issue type. Must be either 'Story' or 'Epic'."
-                  },
-                  epicReference: {
-                    type: Type.STRING,
-                    description: "If this is a Story that belongs to an Epic in this same array, set this to that Epic's temporary 'id' (e.g., 'epic-1'). Otherwise leave null."
-                  },
-                  suggestedLabels: {
-                    type: Type.ARRAY,
-                    items: { type: Type.STRING },
-                    description: "Suggested labels/tags for this Jira ticket. No spaces allowed in tags."
+    // Map known models or pass directly. Supported: gemini-3.5-flash, gemini-3.1-flash-lite, gemini-3.1-pro-preview
+    const selectedModel = model || "gemini-3.5-flash";
+    const modelQueue = [selectedModel];
+    if (selectedModel !== "gemini-3.5-flash") {
+      modelQueue.push("gemini-3.5-flash");
+    }
+    if (!modelQueue.includes("gemini-3.1-flash-lite")) {
+      modelQueue.push("gemini-3.1-flash-lite");
+    }
+
+    let lastError: any = null;
+    let response: any = null;
+    let successfulModel = "";
+
+    for (const currentModel of modelQueue) {
+      try {
+        console.log(`[Jira Refiner Server] Attempting refinement with model: ${currentModel}`);
+        response = await ai.models.generateContent({
+          model: currentModel,
+          contents: userPrompt,
+          config: {
+            systemInstruction,
+            temperature: 0.2, // Lower temperature for structured accuracy
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                issues: {
+                  type: Type.ARRAY,
+                  description: "Array of structured and refined Jira epics and stories.",
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      id: {
+                        type: Type.STRING,
+                        description: "Temporary ID for referencing (e.g., 'epic-1', 'story-1')."
+                      },
+                      summary: {
+                        type: Type.STRING,
+                        description: "Refined concise summary or title of the Jira ticket."
+                      },
+                      description: {
+                        type: Type.STRING,
+                        description: "The complete formatted description, including 'As a...', detail context, and Acceptance Criteria."
+                      },
+                      issuetype: {
+                        type: Type.STRING,
+                        description: "The issue type. Must be either 'Story', 'Epic', or 'Bug'."
+                      },
+                      epicReference: {
+                        type: Type.STRING,
+                        description: "If this is a Story or Bug that belongs to an Epic in this same array, set this to that Epic's temporary 'id' (e.g., 'epic-1'). Otherwise leave null."
+                      },
+                      suggestedLabels: {
+                        type: Type.ARRAY,
+                        items: { type: Type.STRING },
+                        description: "Suggested labels/tags for this Jira ticket. No spaces allowed in tags."
+                      },
+                      suggestedPriority: {
+                        type: Type.STRING,
+                        description: "Suggested agile priority. Must be one of: Highest, High, Medium, Low, Lowest."
+                      },
+                      suggestedComponent: {
+                        type: Type.STRING,
+                        description: "Suggested system component name (e.g., Backend, Frontend, UI/UX, Database, etc.)."
+                      }
+                    },
+                    required: ["id", "summary", "description", "issuetype"]
                   }
-                },
-                required: ["id", "summary", "description", "issuetype"]
-              }
+                }
+              },
+              required: ["issues"]
             }
-          },
-          required: ["issues"]
+          }
+        });
+        
+        if (response && response.text) {
+          successfulModel = currentModel;
+          break;
         }
+      } catch (e: any) {
+        lastError = e;
+        console.warn(`[Jira Refiner Server] Model ${currentModel} failed:`, e.message || e);
+        // Try the next model in the fallback queue
       }
-    });
+    }
+
+    if (!response) {
+      throw lastError || new Error("Failed to generate content with any model.");
+    }
 
     const responseText = response.text;
     if (!responseText) {
@@ -597,6 +695,10 @@ ${draftText}
     }
 
     const data = JSON.parse(responseText);
+    
+    // Add info on which model was actually used for refinement
+    data.refinedByModel = successfulModel;
+    
     return res.json(data);
   } catch (err: any) {
     console.error("Gemini Refine Error:", err);
