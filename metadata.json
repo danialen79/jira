@@ -1,0 +1,6 @@
+{
+  "name": "Jira Story Refiner & Creator",
+  "description": "Refine draft user stories and epics using Gemini, structure them with acceptance criteria, and seamlessly publish them directly to your self-hosted Jira Server with epic linking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
