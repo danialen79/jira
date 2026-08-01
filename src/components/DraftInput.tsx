@@ -7,6 +7,7 @@ interface DraftInputProps {
   language: Language;
   onRefine: (draftText: string, customPrompt: string, model: string, outputMode: string) => Promise<void>;
   loading: boolean;
+  draftText?: string;
 }
 
 const translations = {
@@ -82,7 +83,7 @@ const translations = {
   }
 };
 
-export default function DraftInput({ language, onRefine, loading }: DraftInputProps) {
+export default function DraftInput({ language, onRefine, loading, draftText: draftTextProp }: DraftInputProps) {
   const t = translations[language];
   const isRtl = language === 'fa';
 
@@ -96,17 +97,38 @@ export default function DraftInput({ language, onRefine, loading }: DraftInputPr
   const [newPromptText, setNewPromptText] = useState("");
   const [customUserTemplates, setCustomUserTemplates] = useState<{ id: string; name: string; prompt: string; desc: string }[]>([]);
 
-  // Load user templates on mount
+  // Synchronize state with incoming prop (e.g. from Mattermost import)
+  useEffect(() => {
+    if (draftTextProp !== undefined && draftTextProp !== null) {
+      setDraftText(draftTextProp);
+    }
+  }, [draftTextProp]);
+
+  // Load user templates and previous draft text on mount
   useEffect(() => {
     try {
       const saved = localStorage.getItem('jira_custom_prompts');
       if (saved) {
         setCustomUserTemplates(JSON.parse(saved));
       }
+      const savedDraft = localStorage.getItem('jira_last_draft_text');
+      if (savedDraft && draftTextProp === undefined) {
+        setDraftText(savedDraft);
+      }
     } catch (e) {
       console.error(e);
     }
   }, []);
+
+  // Save draftText on change
+  useEffect(() => {
+    localStorage.setItem('jira_last_draft_text', draftText);
+  }, [draftText]);
+
+  // Save selectedModel on change
+  useEffect(() => {
+    localStorage.setItem('jira_last_selected_model', selectedModel);
+  }, [selectedModel]);
 
   const templates = [
     {

@@ -3,11 +3,13 @@ import { JiraCredentials, RefinedIssue, ConnectionConfig, JiraProject, JiraEpic,
 import JiraConfig from './components/JiraConfig';
 import DraftInput from './components/DraftInput';
 import RefinedList from './components/RefinedList';
-import JiraRoadmap from './components/JiraRoadmap';
+import MyDailyBoard from './components/MyDailyBoard';
+import MattermostIntegration from './components/MattermostIntegration';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Sparkles, ShieldCheck, AlertCircle, RefreshCw, Languages, 
-  Layers, Settings, Github, Check, GitCommit, Link, Terminal, Calendar
+  Layers, Settings, Github, Check, GitCommit, Link, Terminal, Calendar,
+  MessageSquare, ClipboardList
 } from 'lucide-react';
 
 const appTranslations = {
@@ -26,7 +28,8 @@ const appTranslations = {
     connectionAlert: "Please connect to Jira Server first to use the publish features.",
     tabConnect: "1. Connection & Config",
     tabWorkspace: "2. Story Refiner Workspace",
-    tabRoadmap: "3. PM Roadmap & Releases"
+    tabDailyBoard: "3. My Daily Board & Logs",
+    tabMattermost: "4. Mattermost Bot Integration"
   },
   fa: {
     heroTitle: "تنظیم‌کننده و سازنده خودکار تیکت‌های جیرا (Self-Hosted)",
@@ -43,7 +46,8 @@ const appTranslations = {
     connectionAlert: "جهت استفاده از ویژگی‌های انتشار، ابتدا به سرور جیرا متصل شوید.",
     tabConnect: "۱. اتصال و تنظیمات جیرا",
     tabWorkspace: "۲. کارگاه ساخت و اصلاح تیکت‌ها",
-    tabRoadmap: "۳. نقشه راه و ریلیزهای محصول"
+    tabDailyBoard: "۳. میز کار و بورد روزانه من",
+    tabMattermost: "۴. بات و پیش‌نویس‌های مترموست"
   }
 };
 
@@ -54,7 +58,8 @@ export default function App() {
   const isRtl = language === 'fa';
 
   // ---------------- STATE DEFINITIONS ----------------
-  const [activeTab, setActiveTab] = useState<'connect' | 'workspace' | 'roadmap'>('connect');
+  const [activeTab, setActiveTab] = useState<'connect' | 'workspace' | 'dailyBoard' | 'mattermost'>('connect');
+  const [importedDraftText, setImportedDraftText] = useState<string | undefined>(undefined);
 
   const [credentials, setCredentials] = useState<JiraCredentials>({
     url: "",
@@ -356,6 +361,14 @@ export default function App() {
     setSuccessMsg(null);
   };
 
+  const handleImportMattermostDraft = (text: string) => {
+    setImportedDraftText(text);
+    setActiveTab('workspace');
+    setTimeout(() => {
+      setImportedDraftText(undefined);
+    }, 150);
+  };
+
   return (
     <div 
       className={`min-h-screen bg-[#F8FAFC] text-slate-900 pb-16`}
@@ -485,22 +498,27 @@ export default function App() {
           </button>
           <button
             type="button"
-            onClick={() => {
-              setActiveTab('roadmap');
-              // Automatically fetch versions and epics when switching to roadmap
-              if (jiraConnected && projectKey) {
-                fetchJiraVersions();
-                fetchExistingEpics();
-              }
-            }}
+            onClick={() => setActiveTab('dailyBoard')}
             className={`flex items-center gap-2 px-5 py-3 border-b-2 text-xs sm:text-sm font-semibold transition-all duration-150 cursor-pointer ${
-              activeTab === 'roadmap'
+              activeTab === 'dailyBoard'
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Calendar className="w-4 h-4" />
-            {t.tabRoadmap}
+            <ClipboardList className="w-4 h-4" />
+            {t.tabDailyBoard}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('mattermost')}
+            className={`flex items-center gap-2 px-5 py-3 border-b-2 text-xs sm:text-sm font-semibold transition-all duration-150 cursor-pointer ${
+              activeTab === 'mattermost'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <MessageSquare className="w-4 h-4" />
+            {t.tabMattermost}
           </button>
         </div>
 
@@ -600,6 +618,7 @@ export default function App() {
                 language={language}
                 onRefine={handleRefine}
                 loading={refining}
+                draftText={importedDraftText}
               />
             </div>
 
@@ -650,19 +669,24 @@ export default function App() {
           </div>
         )}
 
-        {/* Tab 3: PM Roadmap & Releases */}
-        {activeTab === 'roadmap' && (
+        {/* Tab 3: Daily My Work & Board */}
+        {activeTab === 'dailyBoard' && (
           <div className="animate-fade-in">
-            <JiraRoadmap
+            <MyDailyBoard
               language={language}
-              issues={issues}
-              onIssuesChange={setIssues}
               credentials={credentials}
               projectKey={projectKey}
-              availableVersions={jiraVersions}
-              onFetchVersions={fetchJiraVersions}
-              fetchingVersions={fetchingVersions}
-              existingEpics={existingEpics}
+              jiraUsers={jiraUsers}
+            />
+          </div>
+        )}
+
+        {/* Tab 4: Mattermost Integration Workspace */}
+        {activeTab === 'mattermost' && (
+          <div className="animate-fade-in">
+            <MattermostIntegration
+              language={language}
+              onImportDraft={handleImportMattermostDraft}
             />
           </div>
         )}

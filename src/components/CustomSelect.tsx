@@ -95,7 +95,7 @@ export default function CustomSelect({
       </button>
 
       {isOpen && (
-        <div className={`absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto ${isRtl ? 'right-0' : 'left-0'}`}>
+        <div className={`absolute z-50 mt-1 w-full min-w-[280px] md:min-w-[340px] bg-white border border-slate-200 rounded-lg shadow-xl max-h-60 overflow-y-auto ${isRtl ? 'right-0' : 'left-0'}`}>
           {showSearch && (
             <div className="sticky top-0 bg-white p-2 border-b border-slate-100 flex items-center gap-1.5">
               <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />

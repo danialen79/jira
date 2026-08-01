@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { RefinedIssue, JiraEpic, JiraCredentials, ConnectionConfig, Language, JiraUser, JiraVersion, JiraSprint } from '../types';
 import { MarkdownPreview } from './MarkdownPreview';
 import CustomSelect from './CustomSelect';
 import { 
   Play, CheckCircle2, AlertCircle, Edit2, Check, X, Tag, ExternalLink, 
-  Layers, FileText, ArrowUpRight, HelpCircle, RefreshCw, Layers2
+  Layers, FileText, ArrowUpRight, HelpCircle, RefreshCw, Layers2, Sparkles
 } from 'lucide-react';
 
 interface RefinedListProps {
@@ -209,7 +209,177 @@ export default function RefinedList({
   const [newLabel, setNewLabel] = useState("");
   const [bulkPublishing, setBulkPublishing] = useState(false);
 
-  // Single issue publish helper
+  // States for AI re-refining
+  const [reRefiningId, setReRefiningId] = useState<string | null>(null);
+  const [reRefinePrompt, setReRefinePrompt] = useState<string>("");
+  const [isAIProcessing, setIsAIProcessing] = useState<boolean>(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  // States for loading Jira issue by ID
+  const [loadJiraKey, setLoadJiraKey] = useState("");
+  const [loadingJiraIssue, setLoadingJiraIssue] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [showLoadPanel, setShowLoadPanel] = useState(false);
+
+  // Bulk selection and editing states
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkEpicKey, setBulkEpicKey] = useState<string>("");
+  const [bulkPriority, setBulkPriority] = useState<string>("");
+  const [bulkComponent, setBulkComponent] = useState<string>("");
+  const [bulkSprint, setBulkSprint] = useState<string>("");
+  const [bulkAssignee, setBulkAssignee] = useState<string>("");
+  const [bulkRelease, setBulkRelease] = useState<string>("");
+
+  const toggleSelectIssue = (id: string) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = (selectableIssues: any[]) => {
+    if (selectedIds.length === selectableIssues.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(selectableIssues.map(i => i.id));
+    }
+  };
+
+  const handleApplyBulkChanges = () => {
+    if (selectedIds.length === 0) return;
+
+    const updated = issues.map(issue => {
+      if (selectedIds.includes(issue.id)) {
+        const newIssue = { ...issue };
+        
+        if (bulkEpicKey !== "") {
+          newIssue.selectedEpicKey = bulkEpicKey === "CLEAR_FIELD" ? undefined : bulkEpicKey;
+        }
+        if (bulkPriority !== "") {
+          newIssue.selectedPriority = bulkPriority;
+        }
+        if (bulkComponent !== "") {
+          newIssue.selectedComponent = bulkComponent === "CLEAR_FIELD" ? undefined : bulkComponent;
+        }
+        if (bulkSprint !== "") {
+          newIssue.selectedSprint = bulkSprint === "CLEAR_FIELD" ? undefined : bulkSprint;
+        }
+        if (bulkAssignee !== "") {
+          newIssue.selectedAssignee = bulkAssignee === "CLEAR_FIELD" ? undefined : bulkAssignee;
+        }
+        if (bulkRelease !== "") {
+          newIssue.selectedRelease = bulkRelease === "CLEAR_FIELD" ? undefined : bulkRelease;
+        }
+
+        return newIssue;
+      }
+      return issue;
+    });
+
+    onIssuesChange(updated);
+    
+    // Clear selections and bulk fields
+    setSelectedIds([]);
+    setBulkEpicKey("");
+    setBulkPriority("");
+    setBulkComponent("");
+    setBulkSprint("");
+    setBulkAssignee("");
+    setBulkRelease("");
+  };
+
+  // Function to execute re-refining a single ticket using Gemini AI
+  const handleExecuteReRefine = async (issue: RefinedIssue) => {
+    setIsAIProcessing(true);
+    setAiError(null);
+    try {
+      const savedDraft = localStorage.getItem('jira_last_draft_text') || "";
+      const selectedModel = localStorage.getItem('jira_last_selected_model') || "gemini-3.5-flash";
+
+      const response = await fetch('/api/refine-single', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          summary: issue.summary,
+          description: issue.description,
+          issuetype: issue.issuetype,
+          customPrompt: reRefinePrompt,
+          draftText: savedDraft,
+          model: selectedModel
+        })
+      });
+
+      const data = await response.json();
+      if (response.ok && data) {
+        // Update the issue in list state
+        const updated = issues.map(iss => {
+          if (iss.id === issue.id) {
+            return {
+              ...iss,
+              summary: data.summary || iss.summary,
+              description: data.description || iss.description,
+              suggestedLabels: data.suggestedLabels || iss.suggestedLabels,
+              selectedPriority: data.suggestedPriority || iss.selectedPriority,
+              selectedComponent: data.suggestedComponent || iss.selectedComponent
+            };
+          }
+          return iss;
+        });
+        onIssuesChange(updated);
+        setReRefiningId(null);
+        setReRefinePrompt("");
+      } else {
+        setAiError(data.error || "Failed to refine with AI");
+      }
+    } catch (err: any) {
+      setAiError(err.message || "An unexpected error occurred");
+    } finally {
+      setIsAIProcessing(false);
+    }
+  };
+
+  // Function to load/fetch a Jira ticket from server
+  const handleLoadJiraIssue = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loadJiraKey.trim()) return;
+    setLoadingJiraIssue(true);
+    setLoadError(null);
+    try {
+      const response = await fetch('/api/jira/fetch-issue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creds: credentials,
+          issueKey: loadJiraKey.trim().toUpperCase()
+        })
+      });
+      const data = await response.json();
+      if (response.ok && data.success && data.issue) {
+        const newIssue: RefinedIssue = {
+          id: `loaded-${Date.now()}`,
+          summary: data.issue.summary,
+          description: data.issue.description,
+          issuetype: data.issue.issuetype as 'Epic' | 'Story' | 'Bug',
+          status: 'draft', // Load as draft so they can edit or review
+          createdKey: data.issue.key, // Save key so we can update it
+          suggestedLabels: [],
+          selectedPriority: data.issue.priority || 'Medium',
+          selectedComponent: data.issue.component || undefined,
+          selectedAssignee: data.issue.assignee || undefined
+        };
+        onIssuesChange([newIssue, ...issues]);
+        setLoadJiraKey("");
+        setShowLoadPanel(false);
+      } else {
+        setLoadError(data.error || (isRtl ? "یافتن تیکت ناموفق بود" : "Failed to find Jira ticket."));
+      }
+    } catch (err: any) {
+      setLoadError(err.message || "An error occurred while fetching.");
+    } finally {
+      setLoadingJiraIssue(false);
+    }
+  };
+
+  // Single issue publish helper (supporting create and update)
   const publishSingleIssue = async (issueId: string, currentIssues: RefinedIssue[]) => {
     const updatedIssues = [...currentIssues];
     const index = updatedIssues.findIndex(i => i.id === issueId);
@@ -231,13 +401,17 @@ export default function RefinedList({
       }
     }
 
+    const isUpdate = !!targetIssue.createdKey;
+    const endpoint = isUpdate ? '/api/jira/update-issue' : '/api/jira/create-issue';
+
     try {
-      const response = await fetch('/api/jira/create-issue', {
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           creds: credentials,
           projectKey,
+          issueKey: targetIssue.createdKey, // only used for update-issue
           config,
           issue: {
             summary: targetIssue.summary,
@@ -260,10 +434,10 @@ export default function RefinedList({
 
       if (response.ok && data.success) {
         freshIssues[freshIndex].status = 'success';
-        freshIssues[freshIndex].createdKey = data.key;
+        freshIssues[freshIndex].createdKey = isUpdate ? targetIssue.createdKey : data.key;
       } else {
         freshIssues[freshIndex].status = 'failed';
-        freshIssues[freshIndex].error = data.error || "Failed to create issue.";
+        freshIssues[freshIndex].error = data.error || (isUpdate ? "Failed to update issue." : "Failed to create issue.");
       }
       onIssuesChange([...freshIssues]);
       return data;
@@ -391,6 +565,8 @@ export default function RefinedList({
     return true;
   });
 
+  const selectableIssues = filteredIssues.filter(i => i.status !== 'success');
+
   const getJiraBrowseUrl = (key: string) => {
     const baseUrl = credentials.url.trim().replace(/\/+$/, "");
     return `${baseUrl}/browse/${key}`;
@@ -442,6 +618,26 @@ export default function RefinedList({
               </button>
             </div>
 
+            {/* Load Issue Button */}
+            {jiraConnected && (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLoadPanel(!showLoadPanel);
+                  setLoadError(null);
+                }}
+                className={`py-1.5 px-3 border rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition ${
+                  showLoadPanel 
+                    ? 'bg-blue-50 text-blue-700 border-blue-200' 
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                }`}
+                title={isRtl ? "بارگذاری تیکت موجود با شناسه" : "Load existing ticket by ID"}
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>{isRtl ? "بارگذاری تیکت با شناسه" : "Load Issue by ID"}</span>
+              </button>
+            )}
+
             {/* Bulk Publish Button */}
             {issues.length > 0 && (
               <button
@@ -465,6 +661,61 @@ export default function RefinedList({
             )}
           </div>
         </div>
+
+        {/* Load Ticket Form Panel */}
+        {showLoadPanel && (
+          <form onSubmit={handleLoadJiraIssue} className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded-lg flex flex-col sm:flex-row items-stretch sm:items-end gap-3 animate-fade-in">
+            <div className="flex-1">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                {isRtl ? "کلید یا شناسه تیکت جیرا" : "Jira Issue Key / ID"}
+              </label>
+              <input
+                required
+                type="text"
+                placeholder="PROJ-123"
+                value={loadJiraKey}
+                onChange={(e) => setLoadJiraKey(e.target.value)}
+                className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 font-mono"
+                disabled={loadingJiraIssue}
+              />
+            </div>
+            <div className="flex items-center gap-2 shrink-0 pt-2 sm:pt-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLoadPanel(false);
+                  setLoadError(null);
+                }}
+                disabled={loadingJiraIssue}
+                className="px-3.5 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-semibold rounded-lg transition cursor-pointer h-9"
+              >
+                {isRtl ? "انصراف" : "Cancel"}
+              </button>
+              <button
+                type="submit"
+                disabled={loadingJiraIssue || !loadJiraKey.trim()}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition flex items-center gap-1.5 cursor-pointer shadow-sm h-9"
+              >
+                {loadingJiraIssue ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>{isRtl ? "در حال دریافت..." : "Loading..."}</span>
+                  </>
+                ) : (
+                  <>
+                    <span>{isRtl ? "بارگذاری و شروع بازبینی" : "Load & Review"}</span>
+                  </>
+                )}
+              </button>
+            </div>
+            {loadError && (
+              <div className="w-full mt-2 text-xs text-rose-600 font-semibold flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5 animate-pulse" />
+                {loadError}
+              </div>
+            )}
+          </form>
+        )}
 
         {issues.length > 0 && !jiraConnected && (
           <div className="mt-4 p-3 bg-amber-50 border border-amber-100 rounded-lg text-xs text-amber-800 flex items-start gap-2 leading-relaxed">
@@ -496,6 +747,268 @@ export default function RefinedList({
         </div>
       )}
 
+      {/* Bulk Selection and Action Controls Panel */}
+      {filteredIssues.length > 0 && selectableIssues.length > 0 && (
+        <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 mb-4 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 select-none">
+              <input
+                type="checkbox"
+                id="select-all-checkbox"
+                checked={selectedIds.length > 0 && selectedIds.length === selectableIssues.length}
+                onChange={() => toggleSelectAll(selectableIssues)}
+                className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500/20 cursor-pointer accent-blue-600"
+              />
+              <label htmlFor="select-all-checkbox" className="text-xs font-semibold text-slate-700 cursor-pointer">
+                {isRtl 
+                  ? `انتخاب همه (${selectedIds.length} از ${selectableIssues.length} تیکت قابل ویرایش انتخاب شده است)`
+                  : `Select All (${selectedIds.length} of ${selectableIssues.length} editable tickets selected)`}
+              </label>
+            </div>
+            
+            {selectedIds.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectedIds([])}
+                className="text-[11px] text-slate-500 hover:text-slate-800 underline underline-offset-2 cursor-pointer font-semibold"
+              >
+                {isRtl ? "لغو انتخاب‌ها" : "Clear selection"}
+              </button>
+            )}
+          </div>
+
+          {selectedIds.length > 0 && (
+            <div className="bg-white border border-blue-100 rounded-lg p-4 space-y-4 shadow-sm animate-fade-in">
+              <div className="flex items-center gap-1.5 text-blue-800">
+                <Sparkles className="w-4 h-4 text-blue-500" />
+                <span className="text-xs font-bold">
+                  {isRtl ? "اعمال گروهی مقادیر به تیکت‌های انتخاب شده" : "Bulk Edit Selected Issues"}
+                </span>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {/* Bulk Epic Link Selection */}
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    {isRtl ? "اتصال به اپیک" : "Link to Epic"}
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <CustomSelect
+                        options={[
+                          { value: "", label: isRtl ? "تغییر داده نشود" : "Do not change" },
+                          { value: "CLEAR_FIELD", label: isRtl ? "پاک کردن اتصال اپیک" : "Clear epic link" },
+                          ...existingEpics.map((epic) => ({
+                            value: epic.key,
+                            label: `${epic.key} - ${epic.summary}`
+                          }))
+                        ]}
+                        value={bulkEpicKey}
+                        onChange={(val) => setBulkEpicKey(val)}
+                        showSearch={true}
+                        isRtl={isRtl}
+                      />
+                    </div>
+                    {jiraConnected && existingEpics.length === 0 && (
+                      <button
+                        type="button"
+                        disabled={fetchingEpics}
+                        onClick={onFetchEpics}
+                        className="p-2 border border-slate-200 rounded-md hover:bg-slate-50 text-slate-500 shrink-0 transition cursor-pointer"
+                        title={isRtl ? "بارگذاری اپیک‌ها" : "Fetch Epics"}
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${fetchingEpics ? 'animate-spin' : ''}`} />
+                      </button>
+                    )}
+                  </div>
+                  {jiraConnected && (
+                    <div className="flex items-center gap-1 mt-1 text-[10px]">
+                      <span className="text-slate-400">{isRtl ? "شناسه مستقیم:" : "Direct Key:"}</span>
+                      <input
+                        type="text"
+                        placeholder="PROJ-123"
+                        value={bulkEpicKey === "CLEAR_FIELD" ? "" : bulkEpicKey}
+                        onChange={(e) => setBulkEpicKey(e.target.value.trim().toUpperCase())}
+                        className="flex-1 text-[10px] p-1 bg-white border border-slate-200 rounded focus:outline-none focus:border-blue-500 font-mono text-center"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Bulk Priority Selection */}
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    {isRtl ? "اولویت" : "Priority"}
+                  </label>
+                  <CustomSelect
+                    options={[
+                      { value: "", label: isRtl ? "تغییر داده نشود" : "Do not change" },
+                      ...['Highest', 'High', 'Medium', 'Low', 'Lowest'].map(p => ({
+                        value: p,
+                        label: priorityLabels[language][p] || p
+                      }))
+                    ]}
+                    value={bulkPriority}
+                    onChange={(val) => setBulkPriority(val)}
+                    isRtl={isRtl}
+                  />
+                </div>
+
+                {/* Bulk Component Selection */}
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    {isRtl ? "کامپوننت" : "Component"}
+                  </label>
+                  <CustomSelect
+                    options={[
+                      { value: "", label: isRtl ? "تغییر داده نشود" : "Do not change" },
+                      { value: "CLEAR_FIELD", label: isRtl ? "پاک کردن کامپوننت" : "Clear component" },
+                      ...availableComponents.map(comp => ({ value: comp, label: comp }))
+                    ]}
+                    value={bulkComponent}
+                    onChange={(val) => setBulkComponent(val)}
+                    showSearch={true}
+                    isRtl={isRtl}
+                  />
+                </div>
+
+                {/* Bulk Sprint Selection */}
+                {jiraConnected && (
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      {isRtl ? "اسپرینت" : "Sprint"}
+                    </label>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <CustomSelect
+                          options={[
+                            { value: "", label: isRtl ? "تغییر داده نشود" : "Do not change" },
+                            { value: "CLEAR_FIELD", label: isRtl ? "انتقال به بکلاگ (بدون اسپرینت)" : "Send to backlog" },
+                            ...availableSprints.map(sprint => ({
+                              value: String(sprint.id),
+                              label: sprint.name,
+                              sublabel: `${sprint.boardName ? `[${sprint.boardName}] ` : ''}(${sprint.state})`
+                            }))
+                          ]}
+                          value={bulkSprint}
+                          onChange={(val) => setBulkSprint(val)}
+                          showSearch={true}
+                          isRtl={isRtl}
+                        />
+                      </div>
+                      {availableSprints.length === 0 && (
+                        <button
+                          type="button"
+                          disabled={fetchingSprints}
+                          onClick={onFetchSprints}
+                          className="p-2 border border-slate-200 rounded-md hover:bg-slate-50 text-slate-500 shrink-0 transition cursor-pointer"
+                          title={isRtl ? "بارگذاری اسپرینت‌ها" : "Fetch Sprints"}
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${fetchingSprints ? 'animate-spin' : ''}`} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Bulk Assignee Selection */}
+                {jiraConnected && (
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      {isRtl ? "مسئول (Assignee)" : "Assignee"}
+                    </label>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <CustomSelect
+                          options={[
+                            { value: "", label: isRtl ? "تغییر داده نشود" : "Do not change" },
+                            { value: "CLEAR_FIELD", label: isRtl ? "بدون مسئول (Unassigned)" : "Clear assignee" },
+                            ...getSortedUsers(availableUsers).map(user => ({
+                              value: user.name,
+                              label: user.displayName,
+                              avatar: user.avatarUrls?.["24x24"]
+                            }))
+                          ]}
+                          value={bulkAssignee}
+                          onChange={(val) => setBulkAssignee(val)}
+                          showSearch={true}
+                          isRtl={isRtl}
+                        />
+                      </div>
+                      {availableUsers.length === 0 && (
+                        <button
+                          type="button"
+                          disabled={fetchingUsers}
+                          onClick={onFetchUsers}
+                          className="p-2 border border-slate-200 rounded-md hover:bg-slate-50 text-slate-500 shrink-0 transition cursor-pointer"
+                          title={isRtl ? "بارگذاری کاربران" : "Fetch Users"}
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${fetchingUsers ? 'animate-spin' : ''}`} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Bulk Release Selection */}
+                {jiraConnected && (
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      {isRtl ? "ریلیز / نسخه" : "Release / Version"}
+                    </label>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <CustomSelect
+                          options={[
+                            { value: "", label: isRtl ? "تغییر داده نشود" : "Do not change" },
+                            { value: "CLEAR_FIELD", label: isRtl ? "پاک کردن ریلیز" : "Clear release" },
+                            ...availableVersions.map(version => ({
+                              value: version.id,
+                              label: version.name,
+                              sublabel: version.released ? `(${isRtl ? 'منتشر شده' : 'released'})` : ''
+                            }))
+                          ]}
+                          value={bulkRelease}
+                          onChange={(val) => setBulkRelease(val)}
+                          showSearch={true}
+                          isRtl={isRtl}
+                        />
+                      </div>
+                      {availableVersions.length === 0 && (
+                        <button
+                          type="button"
+                          disabled={fetchingVersions}
+                          onClick={onFetchVersions}
+                          className="p-2 border border-slate-200 rounded-md hover:bg-slate-50 text-slate-500 shrink-0 transition cursor-pointer"
+                          title={isRtl ? "بارگذاری ریلیزها" : "Fetch Releases"}
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${fetchingVersions ? 'animate-spin' : ''}`} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={handleApplyBulkChanges}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow transition cursor-pointer flex items-center gap-1.5"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>
+                    {isRtl 
+                      ? `اعمال تغییرات روی ${selectedIds.length} تیکت` 
+                      : `Apply changes to ${selectedIds.length} tickets`}
+                  </span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Issue Cards */}
       <div className="space-y-3.5">
         {filteredIssues.map((issue) => {
@@ -521,6 +1034,14 @@ export default function RefinedList({
               {/* Card Header */}
               <div className="p-4 sm:p-5 border-b border-slate-100/60 flex flex-wrap items-start justify-between gap-3 bg-slate-50/30">
                 <div className="flex items-center gap-2.5">
+                  {issue.status !== 'success' && (
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(issue.id)}
+                      onChange={() => toggleSelectIssue(issue.id)}
+                      className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500/20 cursor-pointer accent-blue-600"
+                    />
+                  )}
                   {/* Issue Type Badge */}
                   <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md flex items-center gap-1.5 ${
                     issue.issuetype === 'Epic' ? 'bg-blue-50 text-blue-700' :
@@ -564,6 +1085,30 @@ export default function RefinedList({
                   {!isEditing && issue.status !== 'success' && (
                     <button
                       type="button"
+                      onClick={() => {
+                        if (reRefiningId === issue.id) {
+                          setReRefiningId(null);
+                        } else {
+                          setReRefiningId(issue.id);
+                          setReRefinePrompt("");
+                          setAiError(null);
+                        }
+                      }}
+                      className={`p-1.5 rounded-md transition duration-150 text-xs flex items-center gap-1 font-medium cursor-pointer ${
+                        reRefiningId === issue.id 
+                          ? 'bg-blue-50 text-blue-600 border border-blue-200' 
+                          : 'text-slate-400 hover:text-slate-800 hover:bg-slate-100'
+                      }`}
+                      title={isRtl ? "بازبینی با هوش مصنوعی" : "Review with AI"}
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">{isRtl ? "بازبینی مجدد" : "Re-Review"}</span>
+                    </button>
+                  )}
+
+                  {!isEditing && issue.status !== 'success' && (
+                    <button
+                      type="button"
                       onClick={() => handleEditClick(issue)}
                       className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-md transition duration-150 text-xs flex items-center gap-1 font-medium cursor-pointer"
                       title={t.edit}
@@ -573,7 +1118,7 @@ export default function RefinedList({
                     </button>
                   )}
 
-                  {/* Publish Single issue button */}
+                  {/* Publish/Update Single issue button */}
                   {jiraConnected && issue.status !== 'success' && !isEditing && (
                     <button
                       type="button"
@@ -582,7 +1127,9 @@ export default function RefinedList({
                       className="py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs rounded-md transition shadow-sm flex items-center gap-1 cursor-pointer"
                     >
                       <ArrowUpRight className="w-3 h-3" />
-                      {issue.status === 'failed' ? t.rePublish : t.createInJira}
+                      {issue.createdKey 
+                        ? (isRtl ? "به‌روزرسانی در جیرا" : "Update in Jira")
+                        : (issue.status === 'failed' ? t.rePublish : t.createInJira)}
                     </button>
                   )}
 
@@ -858,13 +1405,13 @@ export default function RefinedList({
                           )}
                         </div>
 
-                        {/* Dropdown to link existing Jira epics if connected */}
+                        {/* Dropdown or direct input to link existing Jira epics if connected */}
                         {jiraConnected && issue.status !== 'success' && (
-                          <div className="flex items-center gap-1.5 min-w-[160px]">
+                          <div className="flex flex-wrap items-center gap-2.5 min-w-[220px]">
                             <label className="text-[10px] text-slate-500 font-semibold whitespace-nowrap">
                               {t.existingEpics}
                             </label>
-                            <div className="flex-1">
+                            <div className="flex-1 min-w-[150px]">
                               <CustomSelect
                                 options={[
                                   { value: "", label: isRtl ? "انتخاب نشده" : "None" },
@@ -877,6 +1424,16 @@ export default function RefinedList({
                                 onChange={(val) => handleEpicLinkOverride(issue.id, val)}
                                 showSearch={true}
                                 isRtl={isRtl}
+                              />
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="text-[10px] text-slate-400 font-medium">{isRtl ? "یا شناسه:" : "or Key:"}</span>
+                              <input
+                                type="text"
+                                placeholder="PROJ-123"
+                                value={issue.selectedEpicKey || ""}
+                                onChange={(e) => handleEpicLinkOverride(issue.id, e.target.value.trim().toUpperCase())}
+                                className="w-24 text-[11px] p-1.5 bg-white border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-mono text-center"
                               />
                             </div>
                             {existingEpics.length === 0 && (
@@ -1163,6 +1720,71 @@ export default function RefinedList({
                             )}
                           </div>
                         )}
+                      </div>
+                    )}
+
+                    {/* Collapsible AI Re-Review Input Panel */}
+                    {reRefiningId === issue.id && (
+                      <div className="p-4 bg-blue-50/50 border border-blue-200/60 rounded-lg space-y-3 animate-fade-in shadow-inner">
+                        <div className="flex items-center gap-1.5 text-blue-800">
+                          <Sparkles className="w-4 h-4 text-blue-500 animate-pulse" />
+                          <span className="text-xs font-bold">
+                            {isRtl ? "بازبینی و اصلاح متن با هوش مصنوعی" : "AI Re-Review & Refinement"}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 leading-relaxed">
+                          {isRtl 
+                            ? "دستورالعمل یا پرامپت اصلاحی خود را بنویسید (مثلاً: بخش فرضیات را اضافه کن، یا لحن متن را رسمی‌تر کن)"
+                            : "Provide custom refinement instructions (e.g. 'Add assumptions section', or 'Make the tone more professional')"}
+                        </p>
+                        <textarea
+                          rows={3}
+                          value={reRefinePrompt}
+                          onChange={(e) => setReRefinePrompt(e.target.value)}
+                          placeholder={isRtl ? "مثال: سناریوی خطا (Error flow) را به سناریوها اضافه کن..." : "e.g. Include error handling scenarios in the description..."}
+                          className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 leading-relaxed"
+                          disabled={isAIProcessing}
+                        />
+                        <div className="flex items-center justify-between gap-3">
+                          {aiError ? (
+                            <span className="text-[11px] text-rose-600 font-medium flex items-center gap-1">
+                              <AlertCircle className="w-3.5 h-3.5 animate-pulse" />
+                              {aiError}
+                            </span>
+                          ) : <span />}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setReRefiningId(null);
+                                setReRefinePrompt("");
+                                setAiError(null);
+                              }}
+                              disabled={isAIProcessing}
+                              className="px-3 py-1.5 border border-slate-200 hover:bg-slate-100 text-slate-600 text-xs font-medium rounded-md transition cursor-pointer"
+                            >
+                              {isRtl ? "انصراف" : "Cancel"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleExecuteReRefine(issue)}
+                              disabled={isAIProcessing || !reRefinePrompt.trim()}
+                              className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-md transition flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
+                            >
+                              {isAIProcessing ? (
+                                <>
+                                  <RefreshCw className="w-3 h-3 animate-spin" />
+                                  <span>{isRtl ? "در حال اصلاح..." : "Refining..."}</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Sparkles className="w-3 h-3" />
+                                  <span>{isRtl ? "اعمال و اصلاح" : "Apply & Refine"}</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     )}
 
