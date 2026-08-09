@@ -79,3 +79,21 @@ export interface ConnectionConfig {
 }
 
 export type Language = 'en' | 'fa';
+
+export interface EpicAuditChildIssue {
+  key: string;
+  summary: string;
+  issuetype: string;
+  status: string;
+  components: string[];
+  missingComponents: string[];
+}
+
+export interface EpicAuditItem {
+  key: string;
+  summary: string;
+  components: string[];
+  status?: string;
+  childIssues: EpicAuditChildIssue[];
+}
+

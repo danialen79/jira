@@ -65,6 +65,24 @@ function normalizeJiraUrl(url: string): string {
   return cleaned;
 }
 
+function sanitizeJiraText(text: string): string {
+  if (!text) return "";
+  let clean = text;
+  // Remove Jira wiki headers like h1., h2., h3., h4., h5., h6.
+  clean = clean.replace(/^h[1-6]\.\s*/gm, "");
+  clean = clean.replace(/\nh[1-6]\.\s*/g, "\n");
+  // Remove markdown checkboxes like * [ ] or - [ ] or [ ] or * [x]
+  clean = clean.replace(/^[\*\-]\s*\[\s*x?\s*\]\s*/gm, "- ");
+  clean = clean.replace(/^\[\s*x?\s*\]\s*/gm, "- ");
+  // Remove bold/italic asterisks & underscores e.g. *به عنوان* -> به عنوان, **word** -> word, _word_ -> word
+  clean = clean.replace(/\*\*([^*]+)\*\*/g, "$1");
+  clean = clean.replace(/\*([^*]+)\*/g, "$1");
+  clean = clean.replace(/_([^_]+)_/g, "$1");
+  // Remove leftover h1.-h6. tags anywhere in text if any remain
+  clean = clean.replace(/h[1-6]\.\s*/g, "");
+  return clean.trim();
+}
+
 // ----------------- API ROUTES -----------------
 
 // 1. Health check
@@ -775,17 +793,45 @@ app.post("/api/refine", async (req, res) => {
 Your output must follow the exact JSON schema provided.
 ${outputModeInstruction}
 
-Key Rules:
-1. Detect the user's primary language (especially if they draft in Persian/Farsi, or explicitly ask for Persian in the prompt). If they use Persian or request it, write the summary, description, and details in Persian (Farsi), but keep technical keys like issue type, labels, priorities, and ids in English.
-2. Structure stories and bugs with a standard agile format:
-   - For User Stories: 'As a... I want to... So that...' statement followed by descriptive body and Acceptance Criteria (Given/When/Then or checklists).
-   - For Bugs: A clear 'Steps to Reproduce', 'Expected Result', and 'Actual Result' layout.
-3. If the raw drafts describe some overarching goals, organize them into "Epic" issues, and make the individual requirements or issues "Story" or "Bug" issues.
-4. If a Story or Bug belongs to a drafted Epic, set the 'epicReference' property to the exact 'id' of that drafted Epic (e.g., 'epic-1'). This is crucial so the user can easily link them later.
-5. Provide relevant Agile labels/tags for each issue. No spaces in labels.
-6. Suggest an appropriate priority from: 'Highest', 'High', 'Medium', 'Low', 'Lowest' (usually Medium is default, High/Highest for critical items, Low/Lowest for minor ones).
-7. Suggest a relevant system component or module name (e.g., 'Frontend', 'Backend', 'Database', 'Auth', 'API', 'UI/UX', 'Billing', 'Mobile') in 'suggestedComponent'. Keep it concise.
-8. The format of the description should use standard markdown or Jira wiki markup. Markdown is highly preferred. Make it neat and clean.`;
+CRITICAL RULES FOR LANGUAGE & FORMATTING:
+1. LANGUAGE AND TERMINOLOGY:
+   - Always write all ticket summaries, descriptions, titles, and details in fluent, natural, smooth Persian (Farsi).
+   - Technical and specialized terms (such as 'API', 'OpenAI', 'Timeout', 'Rate Limit', '5xx', '4xx', 'OAuth', 'JWT', 'Database', 'Frontend', 'Backend', 'JSON', etc.) MUST remain strictly in English.
+2. NO MARKDOWN OR JIRA WIKI FORMATTING SYMBOLS:
+   - Do NOT use Jira wiki headers like 'h3.', 'h2.', 'h1.'.
+   - Do NOT use asterisks for bold or italics (do NOT write *word*, **word**, or _word_).
+   - Do NOT use checkbox syntax like '* [ ]' or '[ ]'.
+   - Do NOT insert meaningless markup characters or symbols anywhere in the summary or description.
+   - Use clean, plain-text line breaks and simple plain titles (e.g., 'داستان کاربر:' or 'معیارهای پذیرش:' or 'مراحل بازتولید:') on their own lines without any asterisks or h3. tags.
+3. AGILE / SCRUM STANDARD STRUCTURE (In Fluent Persian):
+   - For User Stories: Use standard Scrum structure:
+     داستان کاربر:
+     به عنوان [نقش]
+     می‌خواهم [قابلیت / نیاز]
+     تا اینکه [هدف / ارزش افزوده]
+
+     معیارهای پذیرش:
+     - [معیار 1]
+     - [معیار 2]
+   - For Bugs: Use clean Persian bug layout:
+     مراحل بازتولید:
+     1. [مرحله 1]
+     2. [مرحله 2]
+
+     نتیجه مورد انتظار:
+     [توضیح]
+
+     نتیجه فعلی:
+     [توضیح]
+   - For Epics:
+     هدف کلی:
+     [توضیح]
+
+     دامنه و خروجی‌های کلیدی:
+     - [مورد 1]
+4. Suggest Agile labels/tags without spaces.
+5. Suggest priority from: 'Highest', 'High', 'Medium', 'Low', 'Lowest'.
+6. Suggest a concise system component name (e.g. 'Frontend', 'Backend', 'Database', 'Auth', 'API').`;
 
     const userPrompt = `Project Key: ${projectKey || "PROJ"}
 Custom User Instructions/Prompt: ${customPrompt || "Clean up descriptions, structure with Acceptance Criteria, and make them professional."}
@@ -893,6 +939,14 @@ ${draftText}
 
     const data = JSON.parse(responseText);
     
+    if (data.issues && Array.isArray(data.issues)) {
+      data.issues = data.issues.map((issue: any) => ({
+        ...issue,
+        summary: sanitizeJiraText(issue.summary),
+        description: sanitizeJiraText(issue.description)
+      }));
+    }
+
     // Add info on which model was actually used for refinement
     data.refinedByModel = successfulModel;
     
@@ -921,14 +975,17 @@ app.post("/api/refine-single", async (req, res) => {
     const systemInstruction = `You are an expert Agile Product Owner and Business Analyst.
 Your task is to REVISE or RE-REFINE an existing single Jira ticket (Summary, Description, and type: ${issuetype}) based on a custom instruction prompt provided by the user.
 
-You should preserve the core of the original issue while addressing the user's custom instruction perfectly.
-Output a JSON object containing the revised issue properties following the exact schema provided.
-
-Key Rules:
-1. Detect language (especially if Persian/Farsi is requested or used in the custom prompt). If they use Persian, write the summary and description in Persian, but keep priority names and issue types in English.
-2. If it is a User Story: Use Agile standards (As a... I want to... So that...).
-3. If it is a Bug: Provide Steps to Reproduce, Expected and Actual Results clearly formatted in Markdown.
-4. If it is an Epic: Provide a structured high-level objective, scope, and key deliverables.`;
+CRITICAL RULES FOR LANGUAGE & FORMATTING:
+1. LANGUAGE AND TERMINOLOGY:
+   - Always write all ticket summaries, descriptions, titles, and details in fluent, natural, smooth Persian (Farsi).
+   - Technical and specialized terms (such as 'API', 'OpenAI', 'Timeout', 'Rate Limit', '5xx', '4xx', 'OAuth', 'JWT', 'Database', 'Frontend', 'Backend', 'JSON', etc.) MUST remain strictly in English.
+2. NO MARKDOWN OR JIRA WIKI FORMATTING SYMBOLS:
+   - Do NOT use Jira wiki headers like 'h3.', 'h2.', 'h1.'.
+   - Do NOT use asterisks for bold or italics (do NOT write *word*, **word**, or _word_).
+   - Do NOT use checkbox syntax like '* [ ]' or '[ ]'.
+   - Do NOT insert meaningless markup characters or formatting symbols anywhere in the summary or description.
+   - Use clean, plain-text line breaks and simple plain titles (e.g., 'داستان کاربر:' or 'معیارهای پذیرش:' or 'مراحل بازتولید:') on their own lines without any asterisks or h3. tags.
+3. Preserve the core intent of the original issue while addressing the user's custom instruction perfectly.`;
 
     const userPrompt = `
 === ORIGINAL BACKGROUND CONTEXT (Draft Requirements) ===
@@ -1005,6 +1062,8 @@ Please revise this ticket according to the custom instruction above.
     }
 
     const data = JSON.parse(response.text);
+    if (data.summary) data.summary = sanitizeJiraText(data.summary);
+    if (data.description) data.description = sanitizeJiraText(data.description);
     data.refinedByModel = successfulModel;
     return res.json(data);
   } catch (err: any) {
@@ -1359,22 +1418,50 @@ app.post("/api/mattermost/webhook", async (req, res) => {
         
         let outputModeInstruction = "\nGenerate Epics, Stories, and Bugs where appropriate based on the drafted requirements, and link Stories and Bugs to their corresponding Epics using 'epicReference'.";
         
-        const systemInstruction = `You are a professional Agile Product Owner and Business Analyst. Your task is to process the user's raw drafts, requirements, or bullet points of User Stories, Epics, and Bugs, clean them up, structure them beautifully, and output a structured JSON list.
+        const systemInstruction = `You are a professional Agile Product Owner and Business Analyst. Your task is to process the user's raw drafts, requirements, or bullet points of User Stories, Epics, and Bugs, clean them up, structure them, and output a structured JSON list.
 
 Your output must follow the exact JSON schema provided.
 ${outputModeInstruction}
 
-Key Rules:
-1. Detect the user's primary language (especially if they draft in Persian/Farsi, or explicitly ask for Persian in the prompt). If they use Persian or request it, write the summary, description, and details in Persian (Farsi), but keep technical keys like issue type, labels, priorities, and ids in English.
-2. Structure stories and bugs with a standard agile format:
-   - For User Stories: 'As a... I want to... So that...' statement followed by descriptive body and Acceptance Criteria (Given/When/Then or checklists).
-   - For Bugs: A clear 'Steps to Reproduce', 'Expected Result', and 'Actual Result' layout.
-3. If the raw drafts describe some overarching goals, organize them into "Epic" issues, and make the individual requirements or issues "Story" or "Bug" issues.
-4. If a Story or Bug belongs to a drafted Epic, set the 'epicReference' property to the exact 'id' of that drafted Epic (e.g., 'epic-1'). This is crucial so the user can easily link them later.
-5. Provide relevant Agile labels/tags for each issue. No spaces in labels.
-6. Suggest an appropriate priority from: 'Highest', 'High', 'Medium', 'Low', 'Lowest' (usually Medium is default, High/Highest for critical items, Low/Lowest for minor ones).
-7. Suggest a relevant system component or module name (e.g., 'Frontend', 'Backend', 'Database', 'Auth', 'API', 'UI/UX', 'Billing', 'Mobile') in 'suggestedComponent'. Keep it concise.
-8. The format of the description should use standard markdown or Jira wiki markup. Markdown is highly preferred. Make it neat and clean.`;
+CRITICAL RULES FOR LANGUAGE & FORMATTING:
+1. LANGUAGE AND TERMINOLOGY:
+   - Always write all ticket summaries, descriptions, titles, and details in fluent, natural, smooth Persian (Farsi).
+   - Technical and specialized terms (such as 'API', 'OpenAI', 'Timeout', 'Rate Limit', '5xx', '4xx', 'OAuth', 'JWT', 'Database', 'Frontend', 'Backend', 'JSON', etc.) MUST remain strictly in English.
+2. NO MARKDOWN OR JIRA WIKI FORMATTING SYMBOLS:
+   - Do NOT use Jira wiki headers like 'h3.', 'h2.', 'h1.'.
+   - Do NOT use asterisks for bold or italics (do NOT write *word*, **word**, or _word_).
+   - Do NOT use checkbox syntax like '* [ ]' or '[ ]'.
+   - Do NOT insert meaningless markup characters or symbols anywhere in the summary or description.
+   - Use clean, plain-text line breaks and simple plain titles (e.g., 'داستان کاربر:' or 'معیارهای پذیرش:' or 'مراحل بازتولید:') on their own lines without any asterisks or h3. tags.
+3. AGILE / SCRUM STANDARD STRUCTURE (In Fluent Persian):
+   - For User Stories: Use standard Scrum structure:
+     داستان کاربر:
+     به عنوان [نقش]
+     می‌خواهم [قابلیت / نیاز]
+     تا اینکه [هدف / ارزش افزوده]
+
+     معیارهای پذیرش:
+     - [معیار 1]
+     - [معیار 2]
+   - For Bugs: Use clean Persian bug layout:
+     مراحل بازتولید:
+     1. [مرحله 1]
+     2. [مرحله 2]
+
+     نتیجه مورد انتظار:
+     [توضیح]
+
+     نتیجه فعلی:
+     [توضیح]
+   - For Epics:
+     هدف کلی:
+     [توضیح]
+
+     دامنه و خروجی‌های کلیدی:
+     - [مورد 1]
+4. Suggest Agile labels/tags without spaces.
+5. Suggest priority from: 'Highest', 'High', 'Medium', 'Low', 'Lowest'.
+6. Suggest a concise system component name (e.g. 'Frontend', 'Backend', 'Database', 'Auth', 'API').`;
 
         const userPrompt = `Project Key: "PROJ"
 Custom User Instructions/Prompt: Clean up descriptions, structure with Acceptance Criteria, and make them professional.
@@ -1423,7 +1510,12 @@ ${draftText}
         }
 
         const data = JSON.parse(aiResponse.text);
-        const issuesList = data.issues || [];
+        let issuesList = data.issues || [];
+        issuesList = issuesList.map((issue: any) => ({
+          ...issue,
+          summary: sanitizeJiraText(issue.summary),
+          description: sanitizeJiraText(issue.description)
+        }));
         console.log(`[Mattermost Webhook Background] Successfully refined ${issuesList.length} issues.`);
 
         // Check if Default Jira Server credentials are set in environment
@@ -1887,6 +1979,296 @@ app.post("/api/mattermost/drafts", async (req, res) => {
       success: false,
       error: err.message || "An unexpected error occurred while loading drafts."
     });
+  }
+});
+
+// ----------------------------------------------
+// Epic Components Audit Endpoint (Paginating Epics in pages of 10)
+app.post("/api/jira/epic-components-audit", async (req, res) => {
+  try {
+    const { creds, projectKey, config, startAt = 0, maxResults = 10, onlyWithComponents = true, onlyMissing = true } = req.body;
+    if (!creds || !creds.url || !projectKey) {
+      return res.status(400).json({ error: "Missing required parameters (creds, projectKey)." });
+    }
+
+    const jiraUrl = normalizeJiraUrl(creds.url);
+    const headers = getJiraHeaders(creds);
+    const epicLinkField = config?.epicLinkField || "customfield_10014";
+
+    // 1. Search Epics in project (fetch up to 300 to do proper filtering before pagination)
+    const projKey = projectKey.trim().toUpperCase();
+    const epicJqlCandidates: string[] = [];
+    if (onlyWithComponents) {
+      epicJqlCandidates.push(`project = '${projKey}' AND issuetype = 'Epic' AND component IS NOT EMPTY ORDER BY key DESC`);
+      epicJqlCandidates.push(`project = '${projKey}' AND issuetype = 'Epic' AND component is not EMPTY ORDER BY key DESC`);
+    }
+    epicJqlCandidates.push(`project = '${projKey}' AND issuetype = 'Epic' ORDER BY key DESC`);
+
+    let epicSearchRes: Response | null = null;
+    let lastErrText = "";
+
+    for (const jqlCandidate of epicJqlCandidates) {
+      console.log(`[Jira Server Audit] Fetching Epics JQL: ${jqlCandidate}`);
+      try {
+        const resCandidate = await fetch(`${jiraUrl}/rest/api/2/search`, {
+          method: "POST",
+          headers: {
+            ...headers,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            jql: jqlCandidate,
+            startAt: 0,
+            maxResults: 300,
+            fields: ["summary", "components", "status", "priority", "issuetype"]
+          })
+        });
+
+        if (resCandidate.ok) {
+          epicSearchRes = resCandidate;
+          break;
+        } else {
+          lastErrText = await resCandidate.text();
+          console.warn(`[Jira Server Audit] JQL failed (${resCandidate.status}): ${lastErrText}. Trying fallback candidate...`);
+        }
+      } catch (e: any) {
+        lastErrText = e.message;
+      }
+    }
+
+    if (!epicSearchRes) {
+      return res.status(400).json({
+        error: `Jira returned error when fetching Epics: ${lastErrText}`
+      });
+    }
+
+    const epicData = await epicSearchRes.json();
+    const fetchedEpics = epicData.issues || [];
+
+    if (fetchedEpics.length === 0) {
+      return res.json({
+        success: true,
+        total: 0,
+        startAt: Number(startAt) || 0,
+        maxResults: Number(maxResults) || 10,
+        epics: []
+      });
+    }
+
+    // Filter candidate Epics that have components if requested
+    const candidateEpics = fetchedEpics.filter((issue: any) => {
+      if (!onlyWithComponents) return true;
+      const comps = (issue.fields?.components || []).map((c: any) => c.name).filter(Boolean);
+      return comps.length > 0;
+    });
+
+    if (candidateEpics.length === 0) {
+      return res.json({
+        success: true,
+        total: 0,
+        startAt: Number(startAt) || 0,
+        maxResults: Number(maxResults) || 10,
+        epics: []
+      });
+    }
+
+    // 2. Map Epic basics
+    const epicMap: Record<string, any> = {};
+    const epicKeys: string[] = [];
+
+    candidateEpics.forEach((issue: any) => {
+      const key = issue.key;
+      epicKeys.push(key);
+      const comps = (issue.fields?.components || []).map((c: any) => c.name).filter(Boolean);
+      epicMap[key] = {
+        key,
+        summary: issue.fields?.summary || key,
+        components: comps,
+        status: issue.fields?.status?.name || "",
+        childIssues: []
+      };
+    });
+
+    // 3. Search child issues linked to these Epics in chunks of 50
+    let childIssuesRaw: any[] = [];
+    const chunkSize = 50;
+
+    for (let i = 0; i < epicKeys.length; i += chunkSize) {
+      const chunkKeys = epicKeys.slice(i, i + chunkSize);
+      const formattedEpicKeysStr = chunkKeys.map(k => `"${k}"`).join(",");
+      let cfNumber = "";
+      if (epicLinkField.startsWith("customfield_")) {
+        cfNumber = epicLinkField.replace("customfield_", "");
+      }
+
+      const jqlCandidates = [
+        cfNumber ? `project = '${projKey}' AND (cf[${cfNumber}] in (${formattedEpicKeysStr}) OR "Epic Link" in (${formattedEpicKeysStr}) OR parent in (${formattedEpicKeysStr}))` : null,
+        `project = '${projKey}' AND ("${epicLinkField}" in (${formattedEpicKeysStr}) OR "Epic Link" in (${formattedEpicKeysStr}) OR parent in (${formattedEpicKeysStr}))`,
+        `project = '${projKey}' AND ("Epic Link" in (${formattedEpicKeysStr}) OR parent in (${formattedEpicKeysStr}))`,
+        `project = '${projKey}' AND parent in (${formattedEpicKeysStr})`
+      ].filter(Boolean) as string[];
+
+      for (const jqlCandidate of jqlCandidates) {
+        try {
+          const childRes = await fetch(`${jiraUrl}/rest/api/2/search`, {
+            method: "POST",
+            headers: {
+              ...headers,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              jql: jqlCandidate,
+              maxResults: 500,
+              fields: ["summary", "components", "status", "priority", "issuetype", epicLinkField, "customfield_10014", "parent", "epic"]
+            })
+          });
+
+          if (childRes.ok) {
+            const childData = await childRes.json();
+            childIssuesRaw.push(...(childData.issues || []));
+            break;
+          }
+        } catch (e) {
+          console.warn(`JQL candidate failed: ${jqlCandidate}`, e);
+        }
+      }
+    }
+
+    // 4. Match child issues to parent Epics
+    childIssuesRaw.forEach((issue: any) => {
+      const fields = issue.fields || {};
+      const key = issue.key;
+      
+      // Identify parent epic key
+      let parentKey: string | null = null;
+      if (fields.epic?.key && epicMap[fields.epic.key]) {
+        parentKey = fields.epic.key;
+      } else if (fields.parent?.key && epicMap[fields.parent.key]) {
+        parentKey = fields.parent.key;
+      } else if (fields[epicLinkField] && epicMap[fields[epicLinkField]]) {
+        parentKey = fields[epicLinkField];
+      } else if (fields.customfield_10014 && epicMap[fields.customfield_10014]) {
+        parentKey = fields.customfield_10014;
+      } else {
+        // Fallback string search
+        for (const ek of epicKeys) {
+          if (JSON.stringify(fields).includes(ek)) {
+            parentKey = ek;
+            break;
+          }
+        }
+      }
+
+      if (parentKey && epicMap[parentKey]) {
+        const childComps = (fields.components || []).map((c: any) => c.name).filter(Boolean);
+        const epicComps = epicMap[parentKey].components;
+        
+        // Find components from Epic missing in this child issue
+        const missingComponents = epicComps.filter(
+          (ec: string) => !childComps.some((cc: string) => cc.toLowerCase().trim() === ec.toLowerCase().trim())
+        );
+
+        epicMap[parentKey].childIssues.push({
+          key,
+          summary: fields.summary || "",
+          issuetype: fields.issuetype?.name || "Story",
+          status: fields.status?.name || "Todo",
+          components: childComps,
+          missingComponents
+        });
+      }
+    });
+
+    // 5. QUALIFY EPICS:
+    // Only include Epics that:
+    // a) Have at least 1 child issue connected (childIssues.length > 0)
+    // b) If onlyMissing is true, have at least 1 child issue with missing components or 0 components
+    const allEpics = Object.values(epicMap);
+
+    const qualifiedEpics = allEpics.filter((epic: any) => {
+      if (!epic.childIssues || epic.childIssues.length === 0) return false;
+      if (onlyMissing) {
+        return epic.childIssues.some((child: any) => child.missingComponents.length > 0 || child.components.length === 0);
+      }
+      return true;
+    });
+
+    // 6. PAGINATE THE QUALIFIED EPICS
+    const startAtNum = Number(startAt) || 0;
+    const maxResultsNum = Number(maxResults) || 10;
+    const totalQualified = qualifiedEpics.length;
+    const pagedEpics = qualifiedEpics.slice(startAtNum, startAtNum + maxResultsNum);
+
+    return res.json({
+      success: true,
+      total: totalQualified,
+      startAt: startAtNum,
+      maxResults: maxResultsNum,
+      epics: pagedEpics
+    });
+
+  } catch (err: any) {
+    console.error("Epic Components Audit Error:", err);
+    return res.status(500).json({ error: `Audit failed: ${err.message}` });
+  }
+});
+
+// Bulk Update Issue Components Endpoint
+app.post("/api/jira/bulk-update-components", async (req, res) => {
+  try {
+    const { creds, updates } = req.body;
+    if (!creds || !creds.url || !Array.isArray(updates)) {
+      return res.status(400).json({ error: "Missing required parameters (creds, updates array)." });
+    }
+
+    const jiraUrl = normalizeJiraUrl(creds.url);
+    const headers = getJiraHeaders(creds);
+
+    const results: Array<{ issueKey: string; success: boolean; error?: string }> = [];
+
+    for (const item of updates) {
+      const { issueKey, components } = item;
+      if (!issueKey || !Array.isArray(components)) continue;
+
+      try {
+        const updateUrl = `${jiraUrl}/rest/api/2/issue/${issueKey}`;
+        const compObjects = components.map((c: string) => ({ name: c }));
+
+        const response = await fetch(updateUrl, {
+          method: "PUT",
+          headers: {
+            ...headers,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            fields: {
+              components: compObjects
+            }
+          })
+        });
+
+        if (response.ok || response.status === 204) {
+          results.push({ issueKey, success: true });
+        } else {
+          const errText = await response.text();
+          results.push({ issueKey, success: false, error: `Jira error (${response.status}): ${errText}` });
+        }
+      } catch (err: any) {
+        results.push({ issueKey, success: false, error: err.message });
+      }
+    }
+
+    const updatedCount = results.filter(r => r.success).length;
+    return res.json({
+      success: true,
+      updatedCount,
+      totalRequested: updates.length,
+      results
+    });
+
+  } catch (err: any) {
+    console.error("Bulk Update Components Error:", err);
+    return res.status(500).json({ error: `Bulk update failed: ${err.message}` });
   }
 });
 

@@ -5,11 +5,12 @@ import DraftInput from './components/DraftInput';
 import RefinedList from './components/RefinedList';
 import MyDailyBoard from './components/MyDailyBoard';
 import MattermostIntegration from './components/MattermostIntegration';
+import EpicComponentSync from './components/EpicComponentSync';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Sparkles, ShieldCheck, AlertCircle, RefreshCw, Languages, 
   Layers, Settings, Github, Check, GitCommit, Link, Terminal, Calendar,
-  MessageSquare, ClipboardList
+  MessageSquare, ClipboardList, Tag
 } from 'lucide-react';
 
 const appTranslations = {
@@ -29,7 +30,8 @@ const appTranslations = {
     tabConnect: "1. Connection & Config",
     tabWorkspace: "2. Story Refiner Workspace",
     tabDailyBoard: "3. My Daily Board & Logs",
-    tabMattermost: "4. Mattermost Bot Integration"
+    tabMattermost: "4. Mattermost Bot Integration",
+    tabEpicSync: "5. Epic Component Sync"
   },
   fa: {
     heroTitle: "تنظیم‌کننده و سازنده خودکار تیکت‌های جیرا (Self-Hosted)",
@@ -47,7 +49,8 @@ const appTranslations = {
     tabConnect: "۱. اتصال و تنظیمات جیرا",
     tabWorkspace: "۲. کارگاه ساخت و اصلاح تیکت‌ها",
     tabDailyBoard: "۳. میز کار و بورد روزانه من",
-    tabMattermost: "۴. بات و پیش‌نویس‌های مترموست"
+    tabMattermost: "۴. بات و پیش‌نویس‌های مترموست",
+    tabEpicSync: "۵. همگام‌سازی کامپوننت‌های اپیک"
   }
 };
 
@@ -58,7 +61,7 @@ export default function App() {
   const isRtl = language === 'fa';
 
   // ---------------- STATE DEFINITIONS ----------------
-  const [activeTab, setActiveTab] = useState<'connect' | 'workspace' | 'dailyBoard' | 'mattermost'>('connect');
+  const [activeTab, setActiveTab] = useState<'connect' | 'workspace' | 'dailyBoard' | 'mattermost' | 'epicSync'>('connect');
   const [importedDraftText, setImportedDraftText] = useState<string | undefined>(undefined);
 
   const [credentials, setCredentials] = useState<JiraCredentials>({
@@ -520,6 +523,18 @@ export default function App() {
             <MessageSquare className="w-4 h-4" />
             {t.tabMattermost}
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('epicSync')}
+            className={`flex items-center gap-2 px-5 py-3 border-b-2 text-xs sm:text-sm font-semibold transition-all duration-150 cursor-pointer ${
+              activeTab === 'epicSync'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Tag className="w-4 h-4" />
+            {t.tabEpicSync}
+          </button>
         </div>
 
         {/* Tab 1: Connection & Configurations */}
@@ -687,6 +702,19 @@ export default function App() {
             <MattermostIntegration
               language={language}
               onImportDraft={handleImportMattermostDraft}
+            />
+          </div>
+        )}
+
+        {/* Tab 5: Epic Component Sync Workspace */}
+        {activeTab === 'epicSync' && (
+          <div className="animate-fade-in">
+            <EpicComponentSync
+              language={language}
+              credentials={credentials}
+              projectKey={projectKey}
+              config={config}
+              jiraConnected={jiraConnected}
             />
           </div>
         )}
