@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   RefinedIssue,
   JiraEpic,
@@ -8,9 +8,24 @@ import {
   JiraUser,
   JiraVersion,
   JiraSprint,
+  StoryLens,
 } from "@/lib/types";
+import {
+  isLensLabel,
+  isStoryLens,
+  LENS_OPTIONS,
+  lensDisplayLabel,
+} from "@/lib/lens";
+import {
+  fixVersionValidationError,
+  issueOwnsFixVersion,
+} from "@/lib/fix-version-policy";
+import { getSearchParam, useUrlQueryState } from "@/lib/url-state";
+import { useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 import { MarkdownPreview } from "@/components/MarkdownPreview";
 import SearchableSelect from "@/components/SearchableSelect";
+import { useAiSettings } from "@/components/providers/ai-settings-provider";
 import {
   Play,
   CheckCircle2,
@@ -76,74 +91,94 @@ interface RefinedListProps {
 
 const translations = {
   en: {
-    title: "Refined Board Workspace",
-    subtitle:
-      "Review, edit, and publish your generated Jira structures. You can create them individually or trigger a smart bulk publication.",
-    bulkCreate: "Bulk Publish Structure",
-    publishingAll: "Bulk publishing structure in progress...",
-    filterAll: "All Tickets",
-    filterEpics: "Epics Only",
-    filterStories: "Stories Only",
-    filterBugs: "Bugs Only",
-    emptyState:
-      "No refined tickets yet. Input your requirements in the left panel and click 'Refine with Gemini AI' to get started.",
-    issueType: "Issue Type",
+    title: "Refined board",
+    subtitle: "Edit and publish generated Jira tickets.",
+    bulkCreate: "Bulk publish",
+    publishingAll: "Publishing structure…",
+    filterAll: "All",
+    filterEpics: "Epics",
+    filterStories: "Stories",
+    filterBugs: "Bugs",
+    emptyState: "No tickets yet. Refine a draft in the left panel.",
+    issueType: "Type",
     epic: "Epic",
     story: "Story",
     bug: "Bug",
-    epicLink: "Linked to Epic Draft:",
-    noEpicLink: "No Epic Parent Link",
-    createInJira: "Publish Ticket",
-    creating: "Creating...",
-    published: "Published Successfully",
+    epicLink: "Epic draft:",
+    noEpicLink: "No epic link",
+    createInJira: "Publish",
+    creating: "Creating…",
+    published: "Published",
     labels: "Labels",
-    edit: "Edit details",
-    save: "Save changes",
+    edit: "Edit",
+    save: "Save",
     cancel: "Discard",
-    summary: "Ticket Summary / Title",
-    description: "Detailed Description (Markdown Supported)",
+    summary: "Summary",
+    description: "Description (Markdown)",
     addLabel: "Add tag",
-    existingEpics: "Or link to existing Jira Epic",
-    linkHelp:
-      "When bulk publishing, Epics are automatically created first. Then, stories are linked using the newly returned Epic keys.",
+    existingEpics: "Link existing Jira epic",
+    linkHelp: "Bulk publish creates epics first, then links stories.",
     errorOccurred: "Error:",
-    rePublish: "Retry Publishing",
-    noEpicsToLink: "No existing epics found. Connect to Jira to fetch.",
+    rePublish: "Retry",
+    noEpicsToLink: "No epics found. Connect Jira to fetch.",
+    loading: "Loading…",
+    loadingUsers: "Loading users…",
+    loadingVersions: "Loading versions…",
+    loadingSprints: "Loading sprints…",
+    refining: "Refining…",
+    lens: "Lens",
+    lensRequired: "Pick a Lens before publishing this Story.",
+    lensNone: "No lens",
+    changeLens: "Change Lens:",
+    releaseRequiredEpic: "Epic requires a Fix Version before publishing.",
+    releaseRequiredOrphan:
+      "Story/Bug without an Epic requires a Fix Version.",
+    releaseHintUnderEpic: "Release is on the Epic — not set on linked issues.",
   },
   fa: {
-    title: "محیط کار برد اصلاح شده",
-    subtitle:
-      "تیکت‌های سازماندهی شده را بازبینی، ویرایش و در جیرا منتشر کنید. می‌توانید تیکت‌ها را تکی منتشر کنید یا از انتشار هوشمند گروهی بهره ببرید.",
-    bulkCreate: "انتشار هوشمند گروهی",
-    publishingAll: "در حال انتشار خودکار و گام‌به‌گام ساختار تیکت‌ها...",
-    filterAll: "همه تیکت‌ها",
-    filterEpics: "فقط اپیک‌ها",
-    filterStories: "فقط استوری‌ها",
-    filterBugs: "فقط باگ‌ها",
-    emptyState:
-      "هنوز تیکتی تولید نشده است. در پنل سمت چپ پیش‌نویس‌ها را وارد کرده و دکمه ساختاربندی را بزنید.",
-    issueType: "نوع تیکت",
-    epic: "اپیک (Epic)",
-    story: "استوری (Story)",
-    bug: "باگ (Bug)",
-    epicLink: "متصل به درفت اپیک:",
-    noEpicLink: "بدون اتصال به اپیک والد",
-    createInJira: "انتشار تیکت",
-    creating: "در حال ساخت...",
-    published: "با موفقیت ساخته شد",
+    title: "برد اصلاح‌شده",
+    subtitle: "تیکت‌های تولیدشده را ویرایش و منتشر کنید.",
+    bulkCreate: "انتشار گروهی",
+    publishingAll: "در حال انتشار…",
+    filterAll: "همه",
+    filterEpics: "اپیک‌ها",
+    filterStories: "استوری‌ها",
+    filterBugs: "باگ‌ها",
+    emptyState: "تیکتی نیست. در پنل چپ پیش‌نویس را اصلاح کنید.",
+    issueType: "نوع",
+    epic: "اپیک",
+    story: "استوری",
+    bug: "باگ",
+    epicLink: "درفت اپیک:",
+    noEpicLink: "بدون لینک اپیک",
+    createInJira: "انتشار",
+    creating: "در حال ساخت…",
+    published: "منتشر شد",
     labels: "برچسب‌ها",
-    edit: "ویرایش جزییات",
-    save: "ذخیره تغییرات",
+    edit: "ویرایش",
+    save: "ذخیره",
     cancel: "انصراف",
-    summary: "عنوان / خلاصه تیکت",
-    description: "توضیحات کامل (با پشتیبانی از مارک‌داون)",
+    summary: "عنوان",
+    description: "توضیحات (مارک‌داون)",
     addLabel: "افزودن برچسب",
-    existingEpics: "یا اتصال به اپیک موجود در جیرا",
-    linkHelp:
-      "در زمان انتشار گروهی، ابتدا اپیک‌ها ساخته می‌شوند. سپس استوری‌ها به طور خودکار به کلیدهای واقعی دریافتی متصل می‌گردند.",
-    errorOccurred: "خطا در جیرا:",
+    existingEpics: "لینک به اپیک موجود",
+    linkHelp: "در انتشار گروهی اول اپیک‌ها ساخته می‌شوند، بعد استوری‌ها لینک می‌شوند.",
+    errorOccurred: "خطا:",
     rePublish: "تلاش مجدد",
-    noEpicsToLink: "اپیک موجودی در پروژه پیدا نشد. به جیرا متصل شوید.",
+    noEpicsToLink: "اپیکی نیست. برای دریافت به جیرا وصل شوید.",
+    loading: "در حال بارگذاری…",
+    loadingUsers: "بارگذاری کاربران…",
+    loadingVersions: "بارگذاری نسخه‌ها…",
+    loadingSprints: "بارگذاری اسپرینت‌ها…",
+    refining: "در حال اصلاح…",
+    lens: "لنز",
+    lensRequired: "قبل از انتشار استوری، لنز را انتخاب کنید.",
+    lensNone: "بدون لنز",
+    changeLens: "تغییر لنز:",
+    releaseRequiredEpic: "قبل از انتشار، اپیک باید ریلیز (Fix Version) داشته باشد.",
+    releaseRequiredOrphan:
+      "استوری/باگ بدون اپیک باید ریلیز داشته باشد.",
+    releaseHintUnderEpic: "ریلیز روی اپیک است — روی ایشوی لینک‌شده تنظیم نمی‌شود.",
   },
 };
 
@@ -196,14 +231,41 @@ const getIssueTypeBadgeVariant = (
   return "secondary";
 };
 
-// Helper to track assignee assignment frequency in local storage
+// Helper to track assignee assignment frequency in server kv + memory cache
+let assigneeFrequencyCache: Record<string, number> = {};
+let assigneeFrequencyHydrated = false;
+
+async function hydrateAssigneeFrequency(): Promise<void> {
+  if (assigneeFrequencyHydrated) return;
+  try {
+    const res = await fetch("/api/kv/prefs/assignee_frequency");
+    if (res.ok) {
+      const data = await res.json();
+      if (data.value && typeof data.value === "object") {
+        assigneeFrequencyCache = data.value as Record<string, number>;
+      }
+    }
+  } catch (e) {
+    console.error("Failed to load assignee frequency", e);
+  } finally {
+    assigneeFrequencyHydrated = true;
+  }
+}
+
+const persistAssigneeFrequency = () => {
+  void fetch("/api/kv/prefs/assignee_frequency", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ value: assigneeFrequencyCache }),
+  }).catch((e) => console.error("Failed to persist assignee frequency", e));
+};
+
 const trackAssigneeUsage = (username: string) => {
   if (!username) return;
   try {
-    const stored = localStorage.getItem("jira_assignee_frequency");
-    const freq = stored ? JSON.parse(stored) : {};
-    freq[username] = (freq[username] || 0) + 1;
-    localStorage.setItem("jira_assignee_frequency", JSON.stringify(freq));
+    assigneeFrequencyCache[username] =
+      (assigneeFrequencyCache[username] || 0) + 1;
+    persistAssigneeFrequency();
   } catch (e) {
     console.error("Failed to track assignee frequency:", e);
   }
@@ -212,9 +274,7 @@ const trackAssigneeUsage = (username: string) => {
 // Helper to sort users: most frequently selected first
 const getSortedUsers = (users: JiraUser[]): JiraUser[] => {
   try {
-    const stored = localStorage.getItem("jira_assignee_frequency");
-    if (!stored) return users;
-    const freq = JSON.parse(stored);
+    const freq = assigneeFrequencyCache;
     return [...users].sort((a, b) => {
       const freqA = freq[a.name] || 0;
       const freqB = freq[b.name] || 0;
@@ -250,10 +310,26 @@ export default function RefinedList({
 }: RefinedListProps) {
   const t = translations[language];
   const isRtl = language === "fa";
+  const { aiProvider, selectedModel } = useAiSettings();
+  const searchParams = useSearchParams();
+  const [, setFreqTick] = useState(0);
+
+  useEffect(() => {
+    void hydrateAssigneeFrequency().then(() => setFreqTick((n) => n + 1));
+  }, []);
 
   const [filter, setFilter] = useState<"all" | "epics" | "stories" | "bugs">(
-    "all"
+    () => {
+      const raw = getSearchParam(searchParams, "filter", "all");
+      return raw === "epics" || raw === "stories" || raw === "bugs"
+        ? raw
+        : "all";
+    }
   );
+
+  useUrlQueryState({
+    filter: filter === "all" ? null : filter,
+  });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{
     summary: string;
@@ -264,6 +340,7 @@ export default function RefinedList({
     selectedSprint?: string;
     selectedRelease?: string;
     selectedPriority?: string;
+    selectedLens?: StoryLens | "";
     issuetype: "Epic" | "Story" | "Bug";
   }>({
     summary: "",
@@ -274,6 +351,7 @@ export default function RefinedList({
     selectedSprint: "",
     selectedRelease: "",
     selectedPriority: "",
+    selectedLens: "",
     issuetype: "Story",
   });
   const [newLabel, setNewLabel] = useState("");
@@ -324,6 +402,9 @@ export default function RefinedList({
         if (bulkEpicKey !== "") {
           newIssue.selectedEpicKey =
             bulkEpicKey === "CLEAR_FIELD" ? undefined : bulkEpicKey;
+          if (bulkEpicKey !== "CLEAR_FIELD" && bulkEpicKey) {
+            newIssue.selectedRelease = undefined;
+          }
         }
         if (bulkPriority !== "") {
           newIssue.selectedPriority = bulkPriority;
@@ -341,8 +422,17 @@ export default function RefinedList({
             bulkAssignee === "CLEAR_FIELD" ? undefined : bulkAssignee;
         }
         if (bulkRelease !== "") {
-          newIssue.selectedRelease =
-            bulkRelease === "CLEAR_FIELD" ? undefined : bulkRelease;
+          const linked =
+            !!newIssue.selectedEpicKey ||
+            (!!newIssue.epicReference &&
+              issues.some(
+                (i) =>
+                  i.id === newIssue.epicReference && i.issuetype === "Epic"
+              ));
+          if (issueOwnsFixVersion(newIssue.issuetype, linked)) {
+            newIssue.selectedRelease =
+              bulkRelease === "CLEAR_FIELD" ? undefined : bulkRelease;
+          }
         }
 
         return newIssue;
@@ -367,17 +457,19 @@ export default function RefinedList({
     setIsAIProcessing(true);
     setAiError(null);
     try {
-      const savedDraft = localStorage.getItem("jira_last_draft_text") || "";
-      const aiProvider =
-        (localStorage.getItem("jira_ai_provider") as any) || "gemini";
-      const selectedModel =
-        localStorage.getItem("jira_ai_model") ||
-        localStorage.getItem("jira_last_selected_model") ||
-        (aiProvider === "avalai"
-          ? "gpt-4o-mini"
-          : aiProvider === "arvan"
-            ? "Gemini-3-Flash-Preview"
-            : "gemini-3.5-flash");
+      let savedDraft = "";
+      try {
+        const draftRes = await fetch("/api/kv/workspace/last_draft");
+        if (draftRes.ok) {
+          const data = await draftRes.json();
+          savedDraft =
+            typeof data?.value === "string"
+              ? data.value
+              : data?.value?.text || "";
+        }
+      } catch {
+        // ignore
+      }
 
       const response = await fetch("/api/refine-single", {
         method: "POST",
@@ -439,6 +531,11 @@ export default function RefinedList({
       });
       const data = await response.json();
       if (response.ok && data.success && data.issue) {
+        const loadedLabels: string[] = Array.isArray(data.issue.labels)
+          ? data.issue.labels.filter(
+              (l: string) => typeof l === "string" && !isLensLabel(l)
+            )
+          : [];
         const newIssue: RefinedIssue = {
           id: `loaded-${Date.now()}`,
           summary: data.issue.summary,
@@ -446,10 +543,13 @@ export default function RefinedList({
           issuetype: data.issue.issuetype as "Epic" | "Story" | "Bug",
           status: "draft", // Load as draft so they can edit or review
           createdKey: data.issue.key, // Save key so we can update it
-          suggestedLabels: [],
+          suggestedLabels: loadedLabels,
           selectedPriority: data.issue.priority || "Medium",
           selectedComponent: data.issue.component || undefined,
           selectedAssignee: data.issue.assignee || undefined,
+          selectedLens: isStoryLens(data.issue.selectedLens)
+            ? data.issue.selectedLens
+            : undefined,
         };
         onIssuesChange([newIssue, ...issues]);
         setLoadJiraKey("");
@@ -476,23 +576,66 @@ export default function RefinedList({
     const index = updatedIssues.findIndex((i) => i.id === issueId);
     if (index === -1) return;
 
-    updatedIssues[index].status = "creating";
-    updatedIssues[index].error = undefined;
-    onIssuesChange([...updatedIssues]);
-
     const targetIssue = updatedIssues[index];
+
+    if (
+      targetIssue.issuetype === "Story" &&
+      !isStoryLens(targetIssue.selectedLens)
+    ) {
+      updatedIssues[index].status = "failed";
+      updatedIssues[index].error = t.lensRequired;
+      onIssuesChange([...updatedIssues]);
+      toast.error(t.lensRequired);
+      return { success: false, error: t.lensRequired };
+    }
 
     // Determine parent Epic Key
     let epicKey = targetIssue.selectedEpicKey;
+    let linkedToDraftEpic = false;
     if (!epicKey && targetIssue.epicReference) {
-      // Find if parent Epic was already created in this draft list
       const parentEpic = updatedIssues.find(
         (i) => i.id === targetIssue.epicReference && i.issuetype === "Epic"
       );
-      if (parentEpic && parentEpic.createdKey) {
+      if (parentEpic?.createdKey) {
         epicKey = parentEpic.createdKey;
+      } else if (parentEpic) {
+        linkedToDraftEpic = true;
       }
     }
+
+    if (linkedToDraftEpic) {
+      const msg =
+        language === "fa"
+          ? "اول اپیک را منتشر کنید، بعد استوری را."
+          : "Publish the Epic first, then this issue.";
+      updatedIssues[index].status = "failed";
+      updatedIssues[index].error = msg;
+      onIssuesChange([...updatedIssues]);
+      toast.error(msg);
+      return { success: false, error: msg };
+    }
+
+    const hasEpicLink = Boolean(epicKey);
+    const releaseForPublish = hasEpicLink
+      ? ""
+      : targetIssue.selectedRelease || "";
+    const fvError = fixVersionValidationError({
+      issuetype: targetIssue.issuetype,
+      hasEpicLink,
+      selectedRelease: releaseForPublish,
+      language,
+    });
+    if (fvError) {
+      updatedIssues[index].status = "failed";
+      updatedIssues[index].error = fvError;
+      onIssuesChange([...updatedIssues]);
+      toast.error(fvError);
+      return { success: false, error: fvError };
+    }
+
+    updatedIssues[index].status = "creating";
+    updatedIssues[index].error = undefined;
+    onIssuesChange([...updatedIssues]);
 
     const isUpdate = !!targetIssue.createdKey;
     const endpoint = isUpdate
@@ -514,8 +657,11 @@ export default function RefinedList({
             selectedComponent: targetIssue.selectedComponent,
             selectedAssignee: targetIssue.selectedAssignee,
             selectedSprint: targetIssue.selectedSprint,
-            selectedRelease: targetIssue.selectedRelease,
+            selectedRelease: hasEpicLink
+              ? ""
+              : targetIssue.selectedRelease,
             selectedPriority: targetIssue.selectedPriority,
+            selectedLens: targetIssue.selectedLens,
           },
         }),
       });
@@ -603,6 +749,7 @@ export default function RefinedList({
       selectedSprint: issue.selectedSprint || "",
       selectedRelease: issue.selectedRelease || "",
       selectedPriority: issue.selectedPriority || "Medium",
+      selectedLens: issue.selectedLens || "",
       issuetype: issue.issuetype,
     });
     setNewLabel("");
@@ -614,6 +761,13 @@ export default function RefinedList({
     }
     const updated = issues.map((issue) => {
       if (issue.id === id) {
+        const parentEpic = issue.epicReference
+          ? issues.find(
+              (i) => i.id === issue.epicReference && i.issuetype === "Epic"
+            )
+          : undefined;
+        const linked = Boolean(issue.selectedEpicKey || parentEpic);
+        const ownsRelease = issueOwnsFixVersion(editForm.issuetype, linked);
         return {
           ...issue,
           summary: editForm.summary,
@@ -623,8 +777,14 @@ export default function RefinedList({
           selectedComponent: editForm.selectedComponent || undefined,
           selectedAssignee: editForm.selectedAssignee || undefined,
           selectedSprint: editForm.selectedSprint || undefined,
-          selectedRelease: editForm.selectedRelease || undefined,
+          selectedRelease: ownsRelease
+            ? editForm.selectedRelease || undefined
+            : undefined,
           selectedPriority: editForm.selectedPriority || undefined,
+          selectedLens:
+            editForm.issuetype === "Story" && isStoryLens(editForm.selectedLens)
+              ? editForm.selectedLens
+              : undefined,
         };
       }
       return issue;
@@ -636,6 +796,15 @@ export default function RefinedList({
   const handleAddLabel = () => {
     if (!newLabel.trim()) return;
     const cleanLabel = newLabel.trim().replace(/\s+/g, "_");
+    if (isLensLabel(cleanLabel)) {
+      toast.error(
+        isRtl
+          ? "لنز را از فیلد Lens انتخاب کنید، نه برچسب."
+          : "Use the Lens field, not a free label."
+      );
+      setNewLabel("");
+      return;
+    }
     if (!editForm.suggestedLabels.includes(cleanLabel)) {
       setEditForm({
         ...editForm,
@@ -655,7 +824,11 @@ export default function RefinedList({
   const handleEpicLinkOverride = (issueId: string, epicKey: string) => {
     const updated = issues.map((issue) => {
       if (issue.id === issueId) {
-        return { ...issue, selectedEpicKey: epicKey || undefined };
+        return {
+          ...issue,
+          selectedEpicKey: epicKey || undefined,
+          selectedRelease: epicKey ? undefined : issue.selectedRelease,
+        };
       }
       return issue;
     });
@@ -719,7 +892,7 @@ export default function RefinedList({
                     setShowLoadPanel(!showLoadPanel);
                     setLoadError(null);
                   }}
-                  title={
+                  aria-label={
                     isRtl
                       ? "بارگذاری تیکت موجود با شناسه"
                       : "Load existing ticket by ID"
@@ -798,7 +971,7 @@ export default function RefinedList({
                     {loadingJiraIssue ? (
                       <>
                         <Spinner data-icon="inline-start" />
-                        {isRtl ? "در حال دریافت..." : "Loading..."}
+                        {t.loading}
                       </>
                     ) : (
                       <>{isRtl ? "بارگذاری و شروع بازبینی" : "Load & Review"}</>
@@ -821,12 +994,12 @@ export default function RefinedList({
               <Alert>
                 <AlertCircle />
                 <AlertTitle>
-                  {isRtl ? "اتصال به جیرا لازم است" : "Jira connection required"}
+                  {isRtl ? "اتصال جیرا لازم است" : "Jira connection required"}
                 </AlertTitle>
                 <AlertDescription>
                   {isRtl
-                    ? "برای ساخت خودکار تیکت‌ها در جیرا، متغیرهای JIRA_* را در env سرور تنظیم کنید و صفحه Healthcheck را بررسی کنید."
-                    : "To publish these tickets to Jira, configure JIRA_* env vars on the server and verify the Healthcheck page."}
+                    ? "متغیرهای JIRA_* را تنظیم کنید و صفحه Health را باز کنید."
+                    : "Set JIRA_* env vars, then open Health."}
                 </AlertDescription>
               </Alert>
             )}
@@ -948,7 +1121,7 @@ export default function RefinedList({
                             size="icon-sm"
                             disabled={fetchingEpics}
                             onClick={onFetchEpics}
-                            title={isRtl ? "بارگذاری اپیک‌ها" : "Fetch Epics"}
+                            aria-label={isRtl ? "بارگذاری اپیک‌ها" : "Fetch Epics"}
                           >
                             {fetchingEpics ? (
                               <Spinner />
@@ -1073,7 +1246,7 @@ export default function RefinedList({
                               size="icon-sm"
                               disabled={fetchingSprints}
                               onClick={onFetchSprints}
-                              title={
+                              aria-label={
                                 isRtl ? "بارگذاری اسپرینت‌ها" : "Fetch Sprints"
                               }
                             >
@@ -1130,7 +1303,7 @@ export default function RefinedList({
                               size="icon-sm"
                               disabled={fetchingUsers}
                               onClick={onFetchUsers}
-                              title={
+                              aria-label={
                                 isRtl ? "بارگذاری کاربران" : "Fetch Users"
                               }
                             >
@@ -1183,7 +1356,7 @@ export default function RefinedList({
                               size="icon-sm"
                               disabled={fetchingVersions}
                               onClick={onFetchVersions}
-                              title={
+                              aria-label={
                                 isRtl ? "بارگذاری ریلیزها" : "Fetch Releases"
                               }
                             >
@@ -1228,12 +1401,20 @@ export default function RefinedList({
             );
           }
 
+          const hasEpicLink = Boolean(
+            issue.selectedEpicKey || parentEpicDraft
+          );
+          const showRelease = issueOwnsFixVersion(
+            issue.issuetype,
+            hasEpicLink
+          );
+
           return (
             <Card
               key={issue.id}
               id={`issue-card-${issue.id}`}
               className={cn(
-                "transition-all duration-200",
+                "cv-auto transition-[color,background-color,border-color,box-shadow,opacity] duration-200",
                 issue.status === "success" && "ring-success/40",
                 issue.status === "failed" && "ring-destructive/40",
                 isEpic &&
@@ -1281,6 +1462,12 @@ export default function RefinedList({
                         "Medium"}
                     </Badge>
 
+                    {issue.issuetype === "Story" && issue.selectedLens && (
+                      <Badge variant="outline">
+                        {lensDisplayLabel(issue.selectedLens, language)}
+                      </Badge>
+                    )}
+
                     {issue.status === "success" && issue.createdKey && (
                       <Badge variant="success" className="font-mono">
                         <CheckCircle2 data-icon="inline-start" />
@@ -1313,7 +1500,7 @@ export default function RefinedList({
                             setAiError(null);
                           }
                         }}
-                        title={
+                        aria-label={
                           isRtl ? "بازبینی با هوش مصنوعی" : "Review with AI"
                         }
                       >
@@ -1330,7 +1517,7 @@ export default function RefinedList({
                         size="sm"
                         variant="ghost"
                         onClick={() => handleEditClick(issue)}
-                        title={t.edit}
+                        aria-label={t.edit}
                       >
                         <Edit2 data-icon="inline-start" />
                         <span className="hidden sm:inline">{t.edit}</span>
@@ -1412,11 +1599,37 @@ export default function RefinedList({
                           setEditForm({
                             ...editForm,
                             issuetype: val as "Epic" | "Story" | "Bug",
+                            selectedLens:
+                              val === "Story" ? editForm.selectedLens : "",
                           })
                         }
                         isRtl={isRtl}
                       />
                     </Field>
+
+                    {editForm.issuetype === "Story" && (
+                      <Field>
+                        <FieldLabel>{t.lens}</FieldLabel>
+                        <SearchableSelect
+                          options={[
+                            { value: "", label: t.lensNone },
+                            ...LENS_OPTIONS.map((o) => ({
+                              value: o.value,
+                              label: language === "fa" ? o.labelFa : o.labelEn,
+                              sublabel: o.jiraLabel,
+                            })),
+                          ]}
+                          value={editForm.selectedLens || ""}
+                          onChange={(val) =>
+                            setEditForm({
+                              ...editForm,
+                              selectedLens: (val || "") as StoryLens | "",
+                            })
+                          }
+                          isRtl={isRtl}
+                        />
+                      </Field>
+                    )}
 
                     <Field>
                       <FieldLabel htmlFor={`description-${issue.id}`}>
@@ -1499,9 +1712,7 @@ export default function RefinedList({
                           <div className="flex items-center gap-1.5 py-2">
                             <Spinner />
                             <span className="text-xs text-muted-foreground">
-                              {isRtl
-                                ? "در حال بارگذاری کاربران..."
-                                : "Loading Users..."}
+                              {t.loadingUsers}
                             </span>
                           </div>
                         ) : (
@@ -1514,16 +1725,7 @@ export default function RefinedList({
                                   : "Unassigned",
                               },
                               ...getSortedUsers(availableUsers).map((user) => {
-                                const storedFreq = (() => {
-                                  try {
-                                    const stored = localStorage.getItem(
-                                      "jira_assignee_frequency"
-                                    );
-                                    return stored ? JSON.parse(stored) : {};
-                                  } catch {
-                                    return {};
-                                  }
-                                })();
+                                const storedFreq = assigneeFrequencyCache;
                                 const freqVal = storedFreq[user.name] || 0;
                                 return {
                                   value: user.name,
@@ -1550,7 +1752,7 @@ export default function RefinedList({
                       </Field>
                     )}
 
-                    {jiraConnected && isEpic && (
+                    {jiraConnected && showRelease && (
                       <Field>
                         <FieldLabel>
                           {isRtl
@@ -1561,9 +1763,7 @@ export default function RefinedList({
                           <div className="flex items-center gap-1.5 py-2">
                             <Spinner />
                             <span className="text-xs text-muted-foreground">
-                              {isRtl
-                                ? "در حال بارگذاری نسخه‌ها..."
-                                : "Loading Versions..."}
+                              {t.loadingVersions}
                             </span>
                           </div>
                         ) : (
@@ -1603,7 +1803,7 @@ export default function RefinedList({
                                 size="icon-sm"
                                 disabled={fetchingVersions}
                                 onClick={onFetchVersions}
-                                title={
+                                aria-label={
                                   isRtl
                                     ? "دریافت مجدد نسخه‌ها"
                                     : "Reload Versions"
@@ -1621,6 +1821,12 @@ export default function RefinedList({
                       </Field>
                     )}
 
+                    {jiraConnected && !showRelease && !isEpic && (
+                      <p className="text-xs text-muted-foreground">
+                        {t.releaseHintUnderEpic}
+                      </p>
+                    )}
+
                     {jiraConnected && !isEpic && (
                       <Field>
                         <FieldLabel>
@@ -1630,9 +1836,7 @@ export default function RefinedList({
                           <div className="flex items-center gap-1.5 py-2">
                             <Spinner />
                             <span className="text-xs text-muted-foreground">
-                              {isRtl
-                                ? "در حال بارگذاری اسپرینت‌ها..."
-                                : "Loading Sprints..."}
+                              {t.loadingSprints}
                             </span>
                           </div>
                         ) : (
@@ -1670,7 +1874,7 @@ export default function RefinedList({
                                 size="icon-sm"
                                 disabled={fetchingSprints}
                                 onClick={onFetchSprints}
-                                title={
+                                aria-label={
                                   isRtl
                                     ? "دریافت مجدد اسپرینت‌ها"
                                     : "Reload Sprints"
@@ -1794,7 +1998,7 @@ export default function RefinedList({
                                 size="icon-xs"
                                 disabled={fetchingEpics}
                                 onClick={onFetchEpics}
-                                title={
+                                aria-label={
                                   isRtl
                                     ? "بارگذاری اپیک‌های موجود جیرا"
                                     : "Fetch existing Epics from Jira"
@@ -1803,6 +2007,62 @@ export default function RefinedList({
                                 {fetchingEpics ? <Spinner /> : <RefreshCw />}
                               </Button>
                             )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {issue.issuetype === "Story" && (
+                      <div className="flex flex-col justify-between gap-3 rounded-lg border bg-muted/40 p-3 text-xs sm:flex-row sm:items-center">
+                        <div className="flex items-center gap-1.5 font-medium text-muted-foreground">
+                          <span className="inline-block size-2 rounded-full bg-primary" />
+                          <span>
+                            {t.lens}:{" "}
+                            {issue.selectedLens ? (
+                              <Badge variant="outline">
+                                {lensDisplayLabel(issue.selectedLens, language)}
+                              </Badge>
+                            ) : (
+                              <span className="font-normal italic text-muted-foreground">
+                                {t.lensNone}
+                              </span>
+                            )}
+                          </span>
+                        </div>
+
+                        {issue.status !== "success" && (
+                          <div className="flex min-w-[160px] items-center gap-1.5">
+                            <span className="whitespace-nowrap text-[10px] font-semibold text-muted-foreground">
+                              {t.changeLens}
+                            </span>
+                            <div className="flex-1">
+                              <SearchableSelect
+                                options={[
+                                  { value: "", label: t.lensNone },
+                                  ...LENS_OPTIONS.map((o) => ({
+                                    value: o.value,
+                                    label:
+                                      language === "fa" ? o.labelFa : o.labelEn,
+                                    sublabel: o.jiraLabel,
+                                  })),
+                                ]}
+                                value={issue.selectedLens || ""}
+                                onChange={(val) => {
+                                  const updated = issues.map((iss) =>
+                                    iss.id === issue.id
+                                      ? {
+                                          ...iss,
+                                          selectedLens: isStoryLens(val)
+                                            ? val
+                                            : undefined,
+                                        }
+                                      : iss
+                                  );
+                                  onIssuesChange(updated);
+                                }}
+                                isRtl={isRtl}
+                              />
+                            </div>
                           </div>
                         )}
                       </div>
@@ -1924,7 +2184,7 @@ export default function RefinedList({
                       </div>
                     )}
 
-                    {jiraConnected && isEpic && (
+                    {jiraConnected && showRelease && (
                       <div className="flex flex-col justify-between gap-3 rounded-lg border bg-muted/40 p-3 text-xs sm:flex-row sm:items-center">
                         <div className="flex items-center gap-1.5 font-medium text-muted-foreground">
                           <span className="inline-block size-2 rounded-full bg-success" />
@@ -1993,7 +2253,7 @@ export default function RefinedList({
                                 size="icon-xs"
                                 disabled={fetchingVersions}
                                 onClick={onFetchVersions}
-                                title={
+                                aria-label={
                                   isRtl ? "بارگذاری ریلیزها" : "Fetch Releases"
                                 }
                               >
@@ -2007,6 +2267,12 @@ export default function RefinedList({
                           </div>
                         )}
                       </div>
+                    )}
+
+                    {jiraConnected && !showRelease && !isEpic && (
+                      <p className="text-xs text-muted-foreground">
+                        {t.releaseHintUnderEpic}
+                      </p>
                     )}
 
                     {jiraConnected && !isEpic && (
@@ -2076,7 +2342,7 @@ export default function RefinedList({
                                 size="icon-xs"
                                 disabled={fetchingSprints}
                                 onClick={onFetchSprints}
-                                title={
+                                aria-label={
                                   isRtl
                                     ? "بارگذاری اسپرینت‌ها"
                                     : "Fetch Sprints"
@@ -2133,18 +2399,7 @@ export default function RefinedList({
                                     },
                                     ...getSortedUsers(availableUsers).map(
                                       (user) => {
-                                        const storedFreq = (() => {
-                                          try {
-                                            const stored = localStorage.getItem(
-                                              "jira_assignee_frequency"
-                                            );
-                                            return stored
-                                              ? JSON.parse(stored)
-                                              : {};
-                                          } catch {
-                                            return {};
-                                          }
-                                        })();
+                                        const storedFreq = assigneeFrequencyCache;
                                         const freqVal =
                                           storedFreq[user.name] || 0;
                                         return {
@@ -2184,7 +2439,7 @@ export default function RefinedList({
                                 size="icon-xs"
                                 disabled={fetchingUsers}
                                 onClick={onFetchUsers}
-                                title={
+                                aria-label={
                                   isRtl ? "بارگذاری کاربران" : "Fetch Users"
                                 }
                               >
@@ -2208,8 +2463,8 @@ export default function RefinedList({
                         </div>
                         <p className="text-[11px] leading-relaxed text-muted-foreground">
                           {isRtl
-                            ? "دستورالعمل یا پرامپت اصلاحی خود را بنویسید (مثلاً: بخش فرضیات را اضافه کن، یا لحن متن را رسمی‌تر کن)"
-                            : "Provide custom refinement instructions (e.g. 'Add assumptions section', or 'Make the tone more professional')"}
+                            ? "دستور اصلاح را بنویسید."
+                            : "Write a refinement instruction."}
                         </p>
                         <Textarea
                           rows={3}
@@ -2217,8 +2472,8 @@ export default function RefinedList({
                           onChange={(e) => setReRefinePrompt(e.target.value)}
                           placeholder={
                             isRtl
-                              ? "مثال: سناریوی خطا (Error flow) را به سناریوها اضافه کن..."
-                              : "e.g. Include error handling scenarios in the description..."
+                              ? "مثال: سناریوی خطا را اضافه کن…"
+                              : "e.g. Add error-handling scenarios…"
                           }
                           disabled={isAIProcessing}
                         />
@@ -2258,13 +2513,7 @@ export default function RefinedList({
                               ) : (
                                 <Sparkles data-icon="inline-start" />
                               )}
-                              {isAIProcessing
-                                ? isRtl
-                                  ? "در حال اصلاح..."
-                                  : "Refining..."
-                                : isRtl
-                                  ? "اعمال و اصلاح"
-                                  : "Apply & Refine"}
+                              {isAIProcessing ? t.refining : isRtl ? "اعمال" : "Apply"}
                             </Button>
                           </div>
                         </div>

@@ -8,8 +8,13 @@ import {
   refineIssuesResponseSchema,
   refineSingleResponseSchema,
 } from "@/lib/gemini";
+import {
+  getResolvedAiConfig,
+  getResolvedDefaultProvider,
+  type AIProvider,
+} from "@/lib/db/repos/ai";
 
-export type AIProvider = "gemini" | "avalai" | "arvan";
+export type { AIProvider };
 export type AIResponseKind =
   | "refineIssues"
   | "refineSingle"
@@ -22,33 +27,15 @@ function isAIProvider(value?: string): value is AIProvider {
 
 function normalizeProvider(provider?: string): AIProvider {
   if (isAIProvider(provider)) return provider;
-  const env = process.env.AI_PROVIDER;
-  if (isAIProvider(env)) return env;
-  return "gemini";
-}
-
-function getAvalaiApiKey(): string {
-  return process.env.AVALAI_API_KEY || process.env.OPENAI_API_KEY || "";
+  return getResolvedDefaultProvider();
 }
 
 function getAvalaiDefaultModel(): string {
-  return (
-    process.env.AVALAI_DEFAULT_MODEL ||
-    process.env.OPENAI_DEFAULT_MODEL ||
-    "gpt-4o-mini"
-  );
-}
-
-function getArvanApiKey(): string {
-  return process.env.ARVAN_API_KEY || "";
+  return getResolvedAiConfig("avalai").defaultModel;
 }
 
 function getArvanBaseURL(): string {
-  const raw =
-    process.env.ARVAN_BASE_URL ||
-    process.env.ARVAN_GATEWAY_URL ||
-    "";
-  return raw.replace(/\/+$/, "");
+  return getResolvedAiConfig("arvan").baseUrl;
 }
 
 /** Extract model slug from Arvan gateway URLs like .../gateway/models/{Model}/.../v1 */
@@ -63,9 +50,9 @@ function extractArvanModelFromBaseURL(baseURL: string): string | null {
 }
 
 function getArvanDefaultModel(): string {
-  const fromEnv = process.env.ARVAN_DEFAULT_MODEL?.trim();
-  if (fromEnv) return fromEnv;
-  const fromUrl = extractArvanModelFromBaseURL(getArvanBaseURL());
+  const resolved = getResolvedAiConfig("arvan");
+  if (resolved.defaultModel) return resolved.defaultModel;
+  const fromUrl = extractArvanModelFromBaseURL(resolved.baseUrl);
   if (fromUrl) return fromUrl;
   return "Gemini-3-Flash-Preview";
 }
@@ -237,7 +224,8 @@ async function generateWithGemini(params: {
   userPrompt: string;
   temperature: number;
 }): Promise<any> {
-  const ai = getGeminiClient();
+  const resolved = getResolvedAiConfig("gemini");
+  const ai = getGeminiClient(resolved.apiKey || undefined);
   const responseSchema =
     params.kind === "refineIssues"
       ? refineIssuesResponseSchema
@@ -273,31 +261,26 @@ async function generateWithOpenAICompatible(params: {
   userPrompt: string;
   temperature: number;
 }): Promise<any> {
-  let apiKey = "";
-  let baseURL = "";
-  let providerLabel = "";
+  const resolved = getResolvedAiConfig(params.provider);
+  const apiKey = resolved.apiKey;
+  const baseURL = resolved.baseUrl;
+  const providerLabel = params.provider === "avalai" ? "AvalAI" : "Arvan AIaaS";
 
   if (params.provider === "avalai") {
-    apiKey = getAvalaiApiKey();
-    baseURL = "https://api.avalai.ir/v1";
-    providerLabel = "AvalAI";
     if (!apiKey) {
       throw new Error(
-        "AVALAI_API_KEY is not defined. Add it to environment variables."
+        "AVALAI_API_KEY is not defined. Add it in Settings or environment variables."
       );
     }
   } else {
-    apiKey = getArvanApiKey();
-    baseURL = getArvanBaseURL();
-    providerLabel = "Arvan AIaaS";
     if (!apiKey) {
       throw new Error(
-        "ARVAN_API_KEY is not defined. Add it to environment variables."
+        "ARVAN_API_KEY is not defined. Add it in Settings or environment variables."
       );
     }
     if (!baseURL) {
       throw new Error(
-        "ARVAN_BASE_URL is not defined. Set your Arvan Gateway URL from the AIaaS panel."
+        "ARVAN_BASE_URL is not defined. Set your Arvan Gateway URL in Settings or environment."
       );
     }
   }

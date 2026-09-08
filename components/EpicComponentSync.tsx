@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { Language, EpicAuditItem } from "@/lib/types";
+import { getSearchParam, useUrlQueryState } from "@/lib/url-state";
+import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import {
   Layers,
@@ -59,70 +61,62 @@ interface EpicComponentSyncProps {
 
 const syncTranslations = {
   en: {
-    title: "Epic Component Sync & Audit",
-    subtitle:
-      "Locate Epics that have components assigned, but whose connected Stories, Bugs, or Tasks are missing those components. Review and apply Epic components with 1-click confirmation.",
-    connectFirst:
-      "Configure JIRA_* environment variables on the server, then open Healthcheck.",
-    refreshBtn: "Refresh Data",
-    loadingEpics: "Searching Epics and connected issues...",
-    onlyMissingToggle: "Show only issues missing components",
+    title: "Epic component sync",
+    subtitle: "Find child issues missing the epic’s components, then apply.",
+    connectFirst: "Set JIRA_* on the server, then open Health.",
+    refreshBtn: "Refresh",
+    loadingEpics: "Loading epics…",
+    onlyMissingToggle: "Only missing components",
     showAllToggle: "Show all connected issues",
-    epicComponentLabel: "Epic Components:",
-    noEpicsFound:
-      "No Epics with components found in this project for the current filter.",
+    epicComponentLabel: "Epic components:",
+    noEpicsFound: "No epics with components for this filter.",
     pageLabel: "Page",
     ofLabel: "of",
-    epicsTotal: "Total Epics:",
+    epicsTotal: "Total epics:",
     selectedCount: "Selected",
     issuesSelected: "issue(s)",
-    applyBtn: "Apply Epic Components to Selected Issues",
-    confirmModalTitle: "Confirm Component Update",
-    confirmModalDesc:
-      "You are about to update the following Jira issues to inherit their parent Epic's components. Are you sure?",
-    confirmBtn: "Yes, Confirm & Update in Jira",
+    applyBtn: "Apply to selected",
+    confirmModalTitle: "Confirm update",
+    confirmModalDesc: "Selected issues will inherit their parent epic’s components.",
+    confirmBtn: "Update in Jira",
     cancelBtn: "Cancel",
-    updatingProgress: "Updating issues on Jira...",
-    updateSuccess: "Successfully updated components on Jira!",
-    noIssuesInEpic: "No child issues found under this Epic.",
-    allHaveComponents:
-      "All connected issues under this Epic already have components assigned.",
+    updatingProgress: "Updating issues…",
+    updateSuccess: "Components updated.",
+    noIssuesInEpic: "No child issues under this epic.",
+    allHaveComponents: "All connected issues already have components.",
     currentComponents: "Current:",
-    missingToAdd: "Will Add:",
-    noComponentBadge: "No Component",
-    selectAllEpic: "Select All in this Epic",
+    missingToAdd: "Will add:",
+    noComponentBadge: "No component",
+    selectAllEpic: "Select all in epic",
   },
   fa: {
-    title: "همگام‌سازی و اعمال کامپوننت‌های اپیک",
-    subtitle:
-      "شناسایی اپیک‌هایی که دارای کامپوننت هستند اما استوری‌ها، باگ‌ها یا تسک‌های متصل به آن‌ها کامپوننت ندارند. مشاهده صفحه به صفحه (۱۰تایی) و اعمال کامپوننت با تایید شما.",
-    connectFirst:
-      "متغیرهای JIRA_* را در env سرور تنظیم کنید و صفحه Healthcheck را بررسی کنید.",
-    refreshBtn: "به‌روزرسانی داده‌ها",
-    loadingEpics: "در حال جستجوی اپیک‌ها و تیکت‌های متصل...",
-    onlyMissingToggle: "فقط نمایش تیکت‌های بدون کامپوننت",
-    showAllToggle: "نمایش تمام تیکت‌های متصل",
+    title: "همگام‌سازی کامپوننت اپیک",
+    subtitle: "تیکت‌های بدون کامپوننت اپیک را پیدا و اعمال کنید.",
+    connectFirst: "متغیرهای JIRA_* را تنظیم کنید، سپس Health را باز کنید.",
+    refreshBtn: "بروزرسانی",
+    loadingEpics: "بارگذاری اپیک‌ها…",
+    onlyMissingToggle: "فقط بدون کامپوننت",
+    showAllToggle: "همه تیکت‌های متصل",
     epicComponentLabel: "کامپوننت‌های اپیک:",
-    noEpicsFound: "هیچ اپیکِ دارای کامپوننتی برای فیلتر جاری یافت نشد.",
+    noEpicsFound: "اپیک دارای کامپوننتی برای این فیلتر نیست.",
     pageLabel: "صفحه",
     ofLabel: "از",
     epicsTotal: "کل اپیک‌ها:",
-    selectedCount: "تعداد انتخاب شده:",
+    selectedCount: "انتخاب‌شده",
     issuesSelected: "تیکت",
-    applyBtn: "اعمال کامپوننت‌های اپیک روی تیکت‌های انتخاب‌شده",
-    confirmModalTitle: "تایید به روزرسانی کامپوننت‌ها در جیرا",
-    confirmModalDesc:
-      "شما در حال اعمال کامپوننت‌های اپیک مادر بر روی تیکت‌های زیر در جیرا هستید. آیا تایید می‌کنید؟",
-    confirmBtn: "تایید و ثبت نهایی در جیرا",
+    applyBtn: "اعمال روی انتخاب‌شده‌ها",
+    confirmModalTitle: "تایید به‌روزرسانی",
+    confirmModalDesc: "تیکت‌های انتخاب‌شده کامپوننت اپیک والد را می‌گیرند.",
+    confirmBtn: "به‌روزرسانی در جیرا",
     cancelBtn: "انصراف",
-    updatingProgress: "در حال به روزرسانی تیکت‌ها در سرور جیرا...",
-    updateSuccess: "کامپوننت‌های تیکت‌ها با موفقیت در جیرا به روزرسانی شدند!",
-    noIssuesInEpic: "هیچ تیکت فرعی متصلی زیر این اپیک یافت نشد.",
-    allHaveComponents: "تمام تیکت‌های متصل به این اپیک دارای کامپوننت هستند.",
+    updatingProgress: "در حال به‌روزرسانی…",
+    updateSuccess: "کامپوننت‌ها به‌روز شد.",
+    noIssuesInEpic: "تیکت فرعی زیر این اپیک نیست.",
+    allHaveComponents: "همه تیکت‌های متصل کامپوننت دارند.",
     currentComponents: "فعلی:",
     missingToAdd: "افزودن:",
     noComponentBadge: "بدون کامپوننت",
-    selectAllEpic: "انتخاب همه تیکت‌های این اپیک",
+    selectAllEpic: "انتخاب همه در اپیک",
   },
 };
 
@@ -145,10 +139,21 @@ export default function EpicComponentSync({
   const [loading, setLoading] = useState(false);
   const [epics, setEpics] = useState<EpicAuditItem[]>([]);
   const [totalEpics, setTotalEpics] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
+  const searchParams = useSearchParams();
+  const [currentPage, setCurrentPage] = useState(() => {
+    const n = Number(getSearchParam(searchParams, "page", "1"));
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : 1;
+  });
   const pageSize = 10;
 
-  const [onlyMissing, setOnlyMissing] = useState(true);
+  const [onlyMissing, setOnlyMissing] = useState(
+    searchParams.get("missing") !== "0"
+  );
+
+  useUrlQueryState({
+    page: currentPage <= 1 ? null : String(currentPage),
+    missing: onlyMissing ? null : "0",
+  });
   const [selectedIssueKeys, setSelectedIssueKeys] = useState<string[]>([]);
 
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -267,11 +272,7 @@ export default function EpicComponentSync({
     if (payload.length === 0) return;
 
     setUpdating(true);
-    setUpdateProgress(
-      isRtl
-        ? "در حال ارسال اطلاعات به جیرا..."
-        : "Sending updates to Jira..."
-    );
+    setUpdateProgress(isRtl ? "در حال ارسال…" : "Sending…");
     setErrorMsg(null);
 
     try {
@@ -387,7 +388,7 @@ export default function EpicComponentSync({
               variant="ghost"
               size="icon-xs"
               onClick={() => setToastSuccess(null)}
-              aria-label="Dismiss"
+              aria-label={isRtl ? "بستن" : "Dismiss"}
             >
               ×
             </Button>
@@ -405,7 +406,7 @@ export default function EpicComponentSync({
               variant="ghost"
               size="icon-xs"
               onClick={() => setErrorMsg(null)}
-              aria-label="Dismiss"
+              aria-label={isRtl ? "بستن" : "Dismiss"}
             >
               ×
             </Button>
@@ -453,7 +454,7 @@ export default function EpicComponentSync({
               );
 
             return (
-              <Card key={epic.key}>
+              <Card key={epic.key} className="cv-auto">
                 <CardHeader className="border-b bg-muted/40">
                   <div className="flex flex-wrap items-center gap-3">
                     <Badge variant="secondary" className="font-mono">
@@ -524,26 +525,25 @@ export default function EpicComponentSync({
                             child.components.length === 0;
 
                           return (
-                            <div
+                            <label
                               key={child.key}
-                              role="button"
-                              tabIndex={0}
-                              onClick={() => toggleIssueSelection(child.key)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" || e.key === " ") {
-                                  e.preventDefault();
-                                  toggleIssueSelection(child.key);
-                                }
-                              }}
                               className={cn(
-                                "flex cursor-pointer flex-col justify-between gap-3 rounded-lg border px-3 py-3 transition sm:flex-row sm:items-center",
+                                "flex cursor-pointer flex-col justify-between gap-3 rounded-lg border px-3 py-3 transition-colors sm:flex-row sm:items-center",
                                 isSelected
                                   ? "border-primary/30 bg-primary/5"
                                   : "border-transparent hover:bg-muted/50"
                               )}
                             >
                               <div className="flex items-start gap-3 sm:items-center">
-                                <span className="mt-0.5 text-muted-foreground sm:mt-0">
+                                <input
+                                  type="checkbox"
+                                  className="sr-only"
+                                  checked={isSelected}
+                                  onChange={() =>
+                                    toggleIssueSelection(child.key)
+                                  }
+                                />
+                                <span className="mt-0.5 text-muted-foreground sm:mt-0" aria-hidden="true">
                                   {isSelected ? (
                                     <CheckSquare className="size-4 text-primary" />
                                   ) : (
@@ -597,7 +597,7 @@ export default function EpicComponentSync({
                                   </Badge>
                                 )}
                               </div>
-                            </div>
+                            </label>
                           );
                         })}
                       </div>

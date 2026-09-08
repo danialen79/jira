@@ -28,9 +28,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold">{t.heroTitle}</p>
               <p className="truncate text-xs text-muted-foreground">
-                {isRtl
-                  ? "ویژه نسخه‌های سلف‌هاست و دیتاسنتر"
-                  : "Enterprise Jira Server Integration"}
+                {t.heroSubtitle}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -44,7 +42,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     jiraConnected ? "bg-success" : "bg-muted-foreground"
                   )}
                 />
-                {t.jiraStatus}: {jiraConnected ? t.connected : t.disconnected}
+                {jiraConnected ? t.connected : t.disconnected}
               </Badge>
               <ThemeToggle isRtl={isRtl} />
               <Button
@@ -59,7 +57,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </header>
-        <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">{children}</div>
+        <div
+          id="main-content"
+          tabIndex={-1}
+          className="flex flex-1 flex-col gap-5 p-4 md:p-5"
+        >
+          {children}
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

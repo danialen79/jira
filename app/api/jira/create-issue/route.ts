@@ -1,5 +1,14 @@
 import { NextResponse } from "next/server";
+import {
+  applyLensToLabels,
+  isLensLabel,
+  isStoryLens,
+} from "@/lib/lens";
 import { convertToJiraWikiMarkup, getJiraClient, JiraEnvError } from "@/lib/jira";
+import {
+  fixVersionValidationError,
+  resolveFixVersionForWrite,
+} from "@/lib/fix-version-policy";
 
 export async function POST(req: Request) {
   try {
@@ -8,9 +17,34 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing required parameters." }, { status: 400 });
     }
 
+    if (issue.issuetype === "Story" && !isStoryLens(issue.selectedLens)) {
+      return NextResponse.json(
+        { error: "Story requires a Lens (strategy, vision, customer, or business)." },
+        { status: 400 }
+      );
+    }
+
+    const epicKeyRaw =
+      typeof issue.epicKey === "string" ? issue.epicKey.trim() : "";
+    const hasEpicLink = Boolean(epicKeyRaw);
+    const fvError = fixVersionValidationError({
+      issuetype: issue.issuetype || "Story",
+      hasEpicLink,
+      selectedRelease: issue.selectedRelease,
+    });
+    if (fvError) {
+      return NextResponse.json({ error: fvError }, { status: 400 });
+    }
+
     const { jiraUrl, headers, projectKey, config } = getJiraClient();
     const epicNameField = config.epicNameField;
     const epicLinkField = config.epicLinkField;
+
+    const suggested = Array.isArray(issue.suggestedLabels)
+      ? (issue.suggestedLabels as string[]).filter(
+          (l) => typeof l === "string" && l.trim() && !isLensLabel(l)
+        )
+      : [];
 
     const fields: Record<string, any> = {
       project: {
@@ -21,7 +55,10 @@ export async function POST(req: Request) {
       issuetype: {
         name: issue.issuetype,
       },
-      labels: ["agent"],
+      labels: applyLensToLabels(
+        ["agent", ...suggested],
+        issue.issuetype === "Story" ? issue.selectedLens : null
+      ),
     };
 
     if (issue.selectedComponent) {
@@ -36,11 +73,16 @@ export async function POST(req: Request) {
       fields.assignee = { name: issue.selectedAssignee };
     }
 
-    if (issue.selectedRelease) {
-      const isId = /^\d+$/.test(issue.selectedRelease);
-      fields.fixVersions = [
-        isId ? { id: issue.selectedRelease } : { name: issue.selectedRelease },
-      ];
+    const fv = resolveFixVersionForWrite({
+      issuetype: issue.issuetype || "Story",
+      hasEpicLink,
+      selectedRelease: issue.selectedRelease,
+    });
+    if (fv.clear) {
+      fields.fixVersions = [];
+    } else if (fv.value) {
+      const isId = /^\d+$/.test(fv.value);
+      fields.fixVersions = [isId ? { id: fv.value } : { name: fv.value }];
     }
 
     if (
@@ -62,9 +104,9 @@ export async function POST(req: Request) {
 
     if (
       (issue.issuetype === "Story" || issue.issuetype === "Bug") &&
-      issue.epicKey
+      hasEpicLink
     ) {
-      fields[epicLinkField] = issue.epicKey.trim();
+      fields[epicLinkField] = epicKeyRaw;
     }
 
     if (issue.issuetype === "Sub-task" && issue.parentKey) {

@@ -1,3 +1,7 @@
+import type { StoryLens } from "@/lib/lens";
+
+export type { StoryLens };
+
 export interface JiraCredentials {
   url: string;
   authType: "pat" | "basic";
@@ -24,6 +28,8 @@ export interface RefinedIssue {
   selectedSprint?: string;
   selectedRelease?: string;
   selectedPriority?: string;
+  /** Story origin lens; stored in Jira as lens-* label. */
+  selectedLens?: StoryLens;
 }
 
 export interface JiraSprint {
@@ -42,6 +48,37 @@ export interface JiraVersion {
   description?: string;
   archived?: boolean;
   overdue?: boolean;
+}
+
+export interface VersionIssue {
+  key: string;
+  id: string;
+  summary: string;
+  status: string;
+  statusCategoryKey?: string;
+  issuetype: string;
+  priority?: string;
+  assignee?: string;
+  assigneeDisplayName?: string;
+  components: string[];
+  /** Parsed from lens-* Jira labels. */
+  lens?: StoryLens;
+  /** Epic this issue belongs to (Epic Link / parent epic). */
+  epicKey?: string;
+  /** Immediate parent issue key (sub-task parent). */
+  parentKey?: string;
+  /** False when shown as epic child but not on this Fix Version. */
+  inVersion?: boolean;
+  children?: VersionIssue[];
+}
+
+export interface VersionProgressSummary {
+  todo: number;
+  inProgress: number;
+  done: number;
+  canceled: number;
+  percent: number;
+  activeTotal: number;
 }
 
 export interface JiraUser {

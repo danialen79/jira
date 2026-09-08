@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { Layers, Sparkles } from "lucide-react";
 import DraftInput from "@/components/DraftInput";
 import RefinedList from "@/components/RefinedList";
 import { useJiraApp } from "@/components/providers/jira-app-provider";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 
 export default function WorkspacePage() {
   const {
@@ -41,13 +42,13 @@ export default function WorkspacePage() {
   }, [refreshWorkspaceMeta]);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-2">
         <h2 className="text-2xl font-bold tracking-tight">{t.tabWorkspace}</h2>
         <p className="text-sm text-muted-foreground">{t.heroSubtitle}</p>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
         <div className="flex flex-col gap-4 lg:col-span-5">
           <h3 className="text-muted-foreground flex items-center gap-1.5 px-1 text-xs font-bold tracking-widest uppercase">
             <Sparkles className="text-primary size-4" />
@@ -75,31 +76,39 @@ export default function WorkspacePage() {
                 onClick={clearIssues}
                 className="text-muted-foreground hover:text-destructive"
               >
-                {isRtl ? "پاک کردن برد" : "Clear Board"}
+                {isRtl ? "پاک کردن برد" : "Clear board"}
               </Button>
             )}
           </div>
 
-          <RefinedList
-            language={language}
-            issues={issues}
-            onIssuesChange={setIssues}
-            jiraUrl={jiraUrl}
-            jiraConnected={jiraConnected}
-            existingEpics={existingEpics}
-            onFetchEpics={fetchExistingEpics}
-            fetchingEpics={fetchingEpics}
-            availableComponents={componentNames}
-            availableUsers={jiraUsers}
-            fetchingUsers={fetchingUsers}
-            onFetchUsers={fetchJiraUsers}
-            availableVersions={jiraVersions}
-            fetchingVersions={fetchingVersions}
-            onFetchVersions={fetchJiraVersions}
-            availableSprints={jiraSprints}
-            fetchingSprints={fetchingSprints}
-            onFetchSprints={fetchJiraSprints}
-          />
+          <Suspense
+            fallback={
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Spinner />
+              </div>
+            }
+          >
+            <RefinedList
+              language={language}
+              issues={issues}
+              onIssuesChange={setIssues}
+              jiraUrl={jiraUrl}
+              jiraConnected={jiraConnected}
+              existingEpics={existingEpics}
+              onFetchEpics={fetchExistingEpics}
+              fetchingEpics={fetchingEpics}
+              availableComponents={componentNames}
+              availableUsers={jiraUsers}
+              fetchingUsers={fetchingUsers}
+              onFetchUsers={fetchJiraUsers}
+              availableVersions={jiraVersions}
+              fetchingVersions={fetchingVersions}
+              onFetchVersions={fetchJiraVersions}
+              availableSprints={jiraSprints}
+              fetchingSprints={fetchingSprints}
+              onFetchSprints={fetchJiraSprints}
+            />
+          </Suspense>
         </div>
       </div>
     </div>

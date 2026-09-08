@@ -9,3 +9,6 @@ coverage/
 .next/
 out/
 next-env.d.ts
+/data/
+jira-ai-connection*.json
+*_tmp_*.js

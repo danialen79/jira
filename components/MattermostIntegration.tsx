@@ -61,74 +61,70 @@ interface MattermostDraft {
 
 const translations = {
   en: {
-    title: "Mattermost Bot Workspace",
-    subtitle:
-      "Test connection to your self-hosted Mattermost bot and fetch raw drafts/requirements directly from channels.",
-    notConfigured: "Mattermost Bot Not Configured",
-    configInstructions:
-      "To enable direct drafting from Mattermost channels, please add the following environment variables to your `.env` file on your server:",
+    title: "Mattermost",
+    subtitle: "Test the bot and fetch drafts from channels.",
+    notConfigured: "Bot not configured",
+    configInstructions: "Add these variables to the server .env:",
     copyBtn: "Copy",
-    copied: "Copied!",
-    refreshConfig: "Refresh Config",
-    statusConnected: "Connected successfully to Mattermost!",
-    statusError: "Failed to connect to Mattermost.",
-    testBtn: "Test Bot Connection",
-    fetchBtn: "Fetch Recent Drafts",
-    testing: "Testing...",
-    fetching: "Fetching Drafts...",
-    botInfo: "Bot Information",
+    copied: "Copied",
+    refreshConfig: "Refresh config",
+    statusConnected: "Connected to Mattermost.",
+    statusError: "Mattermost connection failed.",
+    testBtn: "Test connection",
+    fetchBtn: "Fetch drafts",
+    testing: "Testing…",
+    fetching: "Fetching…",
+    botInfo: "Bot info",
     username: "Username",
     id: "User ID",
-    teams: "Active Teams",
-    channelsCount: "Joined Channels",
-    receivedDrafts: "Received Drafts & Mentioned Requirements",
-    noDrafts:
-      "No drafts found in joined channels. Try mentioning the bot first in Mattermost!",
-    importBtn: "Import to Refiner",
+    teams: "Teams",
+    channelsCount: "Channels",
+    receivedDrafts: "Drafts",
+    noDrafts: "No drafts. Mention the bot in a channel, then fetch.",
+    importBtn: "Import to refiner",
     mentionBadge: "Mentioned",
     channelLabel: "Channel",
     senderLabel: "Sender",
     timeLabel: "Received",
     serverUrl: "Server URL",
-    placeholderHelp:
-      "How it works: Invite your bot to any channel in Mattermost, type your draft requirements (e.g. '@jira-bot build a new login system with email authentication'), and fetch them here instantly!",
-    noTeamsJoined:
-      "No teams joined. Please invite the bot account to a team in Mattermost UI.",
+    placeholderHelp: "Invite the bot, @mention a draft, then fetch here.",
+    noTeamsJoined: "No teams. Invite the bot to a team in Mattermost.",
+    loadingConfig: "Loading config…",
+    testHint: "Run a connection test before fetching drafts.",
+    noDraftsTitle: "No drafts",
   },
   fa: {
-    title: "کارگاه بات مترموست (Mattermost)",
-    subtitle:
-      "بررسی وضعیت اتصال بات اختصاصی مترموست و دریافت مستقیم پیش‌نویس‌ها و نیازمندها از کانال‌های گفتگو.",
-    notConfigured: "پیکربندی بات مترموست یافت نشد",
-    configInstructions:
-      "جهت فعال‌سازی دریافت مستقیم نیازمندی‌ها از مترموست، متغیرهای زیر را به فایل `.env` پروژه خود اضافه کنید:",
-    copyBtn: "کپی متغیرها",
-    copied: "کپی شد!",
+    title: "مترموست",
+    subtitle: "اتصال بات را بسنجید و پیش‌نویس کانال‌ها را بگیرید.",
+    notConfigured: "بات پیکربندی نشده",
+    configInstructions: "این متغیرها را به .env سرور اضافه کنید:",
+    copyBtn: "کپی",
+    copied: "کپی شد",
     refreshConfig: "بروزرسانی پیکربندی",
-    statusConnected: "اتصال به سرور مترموست با موفقیت برقرار شد!",
-    statusError: "خطا در برقراری ارتباط با مترموست.",
-    testBtn: "تست اتصال به بات",
-    fetchBtn: "دریافت آخرین پیش‌نویس‌ها",
-    testing: "در حال بررسی...",
-    fetching: "در حال دریافت پیام‌ها...",
-    botInfo: "اطلاعات بات مترموست",
-    username: "نام کاربری بات",
-    id: "شناسه کاربری",
-    teams: "تیم‌های فعال",
-    channelsCount: "کانال‌های مشترک‌شده",
-    receivedDrafts: "پیش‌نویس‌ها و پیام‌های دریافتی",
-    noDrafts:
-      "هیچ پیامی در کانال‌های مشترک یافت نشد. بات را در یک کانال مترموست عضو کنید و با ذکر نام (@) پیام بفرستید!",
-    importBtn: "انتقال به کارگاه هوش مصنوعی",
-    mentionBadge: "منشن شده",
+    statusConnected: "به مترموست متصل شد.",
+    statusError: "اتصال مترموست ناموفق بود.",
+    testBtn: "تست اتصال",
+    fetchBtn: "دریافت پیش‌نویس‌ها",
+    testing: "در حال تست…",
+    fetching: "در حال دریافت…",
+    botInfo: "اطلاعات بات",
+    username: "نام کاربری",
+    id: "شناسه",
+    teams: "تیم‌ها",
+    channelsCount: "کانال‌ها",
+    receivedDrafts: "پیش‌نویس‌ها",
+    noDrafts: "پیش‌نویسی نیست. بات را منشن کنید، سپس دریافت کنید.",
+    importBtn: "انتقال به کارگاه",
+    mentionBadge: "منشن",
     channelLabel: "کانال",
     senderLabel: "فرستنده",
-    timeLabel: "زمان ارسال",
+    timeLabel: "زمان",
     serverUrl: "آدرس سرور",
-    placeholderHelp:
-      "نحوه کارکرد: بات خود را به یک کانال در مترموست دعوت کنید، نیازمندی خود را بنویسید و آن را منشن کنید (مثال: '@jira-bot ساخت صفحه ورود با ایمیل'). سپس در این صفحه روی دکمه دریافت کلیک کنید تا متن مستقیماً وارد ویرایشگر شود!",
-    noTeamsJoined:
-      "تیمی یافت نشد. لطفاً اکانت بات را در رابط کاربری مترموست به یک تیم دعوت کنید.",
+    placeholderHelp: "بات را دعوت کنید، پیش‌نویس را منشن کنید، اینجا دریافت کنید.",
+    noTeamsJoined: "تیمی نیست. بات را در مترموست به یک تیم دعوت کنید.",
+    loadingConfig: "بارگذاری پیکربندی…",
+    testHint: "قبل از دریافت پیش‌نویس، اتصال را تست کنید.",
+    noDraftsTitle: "بدون پیش‌نویس",
   },
 };
 
@@ -232,11 +228,7 @@ export default function MattermostIntegration({
       <Card>
         <CardContent className="flex flex-col items-center justify-center gap-3 py-8">
           <Spinner className="size-8 text-primary" />
-          <p className="text-sm text-muted-foreground">
-            {isRtl
-              ? "در حال دریافت پیکربندی سرور..."
-              : "Loading Mattermost server configurations..."}
-          </p>
+          <p className="text-sm text-muted-foreground">{t.loadingConfig}</p>
         </CardContent>
       </Card>
     );
@@ -405,9 +397,7 @@ MATTERMOST_BOT_TOKEN="your-bot-account-token"`}
                   </Alert>
                 ) : (
                   <p className="py-6 text-center text-xs text-muted-foreground italic">
-                    {isRtl
-                      ? "برای شروع اتصال بات را تست کنید."
-                      : "Test connection to initialize state."}
+                    {t.testHint}
                   </p>
                 )}
               </CardContent>
@@ -490,6 +480,7 @@ MATTERMOST_BOT_TOKEN="your-bot-account-token"`}
                         key={draft.id}
                         size="sm"
                         className={cn(
+                          "cv-auto",
                           draft.isMention
                             ? "bg-primary/5 ring-primary/20"
                             : "bg-muted/30"
@@ -549,11 +540,7 @@ MATTERMOST_BOT_TOKEN="your-bot-account-token"`}
                       <EmptyMedia variant="icon">
                         <MessageSquare />
                       </EmptyMedia>
-                      <EmptyTitle>
-                        {isRtl
-                          ? "هیچ پیش‌نویسی یافت نشد"
-                          : "No drafts received yet"}
-                      </EmptyTitle>
+                      <EmptyTitle>{t.noDraftsTitle}</EmptyTitle>
                       <EmptyDescription>{t.noDrafts}</EmptyDescription>
                     </EmptyHeader>
                   </Empty>

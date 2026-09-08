@@ -8,6 +8,7 @@ import {
   getOutputModeInstruction,
 } from "@/lib/gemini";
 import { generateAIJson as generateAIJsonBase } from "@/lib/ai-provider";
+import { getResolvedDefaultProvider } from "@/lib/db/repos/ai";
 
 export function getMattermostHeaders(token: string): Record<string, string> {
   return {
@@ -39,7 +40,7 @@ export async function processMattermostWebhookBackground(params: {
   const { draftText, user_name, channel_id, post_id, isFa } = params;
 
   try {
-    const aiProvider = process.env.AI_PROVIDER;
+    const aiProvider = getResolvedDefaultProvider();
 
     const outputModeInstruction = getOutputModeInstruction();
     const systemInstruction = getMattermostRefineSystemInstruction(outputModeInstruction);
@@ -53,7 +54,7 @@ ${draftText}
 """`;
 
     console.log(
-      `[Mattermost Webhook Background] Calling AI provider: ${aiProvider || "gemini"}`
+      `[Mattermost Webhook Background] Calling AI provider: ${aiProvider}`
     );
 
     const { data } = await generateAIJsonBase({

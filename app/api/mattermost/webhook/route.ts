@@ -60,8 +60,8 @@ export async function POST(req: Request) {
     const isFa = isPersian(draftText);
 
     const ackMessage = isFa
-      ? `سلام @${user_name} عزیز! در حال پردازش و استخراج داستان‌های کاربر (User Stories) با هوش مصنوعی جمینای هستم... لطفا چند لحظه منتظر بمانید. ⏳`
-      : `Hello @${user_name}! I am processing and refining your requirements with Gemini AI... Please wait a moment. ⏳`;
+      ? `@${user_name} در حال اصلاح پیش‌نویس…`
+      : `@${user_name} Refining your draft…`;
 
     after(() =>
       processMattermostWebhookBackground({

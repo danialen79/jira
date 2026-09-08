@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Language } from "@/lib/types";
 import { Wand2, Sparkles, FileText, Plus, Trash2 } from "lucide-react";
 import SearchableSelect from "@/components/SearchableSelect";
+import { useAiSettings } from "@/components/providers/ai-settings-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +20,7 @@ import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import type { AIProvider } from "@/lib/ai-provider";
 
 interface DraftInputProps {
   language: Language;
@@ -33,99 +35,70 @@ interface DraftInputProps {
   draftText?: string;
 }
 
-type AIProvider = "gemini" | "avalai" | "arvan";
-
 const translations = {
   en: {
-    title: "Draft Stories & Requirements",
-    subtitle:
-      "Input your unstructured notes, raw requirements, or draft epics/stories below. Farsi and English are both fully supported.",
-    draftLabel: "Raw Draft Workspace",
+    title: "Draft stories",
+    subtitle: "Paste notes or stories. Persian and English both work.",
+    draftLabel: "Draft",
     draftPlaceholder:
-      "Paste your raw thoughts, bullet points or user stories here...\n\nExample:\n- Epic for User Account Security\n- Users must register with strong email/password\n- Implement login with Google OAuth\n- Password reset flow sending 6-digit verification code via email",
-    customPrompt: "AI Instruction Prompt",
-    promptPlaceholder:
-      "Tell AI how to clean them up (e.g., 'Translate everything to Persian and write Gherkin style Given-When-Then scenarios')",
-    refineBtn: "Refine & Structure with AI",
-    refining: "Gemini is working...",
-    quickTemplates: "Quick Prompt Instructions Templates",
-    templateScrum: "Agile Scrum Standard (Persian Clean)",
-    templateScrumDesc:
-      "Creates standard 'As a... I want to... So that...' statements in smooth Persian without formatting symbols like asterisks or h3.",
-    templateFarsi: "Fluent Persian (No Symbols)",
-    templateFarsiDesc:
-      "Rewrites stories beautifully in fluent Persian without markdown or Jira markup tags",
-    templateTech: "Technical Specs (Persian + English Terms)",
-    templateTechDesc:
-      "Includes technical endpoints, HTTP status codes, and English technical terms in smooth Persian text",
-    templateSimple: "Simple Checklist (Persian)",
-    templateSimpleDesc:
-      "Creates minimalist Persian bullet points without markup symbols",
-    addPromptTitle: "Create Custom Prompt Template",
-    promptNameLabel: "Template Name",
-    promptNamePlaceholder: "e.g., UI Focus / Mobile",
-    promptTextLabel: "AI Rules / Prompt Content",
-    promptTextPlaceholder: "e.g., Focus only on mobile design considerations...",
-    addBtn: "Save Prompt Template",
-    deleteBtn: "Delete Template",
-    modelLabel: "AI Model / Engine",
-    providerLabel: "AI Provider",
-    modelFlash: "Gemini 3.5 Flash (Standard - High Traffic)",
-    modelLite: "Gemini 3.1 Flash Lite (Faster - Alternative)",
-    modelPro: "Gemini 3.1 Pro (Higher Quality / Complex Reasoning)",
-    modelAvalai: "AvalAI gpt-4o-mini",
-    modelArvan: "Arvan Gemini-3-Flash-Preview",
-    outputModeLabel: "Refinement Output Scope",
-    outputModeBoth: "Generate Epics, Stories, and Bugs (Mixed)",
-    outputModeEpics: "Generate ONLY Epics",
-    outputModeStories: "Generate ONLY Stories",
-    outputModeBugs: "Generate ONLY Bugs",
+      "Paste bullets or stories here…\n\nExample:\n- Epic: account security\n- Register with email/password\n- Google OAuth login\n- Password reset via email code",
+    customPrompt: "AI instruction",
+    promptPlaceholder: "e.g. Write fluent Persian Given-When-Then…",
+    refineBtn: "Refine with AI",
+    refining: "Refining…",
+    quickTemplates: "Prompt templates",
+    templateScrum: "Scrum (Persian)",
+    templateScrumDesc: "As a… I want… So that… in fluent Persian, no markup.",
+    templateFarsi: "Fluent Persian",
+    templateFarsiDesc: "Persian stories without markdown or Jira markup.",
+    templateTech: "Tech specs",
+    templateTechDesc: "Persian text with English API terms and status codes.",
+    templateSimple: "Checklist (Persian)",
+    templateSimpleDesc: "Short Persian bullets, no markup.",
+    addPromptTitle: "New prompt template",
+    promptNameLabel: "Template name",
+    promptNamePlaceholder: "e.g. Mobile UI",
+    promptTextLabel: "Prompt text",
+    promptTextPlaceholder: "e.g. Focus on mobile layouts…",
+    addBtn: "Save template",
+    deleteBtn: "Delete template",
+    outputModeLabel: "Output",
+    outputModeBoth: "Epics, stories & bugs",
+    outputModeEpics: "Epics only",
+    outputModeStories: "Stories only",
+    outputModeBugs: "Bugs only",
   },
   fa: {
-    title: "ثبت پیش‌نویس نیازمندی‌ها و استوری‌ها",
-    subtitle:
-      "یادداشت‌های اولیه، نیازمندی‌های نامنظم یا درفت‌های استوری و اپیک خود را در این بخش بنویسید. زبان فارسی و انگلیسی هر دو پشتیبانی می‌شوند.",
-    draftLabel: "محیط کار پیش‌نویس خام",
+    title: "پیش‌نویس استوری‌ها",
+    subtitle: "یادداشت یا استوری را بچسبانید. فارسی و انگلیسی.",
+    draftLabel: "پیش‌نویس",
     draftPlaceholder:
-      "ایده‌ها، یادداشت‌های مکتوب یا استوری‌های خام خود را اینجا بنویسید یا کپی کنید...\n\nمثال:\n- اپیک برای امنیت حساب‌های کاربری\n- کاربر باید بتونه با ایمیل و پسورد قوی ثبت‌نام کنه\n- پیاده‌سازی لاگین با گوگل (OAuth)\n- فرآیند فراموشی رمز عبور با ارسال کد ۶ رقمی ایمیلی",
-    customPrompt: "دستورالعمل اختصاصی برای هوش مصنوعی (پرامپت)",
-    promptPlaceholder:
-      "به هوش مصنوعی بگویید چطور استوری‌ها را بنویسد (مثال: 'همه داستان‌ها را به فارسی روان بنویس و از هیچ کاراکتر بی معینایی استفاده نکن')",
-    refineBtn: "اصلاح و ساختاربندی با هوش مصنوعی",
-    refining: "Gemini در حال پردازش...",
-    quickTemplates: "الگوهای آماده برای دستورات هوش مصنوعی",
-    templateScrum: "استاندارد چابک اسکرام (فارسی روان بدون کاراکتر اضافه)",
-    templateScrumDesc:
-      "ایجاد بیانیه‌های 'به عنوان... می‌خواهم... تا اینکه...' به فارسی روان و بدون کاراکترهای h3. یا بولد و ستاره",
-    templateFarsi: "بازنویسی فارسی روان (بدون علامت‌های فرمت)",
-    templateFarsiDesc:
-      "تولید داستان‌های کاربری فارسی و معیارهای پذیرش ساده بدون علامت‌های بولد، ایتالیک یا [ ]",
-    templateTech: "مشخصات فنی و API (واژگان فنی انگلیسی)",
-    templateTechDesc:
-      "افزودن متدها، کدهای HTTP (کدهای 200، 400، 500) و اصطلاحات تخصصی انگلیسی با متن فارسی روان",
-    templateSimple: "لیست کارهای ساده (چک‌لیست فارسی)",
-    templateSimpleDesc:
-      "ایجاد خلاصه‌های روان و لیست تسک‌های متنی ساده به فارسی",
-    addPromptTitle: "ایجاد الگوی پرامپت سفارشی",
+      "گلوله یا استوری را اینجا بچسبانید…\n\nمثال:\n- اپیک: امنیت حساب\n- ثبت‌نام با ایمیل/رمز\n- لاگین گوگل (OAuth)\n- بازیابی رمز با کد ایمیل",
+    customPrompt: "دستور AI",
+    promptPlaceholder: "مثال: فارسی روان با Given-When-Then…",
+    refineBtn: "اصلاح با AI",
+    refining: "در حال اصلاح…",
+    quickTemplates: "الگوهای پرامپت",
+    templateScrum: "اسکرام (فارسی)",
+    templateScrumDesc: "به عنوان… می‌خواهم… تا اینکه… بدون مارکاپ.",
+    templateFarsi: "فارسی روان",
+    templateFarsiDesc: "استوری فارسی بدون مارکداون یا مارکاپ جیرا.",
+    templateTech: "مشخصات فنی",
+    templateTechDesc: "متن فارسی با اصطلاحات API و کدهای وضعیت انگلیسی.",
+    templateSimple: "چک‌لیست (فارسی)",
+    templateSimpleDesc: "گلوله‌های کوتاه فارسی بدون مارکاپ.",
+    addPromptTitle: "الگوی پرامپت جدید",
     promptNameLabel: "نام الگو",
-    promptNamePlaceholder: "مثال: سناریو تست QA",
-    promptTextLabel: "قوانین هوش مصنوعی / متن پرامپت",
-    promptTextPlaceholder:
-      "مثال: داستان‌ها را به فارسی روان بنویس و اصطلاحات فنی را انگلیسی نگه دار...",
-    addBtn: "ذخیره الگوی جدید",
+    promptNamePlaceholder: "مثال: UI موبایل",
+    promptTextLabel: "متن پرامپت",
+    promptTextPlaceholder: "مثال: روی چیدمان موبایل تمرکز کن…",
+    addBtn: "ذخیره الگو",
     deleteBtn: "حذف الگو",
-    modelLabel: "مدل یا موتور هوش مصنوعی",
-    providerLabel: "پروایدر هوش مصنوعی",
-    modelFlash: "Gemini 3.5 Flash (استاندارد - ترافیک سنگین)",
-    modelLite: "Gemini 3.1 Flash Lite (سریع‌تر - جایگزین پیشنهادی)",
-    modelPro: "Gemini 3.1 Pro (دقت بالاتر / تحلیل عمیق)",
-    modelAvalai: "AvalAI gpt-4o-mini",
-    modelArvan: "آروان Gemini-3-Flash-Preview",
-    outputModeLabel: "محدوده خروجی پیش‌نویس (نوع تیکت‌ها)",
-    outputModeBoth: "تولید همزمان اپیک، استوری و باگ (ترکیبی)",
-    outputModeEpics: "فقط تولید اپیک (Only Epics)",
-    outputModeStories: "فقط تولید استوری (Only Stories)",
-    outputModeBugs: "فقط تولید باگ (Only Bugs)",
+    outputModeLabel: "خروجی",
+    outputModeBoth: "اپیک، استوری و باگ",
+    outputModeEpics: "فقط اپیک",
+    outputModeStories: "فقط استوری",
+    outputModeBugs: "فقط باگ",
   },
 };
 
@@ -137,12 +110,12 @@ export default function DraftInput({
 }: DraftInputProps) {
   const t = translations[language];
   const isRtl = language === "fa";
+  const { aiProvider, selectedModel } = useAiSettings();
 
   const [draftText, setDraftText] = useState("");
   const [customPrompt, setCustomPrompt] = useState("");
-  const [aiProvider, setAiProvider] = useState<AIProvider>("gemini");
-  const [selectedModel, setSelectedModel] = useState("gemini-3.5-flash");
   const [outputMode, setOutputMode] = useState<string>("both");
+  const [draftHydrated, setDraftHydrated] = useState(false);
 
   const [newPromptName, setNewPromptName] = useState("");
   const [newPromptText, setNewPromptText] = useState("");
@@ -157,66 +130,54 @@ export default function DraftInput({
   }, [draftTextProp]);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("jira_custom_prompts");
-      if (saved) {
-        setCustomUserTemplates(JSON.parse(saved));
+    let cancelled = false;
+    (async () => {
+      try {
+        const [promptsRes, draftRes] = await Promise.all([
+          fetch("/api/prompts"),
+          fetch("/api/kv/workspace/last_draft"),
+        ]);
+        if (cancelled) return;
+        if (promptsRes.ok) {
+          const data = await promptsRes.json();
+          const prompts = (data.prompts || []).map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            prompt: p.prompt,
+            desc: p.description || p.desc || "",
+          }));
+          setCustomUserTemplates(prompts);
+        }
+        if (draftRes.ok && draftTextProp === undefined) {
+          const data = await draftRes.json();
+          const text =
+            typeof data?.value === "string"
+              ? data.value
+              : data?.value?.text;
+          if (typeof text === "string") setDraftText(text);
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        if (!cancelled) setDraftHydrated(true);
       }
-      const savedDraft = localStorage.getItem("jira_last_draft_text");
-      if (savedDraft && draftTextProp === undefined) {
-        setDraftText(savedDraft);
-      }
-
-      const savedProvider = localStorage.getItem("jira_ai_provider");
-      if (
-        savedProvider === "gemini" ||
-        savedProvider === "avalai" ||
-        savedProvider === "arvan"
-      ) {
-        setAiProvider(savedProvider);
-      }
-
-      const savedModel =
-        localStorage.getItem("jira_ai_model") ||
-        localStorage.getItem("jira_last_selected_model");
-      if (savedModel) setSelectedModel(savedModel);
-    } catch (e) {
-      console.error(e);
-    }
-  }, []);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [draftTextProp]);
 
   useEffect(() => {
-    localStorage.setItem("jira_last_draft_text", draftText);
-  }, [draftText]);
-
-  useEffect(() => {
-    localStorage.setItem("jira_last_selected_model", selectedModel);
-    localStorage.setItem("jira_ai_model", selectedModel);
-  }, [selectedModel]);
-
-  useEffect(() => {
-    localStorage.setItem("jira_ai_provider", aiProvider);
-  }, [aiProvider]);
-
-  useEffect(() => {
-    const geminiModels = [
-      "gemini-3.5-flash",
-      "gemini-3.1-flash-lite",
-      "gemini-3.1-pro-preview",
-    ];
-    const avalaiModels = ["gpt-4o-mini"];
-    const arvanModels = ["Gemini-3-Flash-Preview"];
-
-    if (aiProvider === "gemini" && !geminiModels.includes(selectedModel)) {
-      setSelectedModel("gemini-3.5-flash");
-    }
-    if (aiProvider === "avalai" && !avalaiModels.includes(selectedModel)) {
-      setSelectedModel("gpt-4o-mini");
-    }
-    if (aiProvider === "arvan" && !arvanModels.includes(selectedModel)) {
-      setSelectedModel("Gemini-3-Flash-Preview");
-    }
-  }, [aiProvider]);
+    if (!draftHydrated) return;
+    const timer = setTimeout(() => {
+      void fetch("/api/kv/workspace/last_draft", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ value: { text: draftText } }),
+      }).catch((e) => console.error("Failed to save draft", e));
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [draftText, draftHydrated]);
 
   const templates = [
     {
@@ -270,16 +231,29 @@ export default function DraftInput({
 
     const updated = [...customUserTemplates, newTpl];
     setCustomUserTemplates(updated);
-    localStorage.setItem("jira_custom_prompts", JSON.stringify(updated));
     setNewPromptName("");
     setNewPromptText("");
+    void fetch("/api/prompts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompts: updated.map((p) => ({
+          id: p.id,
+          name: p.name,
+          prompt: p.prompt,
+          description: p.desc,
+        })),
+      }),
+    }).catch((err) => console.error("Failed to save prompts", err));
   };
 
   const handleDeleteTemplate = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const updated = customUserTemplates.filter((tpl) => tpl.id !== id);
     setCustomUserTemplates(updated);
-    localStorage.setItem("jira_custom_prompts", JSON.stringify(updated));
+    void fetch(`/api/prompts/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    }).catch((err) => console.error("Failed to delete prompt", err));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -324,47 +298,41 @@ export default function DraftInput({
                 const isCustom = tpl.id.startsWith("custom-");
                 const active = customPrompt === tpl.prompt;
                 return (
-                  <div
-                    key={tpl.id}
-                    onClick={() => handleApplyTemplate(tpl.prompt)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        handleApplyTemplate(tpl.prompt);
-                      }
-                    }}
-                    role="button"
-                    tabIndex={0}
-                    className={cn(
-                      "relative flex h-full cursor-pointer flex-col justify-between rounded-lg border p-3 text-start text-xs transition focus:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-                      active
-                        ? "border-primary bg-primary/5 ring-1 ring-primary/30"
-                        : "border-border bg-card hover:bg-muted/50"
-                    )}
-                  >
-                    <div className="mb-1 flex items-center gap-1.5 pe-6 font-semibold text-foreground">
-                      <span
-                        className={cn(
-                          "size-1.5 rounded-full",
-                          isCustom ? "bg-accent-foreground" : "bg-primary"
-                        )}
-                      />
-                      {tpl.name}
-                      {isCustom ? (
-                        <Badge variant="secondary">Custom</Badge>
-                      ) : null}
-                    </div>
-                    <div className="pe-2 font-normal leading-relaxed text-muted-foreground">
-                      {tpl.desc}
-                    </div>
+                  <div key={tpl.id} className="relative">
+                    <button
+                      type="button"
+                      onClick={() => handleApplyTemplate(tpl.prompt)}
+                      className={cn(
+                        "flex h-full w-full cursor-pointer flex-col justify-between rounded-lg border p-3 text-start text-xs transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
+                        active
+                          ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                          : "border-border bg-card hover:bg-muted/50"
+                      )}
+                    >
+                      <div className="mb-1 flex items-center gap-1.5 pe-6 font-semibold text-foreground">
+                        <span
+                          className={cn(
+                            "size-1.5 rounded-full",
+                            isCustom ? "bg-accent-foreground" : "bg-primary"
+                          )}
+                        />
+                        {tpl.name}
+                        {isCustom ? (
+                          <Badge variant="secondary">Custom</Badge>
+                        ) : null}
+                      </div>
+                      <div className="pe-2 font-normal leading-relaxed text-muted-foreground">
+                        {tpl.desc}
+                      </div>
+                    </button>
                     {isCustom ? (
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon-xs"
-                        className="absolute end-2 top-2.5 text-muted-foreground hover:text-destructive"
+                        className="absolute end-2 top-2.5 z-10 text-muted-foreground hover:text-destructive"
                         onClick={(e) => handleDeleteTemplate(tpl.id, e)}
-                        title={t.deleteBtn}
+                        aria-label={t.deleteBtn}
                       >
                         <Trash2 />
                       </Button>
@@ -387,76 +355,24 @@ export default function DraftInput({
             />
           </Field>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="flex flex-col gap-3">
-              <Field>
-                <FieldLabel className="flex items-center gap-1">
-                  <Sparkles className="size-3 text-primary" />
-                  {t.providerLabel}
-                </FieldLabel>
-                <SearchableSelect
-                  options={[
-                    { value: "gemini", label: "Gemini" },
-                    { value: "avalai", label: "AvalAI" },
-                    { value: "arvan", label: "Arvan AIaaS" },
-                  ]}
-                  value={aiProvider}
-                  onChange={(val) => setAiProvider(val as AIProvider)}
-                  isRtl={isRtl}
-                  showSearch={false}
-                />
-              </Field>
-              <Field>
-                <FieldLabel className="flex items-center gap-1">
-                  <Sparkles className="size-3 text-primary" />
-                  {t.modelLabel}
-                </FieldLabel>
-                <SearchableSelect
-                  options={
-                    aiProvider === "gemini"
-                      ? [
-                          { value: "gemini-3.5-flash", label: t.modelFlash },
-                          { value: "gemini-3.1-flash-lite", label: t.modelLite },
-                          {
-                            value: "gemini-3.1-pro-preview",
-                            label: t.modelPro,
-                          },
-                        ]
-                      : aiProvider === "avalai"
-                        ? [{ value: "gpt-4o-mini", label: t.modelAvalai }]
-                        : [
-                            {
-                              value: "Gemini-3-Flash-Preview",
-                              label: t.modelArvan,
-                            },
-                          ]
-                  }
-                  value={selectedModel}
-                  onChange={setSelectedModel}
-                  isRtl={isRtl}
-                  showSearch={false}
-                />
-              </Field>
-            </div>
-            <Field>
-              <FieldLabel className="flex items-center gap-1">
-                <Sparkles className="size-3 text-success" />
-                {t.outputModeLabel}
-              </FieldLabel>
-              <SearchableSelect
-                options={[
-                  { value: "both", label: t.outputModeBoth },
-                  { value: "epics", label: t.outputModeEpics },
-                  { value: "stories", label: t.outputModeStories },
-                  { value: "bugs", label: t.outputModeBugs },
-                ]}
-                value={outputMode}
-                onChange={setOutputMode}
-                isRtl={isRtl}
-                showSearch={false}
-              />
-            </Field>
-          </div>
+          <Field>
+            <FieldLabel className="flex items-center gap-1">
+              <Sparkles className="size-3 text-success" />
+              {t.outputModeLabel}
+            </FieldLabel>
+            <SearchableSelect
+              options={[
+                { value: "both", label: t.outputModeBoth },
+                { value: "epics", label: t.outputModeEpics },
+                { value: "stories", label: t.outputModeStories },
+                { value: "bugs", label: t.outputModeBugs },
+              ]}
+              value={outputMode}
+              onChange={setOutputMode}
+              isRtl={isRtl}
+              showSearch={false}
+            />
+          </Field>
 
           <div className="rounded-lg border bg-muted/40 p-3 text-xs">
             <div className="mb-2 flex items-center gap-1 font-bold text-foreground">

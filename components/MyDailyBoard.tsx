@@ -1,7 +1,9 @@
 ﻿"use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Language, JiraUser } from "@/lib/types";
+import { getSearchParam, useUrlQueryState } from "@/lib/url-state";
+import { useSearchParams } from "next/navigation";
 import {
   ClipboardList,
   RefreshCw,
@@ -19,6 +21,7 @@ import {
   X,
 } from "lucide-react";
 import SearchableSelect from "@/components/SearchableSelect";
+import { useAiSettings } from "@/components/providers/ai-settings-provider";
 import {
   Alert,
   AlertDescription,
@@ -145,201 +148,172 @@ interface AIWorklogPlanItem {
   error?: string;
 }
 
-type AIProvider = "gemini" | "avalai" | "arvan";
-
 const translations = {
   en: {
-    title: "Daily My Work & Board",
-    subtitle:
-      "Check active tickets for the current project, log time spent, or use AI to parse your daily summary and log work in batch.",
-    loadError:
-      "Failed to load project tickets. Please verify your Jira connection and project key in Tab 1.",
-    notConnected: "Jira Connection Required",
-    notConnectedDesc:
-      "Please connect to your self-hosted Jira Server first in '1. Connection & Config' tab to view your daily board.",
-    refreshBtn: "Refresh Board",
-    loadingIssues: "Fetching project tickets from Jira...",
-    searchPlaceholder: "Search by summary, key, or assignee...",
-    filterType: "All Issue Types",
-    filterStatus: "All Statuses",
-    filterMineOnly: "Only Assigned to Me",
-    filterAll: "All Assignees",
+    title: "Daily board",
+    subtitle: "Active tickets, quick log, or AI batch log.",
+    loadError: "Could not load tickets. Check Jira connection and project key.",
+    notConnected: "Jira not connected",
+    notConnectedDesc: "Connect Jira in Settings, then refresh.",
+    refreshBtn: "Refresh",
+    loadingIssues: "Loading tickets…",
+    searchPlaceholder: "Search summary, key, or assignee…",
+    filterType: "All types",
+    filterStatus: "All statuses",
+    filterMineOnly: "Assigned to me",
+    filterAll: "All assignees",
     ticketKey: "Key",
     ticketSummary: "Summary",
     ticketStatus: "Status",
     ticketAssignee: "Assignee",
-    ticketTimeLogged: "Time Logged",
+    ticketTimeLogged: "Time logged",
     unassigned: "Unassigned",
-    noIssuesFound: "No issues found matching your filters in this project.",
-
-    // Quick Log
-    quickLogTitle: "Quick Work Log",
-    logTimeLabel: "Time Spent (e.g. 2h, 45m)",
-    logCommentLabel: "Description of work done",
-    logBtn: "Log Work",
-    logging: "Logging...",
-    logSuccess: "Worklog submitted successfully!",
-
-    // AI Section
-    aiBoxTitle: "AI Daily Worklog Assistant",
-    aiBoxDesc:
-      "Enter your daily accomplishments in plain text (English or Persian). The AI will identify matching tickets, distribute your hours, and write professional worklog descriptions.",
-    aiPromptPlaceholder:
-      "e.g., Today I spent 3 hours on debugging the signup SMS verification (PROJ-12), and 4 hours writing API documentation for user profiles.",
-    aiPromptPlaceholderFa:
-      "مثال: امروز ۳ ساعت روی دیباگ کردن تایید پیامکی ثبت نام کار کردم و ۴ ساعت مستندات API پروفایل کاربرها رو نوشتم.",
-    aiGenerateBtn: "Analyze & Plan Log",
-    aiGenerating: "Analyzing your work...",
-    aiPlanTitle: "AI Proposed Worklog Plan",
-    aiPlanDesc: "Review and edit the suggested logs before posting to Jira.",
-    aiPublishSelected: "Submit Selected Logs to Jira",
-    aiPublishing: "Publishing logs...",
-    aiPublishSuccess: "All selected worklogs published successfully!",
-    noMatches:
-      "Gemini couldn't match your text to any active issues. Please check the ticket keys or try clarifying your prompt.",
+    noIssuesFound: "No issues match these filters.",
+    noTicketsFound: "No tickets found",
+    jiraSystemError: "Jira error",
+    openBtn: "Open",
+    worklogHistory: "Worklog history",
+    noDescription: "No description",
+    quickLogTitle: "Quick log",
+    logTimeLabel: "Time spent (e.g. 2h, 45m)",
+    logCommentLabel: "Work done",
+    logCommentPlaceholder: "Brief note…",
+    logBtn: "Log work",
+    logging: "Logging…",
+    logSuccess: "Worklog submitted.",
+    aiBoxTitle: "AI worklog",
+    aiBoxDesc: "Paste today’s work; AI matches tickets and hours.",
+    aiPromptPlaceholder: "e.g. 3h on signup SMS (PROJ-12), 4h on profile API docs.",
+    aiPromptPlaceholderFa: "مثال: ۳ ساعت روی تایید پیامکی ثبت‌نام (PROJ-12)، ۴ ساعت مستندات API.",
+    aiGenerateBtn: "Analyze & plan",
+    aiGenerating: "Analyzing…",
+    aiPlanTitle: "Proposed worklogs",
+    aiPlanDesc: "Review and edit before posting to Jira.",
+    aiPublishSelected: "Submit selected logs",
+    aiPublishing: "Publishing…",
+    aiPublishSuccess: "Selected worklogs published.",
+    aiPublishPartial: "Some logs failed. See errors below.",
+    noMatches: "No matching issues. Check ticket keys or clarify the text.",
     hoursShort: "h",
     minutesShort: "m",
     secondsShort: "s",
-    totalTimeSpent: "Total Spent",
-    originalEstimate: "Original Estimate",
-    showLogs: "Show Worklogs",
-    hideLogs: "Hide Worklogs",
-    noWorklogsLogged: "No worklogs logged on this issue yet.",
-    targetUserLabel: "Show Board & Tasks for:",
-    allUsersOption: "All Users / Team",
-    selectedUserHelp:
-      "Showing active tasks and analyzing daily work for this user.",
-    proposalHeader: "Proposed Log Details",
-    parentStoryLabel: "Parent Story (where Sub-task will be created)",
-    existingParentOption: "Link to Existing Story",
-    newParentOption: "Create New Story",
-    subTaskTitleLabel: "Sub-task Summary",
-    worklogCommentLabel: "Worklog Description",
-    timeSpentLabel: "Time Spent",
-    newStorySummaryLabel: "New Story Title",
-    newStoryDescLabel: "New Story Description",
-    selectParentPlaceholder: "Select parent story...",
-    chooseFromCandidates: "Recommended Parent Candidates:",
-    allStoriesDropdown: "All Project Stories/Bugs:",
-    statusPending: "Pending Approval",
-    statusCreatingParent: "Creating Parent Story...",
-    statusCreatingSubtask: "Creating Sub-task...",
-    statusLogging: "Logging Work...",
-    statusSuccess: "Logged Successfully",
+    totalTimeSpent: "Total spent",
+    originalEstimate: "Original estimate",
+    showLogs: "Show worklogs",
+    hideLogs: "Hide worklogs",
+    noWorklogsLogged: "No worklogs on this issue yet.",
+    targetUserLabel: "Board for:",
+    allUsersOption: "All users",
+    selectedUserHelp: "Active tasks and AI log for this user.",
+    proposalHeader: "Proposed log",
+    parentStoryLabel: "Parent story",
+    existingParentOption: "Existing story",
+    newParentOption: "New story",
+    subTaskTitleLabel: "Sub-task summary",
+    worklogCommentLabel: "Worklog description",
+    timeSpentLabel: "Time spent",
+    newStorySummaryLabel: "New story title",
+    newStoryDescLabel: "New story description",
+    selectParentPlaceholder: "Select parent story…",
+    chooseFromCandidates: "Suggested parents:",
+    allStoriesDropdown: "All stories/bugs:",
+    statusPending: "Pending",
+    statusCreatingParent: "Creating parent…",
+    statusCreatingSubtask: "Creating sub-task…",
+    statusLogging: "Logging work…",
+    statusSuccess: "Logged",
     statusFailed: "Failed",
-    startTimeLabel: "Start Time",
-    searchUserPlaceholder: "Search users...",
-    statusTransitioning: "Moving Sub-task to Done...",
-    recentLogsTitle: "Recently Created & Logged Sub-tasks",
-    clearRecentBtn: "Clear List",
+    startTimeLabel: "Start time",
+    searchUserPlaceholder: "Search users…",
+    statusTransitioning: "Moving sub-task to Done…",
+    recentLogsTitle: "Recent logged sub-tasks",
+    clearRecentBtn: "Clear list",
     clearRecentConfirmTitle: "Clear recent logs?",
-    clearRecentConfirmDesc:
-      "This removes the local list of recently created & logged sub-tasks. It does not delete anything in Jira.",
+    clearRecentConfirmDesc: "Removes the local list only. Nothing in Jira is deleted.",
     clearRecentCancel: "Cancel",
-    geminiModelLabel: "AI Model:",
-    geminiModelFlashDesc: "⚡ Gemini 3.5 Flash (Fast / Default)",
-    geminiModelProDesc: "🧠 Gemini 3.1 Pro (Deep Reasoning)",
-    geminiModelLiteDesc: "🍃 Gemini 3.1 Flash Lite (Lightweight / Ultra-fast)",
-    aiProviderLabel: "AI Provider:",
-    avalaiModelDesc: "🟦 AvalAI gpt-4o-mini (OpenAI-compatible)",
-    arvanModelDesc: "🟧 Arvan Gemini-3-Flash-Preview",
   },
   fa: {
-    title: "میز کار و بورد روزانه من",
-    subtitle:
-      "بررسی تیکت‌های فعال در پروژه جاری، ثبت دستی زمان کاری، یا استفاده از هوش مصنوعی برای تحلیل و ثبت دسته‌ای کارهای روزانه.",
-    loadError:
-      "خطا در دریافت تیکت‌های پروژه. لطفاً اتصال جیرا و کلید پروژه را در تب اول بررسی کنید.",
-    notConnected: "نیاز به اتصال به جیرا",
-    notConnectedDesc:
-      "برای مشاهده بورد روزانه، ابتدا در تب «۱. اتصال و تنظیمات جیرا» به سرور جیرا خود متصل شوید.",
-    refreshBtn: "بروزرسانی بورد",
-    loadingIssues: "در حال دریافت تیکت‌های پروژه از جیرا...",
-    searchPlaceholder: "جستجو با عنوان، کلید تیکت یا مسئول...",
-    filterType: "همه انواع تیکت",
+    title: "بورد روزانه",
+    subtitle: "تیکت فعال، ثبت سریع، یا ثبت دسته‌ای با AI.",
+    loadError: "بارگذاری تیکت‌ها ناموفق. اتصال و کلید پروژه را بررسی کنید.",
+    notConnected: "جیرا متصل نیست",
+    notConnectedDesc: "در تنظیمات به جیرا وصل شوید، سپس بروزرسانی کنید.",
+    refreshBtn: "بروزرسانی",
+    loadingIssues: "در حال بارگذاری تیکت‌ها…",
+    searchPlaceholder: "جستجو عنوان، کلید یا مسئول…",
+    filterType: "همه انواع",
     filterStatus: "همه وضعیت‌ها",
-    filterMineOnly: "فقط تیکت‌های واگذار شده به من",
-    filterAll: "همه اعضای تیم",
+    filterMineOnly: "واگذارشده به من",
+    filterAll: "همه مسئول‌ها",
     ticketKey: "کلید",
-    ticketSummary: "عنوان تیکت",
+    ticketSummary: "عنوان",
     ticketStatus: "وضعیت",
     ticketAssignee: "مسئول",
-    ticketTimeLogged: "زمان ثبت شده",
+    ticketTimeLogged: "زمان ثبت‌شده",
     unassigned: "بدون مسئول",
-    noIssuesFound: "هیچ تیکتی در این پروژه با فیلترهای شما مطابقت ندارد.",
-
-    // Quick Log
-    quickLogTitle: "ثبت سریع ساعت کاری",
-    logTimeLabel: "زمان صرف شده (مانند 2h, 45m)",
-    logCommentLabel: "توضیح کارهای انجام شده",
-    logBtn: "ثبت در جیرا",
-    logging: "در حال ثبت...",
-    logSuccess: "ساعت کاری با موفقیت ثبت شد!",
-
-    // AI Section
-    aiBoxTitle: "دستیار هوشمند ثبت کارکرد (هوش مصنوعی)",
-    aiBoxDesc:
-      "گزارش کارهای روزانه خود را به زبان عامیانه (فارسی یا انگلیسی) وارد کنید. هوش مصنوعی تیکت‌های مرتبط را پیدا کرده، زمان را تقسیم می‌کند و توضیحات رسمی و حرفه‌ای برای هر تیکت می‌نویسد.",
-    aiPromptPlaceholder:
-      "مثال: امروز ۳ ساعت روی دیباگ کردن تایید پیامکی ثبت نام کار کردم و ۴ ساعت مستندات API پروفایل کاربرها رو نوشتم.",
-    aiPromptPlaceholderFa:
-      "مثال: امروز ۳ ساعت روی دیباگ کردن تایید پیامکی ثبت نام کار کردم و ۴ ساعت مستندات API پروفایل کاربرها رو نوشتم.",
-    aiGenerateBtn: "تحلیل هوشمند و برنامه‌ریزی کارکرد",
-    aiGenerating: "در حال تحلیل کارهای روزانه...",
-    aiPlanTitle: "برنامه پیشنهادی هوش مصنوعی",
-    aiPlanDesc:
-      "پیشنهادات را بررسی کنید و تیکت‌هایی که می‌خواهید ثبت شوند را تایید کنید.",
-    aiPublishSelected: "ثبت موارد انتخاب شده در جیرا",
-    aiPublishing: "در حال ثبت در جیرا...",
-    aiPublishSuccess: "تمامی ساعت‌های کاری با موفقیت در جیرا ثبت شدند!",
-    noMatches:
-      "هوش مصنوعی نتوانست متنی مرتبط با تیکت‌های فعال پیدا کند. لطفاً توضیحات خود را دقیق‌تر بنویسید یا کلیدهای تیکت را بررسی کنید.",
+    noIssuesFound: "تیکتی با این فیلترها نیست.",
+    noTicketsFound: "تیکتی یافت نشد",
+    jiraSystemError: "خطای جیرا",
+    openBtn: "مشاهده",
+    worklogHistory: "سوابق کارکرد",
+    noDescription: "بدون توضیح",
+    quickLogTitle: "ثبت سریع",
+    logTimeLabel: "زمان صرف‌شده (مثل 2h, 45m)",
+    logCommentLabel: "کار انجام‌شده",
+    logCommentPlaceholder: "یادداشت کوتاه…",
+    logBtn: "ثبت کار",
+    logging: "در حال ثبت…",
+    logSuccess: "کارکرد ثبت شد.",
+    aiBoxTitle: "ثبت کارکرد با AI",
+    aiBoxDesc: "کار امروز را بنویسید؛ AI تیکت و ساعت را جور می‌کند.",
+    aiPromptPlaceholder: "مثال: ۳ ساعت روی تایید پیامکی ثبت‌نام (PROJ-12)، ۴ ساعت مستندات API.",
+    aiPromptPlaceholderFa: "مثال: ۳ ساعت روی تایید پیامکی ثبت‌نام (PROJ-12)، ۴ ساعت مستندات API.",
+    aiGenerateBtn: "تحلیل و برنامه",
+    aiGenerating: "در حال تحلیل…",
+    aiPlanTitle: "کارکرد پیشنهادی",
+    aiPlanDesc: "قبل از ثبت در جیرا بررسی و ویرایش کنید.",
+    aiPublishSelected: "ثبت موارد انتخاب‌شده",
+    aiPublishing: "در حال ثبت…",
+    aiPublishSuccess: "کارکردهای انتخاب‌شده ثبت شد.",
+    aiPublishPartial: "برخی موارد خطا داشت. جزئیات را ببینید.",
+    noMatches: "تیکت مرتبطی پیدا نشد. کلیدها یا متن را دقیق‌تر کنید.",
     hoursShort: "ساعت",
     minutesShort: "دقیقه",
     secondsShort: "ثانیه",
-    totalTimeSpent: "کل زمان ثبت شده",
+    totalTimeSpent: "کل زمان",
     originalEstimate: "تخمین اولیه",
-    showLogs: "مشاهده جزئیات کارکردها",
-    hideLogs: "پنهان‌سازی کارکردها",
-    noWorklogsLogged: "هنوز هیچ گزارش کارکردی برای این تیکت ثبت نشده است.",
-    targetUserLabel: "مشاهده بورد و تیکت‌های:",
-    allUsersOption: "همه کاربران / تیم",
-    selectedUserHelp:
-      "نمایش تیکت‌های فعال و تحلیل گزارش کارکرد روزانه برای کاربر انتخاب‌شده.",
-    proposalHeader: "جزئیات گزارش پیشنهادی",
-    parentStoryLabel: "استوری والد (ساب‌تسک روی این تیکت ساخته می‌شود)",
-    existingParentOption: "اتصال به استوری موجود در جیرا",
-    newParentOption: "ایجاد استوری جدید والد",
+    showLogs: "نمایش کارکردها",
+    hideLogs: "پنهان کردن کارکردها",
+    noWorklogsLogged: "هنوز کارکردی ثبت نشده.",
+    targetUserLabel: "بورد برای:",
+    allUsersOption: "همه کاربران",
+    selectedUserHelp: "تیکت‌های فعال و لاگ AI برای این کاربر.",
+    proposalHeader: "جزئیات پیشنهادی",
+    parentStoryLabel: "استوری والد",
+    existingParentOption: "استوری موجود",
+    newParentOption: "استوری جدید",
     subTaskTitleLabel: "عنوان ساب‌تسک",
-    worklogCommentLabel: "توضیح گزارش کارکرد (لاگ)",
-    timeSpentLabel: "مدت زمان صرف‌شده",
-    newStorySummaryLabel: "عنوان استوری جدید والد",
-    newStoryDescLabel: "توضیحات استوری جدید والد",
-    selectParentPlaceholder: "انتخاب استوری والد...",
-    chooseFromCandidates: "تیکت‌های والد پیشنهادی هوش مصنوعی:",
-    allStoriesDropdown: "همه استوری‌ها و تیکت‌های پروژه:",
-    statusPending: "در انتظار تایید",
-    statusCreatingParent: "در حال ساخت استوری والد...",
-    statusCreatingSubtask: "در حال ساخت ساب‌تسک...",
-    statusLogging: "در حال ثبت گزارش کارکرد...",
-    statusSuccess: "با موفقیت ثبت شد",
-    statusFailed: "خطا در فرآیند",
-    startTimeLabel: "زمان شروع کارکرد",
-    searchUserPlaceholder: "جستجوی کاربر...",
-    statusTransitioning: "در حال تغییر وضعیت ساب‌تسک به Done...",
-    recentLogsTitle: "آخرین ساب‌تسک‌های ساخته و ثبت‌شده",
+    worklogCommentLabel: "توضیح کارکرد",
+    timeSpentLabel: "زمان صرف‌شده",
+    newStorySummaryLabel: "عنوان استوری جدید",
+    newStoryDescLabel: "توضیح استوری جدید",
+    selectParentPlaceholder: "انتخاب استوری والد…",
+    chooseFromCandidates: "والدهای پیشنهادی:",
+    allStoriesDropdown: "همه استوری/باگ‌ها:",
+    statusPending: "در انتظار",
+    statusCreatingParent: "ساخت والد…",
+    statusCreatingSubtask: "ساخت ساب‌تسک…",
+    statusLogging: "ثبت کارکرد…",
+    statusSuccess: "ثبت شد",
+    statusFailed: "ناموفق",
+    startTimeLabel: "زمان شروع",
+    searchUserPlaceholder: "جستجوی کاربر…",
+    statusTransitioning: "انتقال ساب‌تسک به Done…",
+    recentLogsTitle: "ساب‌تسک‌های اخیر",
     clearRecentBtn: "پاک کردن لیست",
-    clearRecentConfirmTitle: "پاک کردن لیست آخرین‌ها؟",
-    clearRecentConfirmDesc:
-      "این کار فقط لیست محلی ساب‌تسک‌های اخیر را پاک می‌کند و چیزی در جیرا حذف نمی‌شود.",
+    clearRecentConfirmTitle: "لیست اخیر پاک شود؟",
+    clearRecentConfirmDesc: "فقط لیست محلی پاک می‌شود؛ چیزی در جیرا حذف نمی‌شود.",
     clearRecentCancel: "انصراف",
-    geminiModelLabel: "مدل هوش مصنوعی:",
-    geminiModelFlashDesc: "⚡ جمنای ۳.۵ فلش (سریع / پیش‌فرض)",
-    geminiModelProDesc: "🧠 جمنای ۳.۱ پرو (استدلال دقیق‌تر)",
-    geminiModelLiteDesc: "🍃 جمنای ۳.۱ فلش لایت (سبک و فوق سریع)",
-    aiProviderLabel: "پروایدر هوش مصنوعی:",
-    avalaiModelDesc: "🟦 آوالای gpt-4o-mini (سازگار با OpenAI)",
-    arvanModelDesc: "🟧 آروان Gemini-3-Flash-Preview",
   },
 };
 
@@ -376,19 +350,39 @@ export default function MyDailyBoard({
 }: MyDailyBoardProps) {
   const t = translations[language];
   const isRtl = language === "fa";
+  const { aiProvider, selectedModel } = useAiSettings();
+  const searchParams = useSearchParams();
+  const urlAssignee = searchParams.get("assignee");
+  const assigneeFromUrl = useRef(!!urlAssignee);
 
   const [loading, setLoading] = useState(false);
   const [issues, setIssues] = useState<JiraIssue[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   // Filters
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedType, setSelectedType] = useState("ALL");
-  const [selectedStatus, setSelectedStatus] = useState("ALL");
-  const [selectedAssignee, setSelectedAssignee] = useState<string>("ALL");
+  const [searchQuery, setSearchQuery] = useState(
+    getSearchParam(searchParams, "q")
+  );
+  const [selectedType, setSelectedType] = useState(
+    getSearchParam(searchParams, "type", "ALL")
+  );
+  const [selectedStatus, setSelectedStatus] = useState(
+    getSearchParam(searchParams, "status", "ALL")
+  );
+  const [selectedAssignee, setSelectedAssignee] = useState<string>(
+    urlAssignee || "ALL"
+  );
+
+  useUrlQueryState({
+    q: searchQuery || null,
+    type: selectedType === "ALL" ? null : selectedType,
+    status: selectedStatus === "ALL" ? null : selectedStatus,
+    assignee: selectedAssignee === "ALL" ? null : selectedAssignee,
+  });
 
   // Initialize selectedAssignee based on connected Jira user and fetched users list
   useEffect(() => {
+    if (assigneeFromUrl.current) return;
     if (jiraUsers && jiraUsers.length > 0) {
       const cleanUsername = (jiraUsername || "").trim().toLowerCase();
       if (cleanUsername) {
@@ -493,100 +487,33 @@ export default function MyDailyBoard({
   const [clearRecentOpen, setClearRecentOpen] = useState(false);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("jira_recent_logs");
-      if (saved) setRecentLogs(JSON.parse(saved));
-    } catch (e) {
-      console.error("Failed to read recent logs", e);
-    }
-  }, []);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem("jira_recent_logs", JSON.stringify(recentLogs));
-    } catch (e) {
-      console.error("Failed to save recent logs", e);
-    }
-  }, [recentLogs]);
-
-  // AI Planner State
-  const [aiProvider, setAiProvider] = useState<AIProvider>("gemini");
-  const [selectedModel, setSelectedModel] = useState<string>("gemini-3.5-flash");
-
-  useEffect(() => {
-    try {
-      const savedProvider = localStorage.getItem("jira_ai_provider");
-      const savedModel =
-        localStorage.getItem("jira_ai_model") ||
-        localStorage.getItem("jira_selected_gemini_model");
-
-      const providerCandidate: AIProvider =
-        savedProvider === "avalai"
-          ? "avalai"
-          : savedProvider === "arvan"
-            ? "arvan"
-            : "gemini";
-
-      setAiProvider(providerCandidate);
-
-      if (savedModel) {
-        if (providerCandidate === "gemini") {
-          if (savedModel === "gemini-2.0-flash-lite") {
-            setSelectedModel("gemini-3.1-flash-lite");
-          } else {
-            setSelectedModel(savedModel);
-          }
-        } else if (providerCandidate === "arvan") {
-          setSelectedModel(
-            savedModel === "gpt-4o-mini" || savedModel.startsWith("gemini-")
-              ? "Gemini-3-Flash-Preview"
-              : savedModel
-          );
-        } else {
-          setSelectedModel(
-            savedModel.startsWith("gemini-") ||
-              savedModel === "Gemini-3-Flash-Preview"
-              ? "gpt-4o-mini"
-              : savedModel
-          );
-        }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/recent-logs");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        const logs = (data.logs || []).map((log: any) => ({
+          issueKey: log.issueKey,
+          summary: log.summary,
+          parentKey: log.parentKey,
+          timeSpent: log.timeSpent,
+          comment: log.comment,
+          timestamp: log.timestamp,
+          url: log.url,
+        }));
+        setRecentLogs(logs);
+      } catch (e) {
+        console.error("Failed to read recent logs", e);
       }
-    } catch {
-      // ignore
-    }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  useEffect(() => {
-    const geminiModels = [
-      "gemini-3.5-flash",
-      "gemini-3.1-flash-lite",
-      "gemini-3.1-pro-preview",
-    ];
-    const avalaiModels = ["gpt-4o-mini"];
-    const arvanModels = ["Gemini-3-Flash-Preview"];
-
-    if (aiProvider === "gemini" && !geminiModels.includes(selectedModel)) {
-      setSelectedModel("gemini-3.5-flash");
-    }
-    if (aiProvider === "avalai" && !avalaiModels.includes(selectedModel)) {
-      setSelectedModel("gpt-4o-mini");
-    }
-    if (aiProvider === "arvan" && !arvanModels.includes(selectedModel)) {
-      setSelectedModel("Gemini-3-Flash-Preview");
-    }
-  }, [aiProvider, selectedModel]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem("jira_ai_provider", aiProvider);
-      localStorage.setItem("jira_ai_model", selectedModel);
-      // Legacy key for backward compatibility
-      localStorage.setItem("jira_selected_gemini_model", selectedModel);
-    } catch (e) {
-      console.error("Failed to save selected AI config", e);
-    }
-  }, [aiProvider, selectedModel]);
-
+  // AI Planner uses shared AiSettingsProvider
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiPlanning, setAiPlanning] = useState(false);
   const [aiPlan, setAiPlan] = useState<AIWorklogPlanItem[]>([]);
@@ -640,10 +567,10 @@ export default function MyDailyBoard({
   ];
 
   const assigneeOptions = [
-    { value: "ALL", label: `🌟 ${t.allUsersOption}` },
+    { value: "ALL", label: t.allUsersOption },
     ...jiraUsers.map((u) => ({
       value: u.name,
-      label: `👤 ${u.displayName}`,
+      label: u.displayName,
       sublabel: u.name,
     })),
   ];
@@ -925,6 +852,11 @@ export default function MyDailyBoard({
               url: `${(jiraUrl || "").replace(/\/$/, "")}/browse/${resolvedSubtaskKey}`,
             };
             setRecentLogs((prev) => [newRecentItem, ...prev].slice(0, 10));
+            void fetch("/api/recent-logs", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(newRecentItem),
+            }).catch((err) => console.error("Failed to persist recent log", err));
           } else {
             throw new Error(
               logData.error ||
@@ -949,11 +881,7 @@ export default function MyDailyBoard({
         setAiPlan([]);
         setAiPrompt("");
       } else {
-        setAiPublishSuccessMsg(
-          language === "fa"
-            ? "برخی موارد با خطا مواجه شدند. جزئیات خطا را بازبینی کنید."
-            : "Some items failed to register. Please review the errors below."
-        );
+        setAiPublishSuccessMsg(t.aiPublishPartial);
       }
       fetchIssues(); // Refresh board
     } catch (err: any) {
@@ -1076,9 +1004,7 @@ export default function MyDailyBoard({
       {error ? (
         <Alert variant="destructive">
           <AlertCircle />
-          <AlertTitle>
-            {isRtl ? "خطای سیستم جیرا" : "Jira System Error"}
-          </AlertTitle>
+          <AlertTitle>{t.jiraSystemError}</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
@@ -1097,71 +1023,6 @@ export default function MyDailyBoard({
             </CardHeader>
             <CardContent>
               <FieldGroup className="gap-4">
-                <div className="flex flex-col justify-between gap-2 rounded-lg border bg-muted/40 p-2.5 sm:flex-row sm:items-center">
-                  <Field className="gap-1.5 sm:flex-row sm:items-center">
-                    <FieldLabel className="flex items-center gap-1.5 text-[11px]">
-                      <Sparkles className="size-3.5 text-primary" />
-                      {t.aiProviderLabel}
-                    </FieldLabel>
-                    <SearchableSelect
-                      options={[
-                        { value: "gemini", label: "Gemini" },
-                        { value: "avalai", label: "AvalAI" },
-                        { value: "arvan", label: "Arvan AIaaS" },
-                      ]}
-                      value={aiProvider}
-                      onChange={(val) => setAiProvider(val as AIProvider)}
-                      isRtl={isRtl}
-                      showSearch={false}
-                      className="sm:w-40"
-                    />
-                  </Field>
-
-                  <Field className="gap-1.5 sm:flex-row sm:items-center">
-                    <FieldLabel className="flex items-center gap-1.5 text-[11px]">
-                      <Sparkles className="size-3.5 text-primary" />
-                      {t.geminiModelLabel}
-                    </FieldLabel>
-                    <SearchableSelect
-                      options={
-                        aiProvider === "gemini"
-                          ? [
-                              {
-                                value: "gemini-3.5-flash",
-                                label: t.geminiModelFlashDesc,
-                              },
-                              {
-                                value: "gemini-3.1-pro-preview",
-                                label: t.geminiModelProDesc,
-                              },
-                              {
-                                value: "gemini-3.1-flash-lite",
-                                label: t.geminiModelLiteDesc,
-                              },
-                            ]
-                          : aiProvider === "avalai"
-                            ? [
-                                {
-                                  value: "gpt-4o-mini",
-                                  label: t.avalaiModelDesc,
-                                },
-                              ]
-                            : [
-                                {
-                                  value: "Gemini-3-Flash-Preview",
-                                  label: t.arvanModelDesc,
-                                },
-                              ]
-                      }
-                      value={selectedModel}
-                      onChange={setSelectedModel}
-                      isRtl={isRtl}
-                      showSearch={false}
-                      className="sm:min-w-56"
-                    />
-                  </Field>
-                </div>
-
                 <Field>
                   <Textarea
                     value={aiPrompt}
@@ -1444,6 +1305,7 @@ export default function MyDailyBoard({
                 size="icon-sm"
                 className="absolute end-3 top-3"
                 onClick={() => setActiveLogIssue(null)}
+                aria-label={isRtl ? "بستن" : "Close"}
               >
                 <X />
               </Button>
@@ -1482,7 +1344,7 @@ export default function MyDailyBoard({
                         id="log-comment"
                         value={logComment}
                         onChange={(e) => setLogComment(e.target.value)}
-                        placeholder="Write a brief comment about what was done..."
+                        placeholder={t.logCommentPlaceholder}
                         rows={2}
                       />
                     </Field>
@@ -1548,6 +1410,11 @@ export default function MyDailyBoard({
                         onClick={() => {
                           setRecentLogs([]);
                           setClearRecentOpen(false);
+                          void fetch("/api/recent-logs", {
+                            method: "DELETE",
+                          }).catch((err) =>
+                            console.error("Failed to clear recent logs", err)
+                          );
                         }}
                       >
                         {t.clearRecentBtn}
@@ -1601,7 +1468,7 @@ export default function MyDailyBoard({
                           size="xs"
                           className="shrink-0"
                         >
-                          {isRtl ? "مشاهده" : "Open"}
+                          {t.openBtn}
                           <ExternalLink data-icon="inline-end" />
                         </Button>
                       </div>
@@ -1720,7 +1587,7 @@ export default function MyDailyBoard({
                 const isExpanded = expandedIssueKey === issue.key;
 
                 return (
-                  <Card key={issue.key}>
+                  <Card key={issue.key} className="cv-auto">
                     <CardContent className="flex flex-col justify-between gap-4 p-4 sm:flex-row sm:items-start">
                       <div className="flex flex-1 flex-col gap-1.5">
                         <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
@@ -1818,9 +1685,7 @@ export default function MyDailyBoard({
                         <Separator />
                         <CardContent className="flex flex-col gap-2.5 bg-muted/40 py-3.5">
                           <span className="block text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
-                            {isRtl
-                              ? "سوابق ساعت کاری ثبت شده"
-                              : "Logged Worklog History"}
+                            {t.worklogHistory}
                           </span>
 
                           {issue.worklogs && issue.worklogs.length > 0 ? (
@@ -1845,9 +1710,7 @@ export default function MyDailyBoard({
                                     <p className="leading-relaxed font-medium text-muted-foreground">
                                       {wl.comment || (
                                         <span className="italic">
-                                          {isRtl
-                                            ? "بدون توضیح"
-                                            : "No description"}
+                                          {t.noDescription}
                                         </span>
                                       )}
                                     </p>
@@ -1879,9 +1742,7 @@ export default function MyDailyBoard({
                 <EmptyMedia variant="icon">
                   <ClipboardList />
                 </EmptyMedia>
-                <EmptyTitle>
-                  {isRtl ? "هیچ تیکتی یافت نشد" : "No Tickets Found"}
-                </EmptyTitle>
+                <EmptyTitle>{t.noTicketsFound}</EmptyTitle>
                 <EmptyDescription>{t.noIssuesFound}</EmptyDescription>
               </EmptyHeader>
             </Empty>

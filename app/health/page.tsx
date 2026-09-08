@@ -138,10 +138,10 @@ export default function HealthPage() {
   }, [load]);
 
   const connected = !!data?.connected;
-  const title = isRtl ? "سلامت اتصال جیرا" : "Jira Healthcheck";
+  const title = isRtl ? "سلامت جیرا" : "Jira health";
   const subtitle = isRtl
-    ? "وضعیت اتصال سرور، کاربر، پروژه و داده‌های در دسترس از env"
-    : "Connection status, user, project, and available data from server env";
+    ? "اتصال، کاربر، پروژه و env."
+    : "Connection, user, project, and env.";
 
   return (
     <div className="flex flex-col gap-6">
@@ -168,7 +168,7 @@ export default function HealthPage() {
       {loading && !data ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Spinner />
-          {isRtl ? "در حال بررسی اتصال..." : "Checking Jira connection..."}
+          {isRtl ? "در حال بررسی…" : "Checking…"}
         </div>
       ) : (
         <>
@@ -193,7 +193,7 @@ export default function HealthPage() {
                     </CardTitle>
                     <CardDescription>
                       {data?.checkedAt
-                        ? `${isRtl ? "آخرین بررسی" : "Checked at"}: ${new Date(
+                        ? `${isRtl ? "بررسی" : "Checked"}: ${new Date(
                             data.checkedAt
                           ).toLocaleString(isRtl ? "fa-IR" : "en-US")}`
                         : null}
@@ -459,8 +459,8 @@ export default function HealthPage() {
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Users className="size-4" />
                   {isRtl
-                    ? `کاربران قابل انتساب (${data?.counts?.users ?? data?.users?.length ?? 0})`
-                    : `Assignable users (${data?.counts?.users ?? data?.users?.length ?? 0})`}
+                    ? `کاربران (${data?.counts?.users ?? data?.users?.length ?? 0})`
+                    : `Users (${data?.counts?.users ?? data?.users?.length ?? 0})`}
                 </CardTitle>
               </CardHeader>
               <CardContent>

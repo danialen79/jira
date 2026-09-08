@@ -1,7 +1,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-export function getGeminiClient() {
-  const apiKey = process.env.GEMINI_API_KEY;
+export function getGeminiClient(apiKeyOverride?: string) {
+  const apiKey = apiKeyOverride?.trim() || process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error(
       "GEMINI_API_KEY is not defined in the environment. Please add your Gemini API key in the AI Studio Secrets panel."

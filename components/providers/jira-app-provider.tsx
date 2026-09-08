@@ -23,38 +23,40 @@ import type {
 
 const appTranslations = {
   en: {
-    toastSuccess: "Stories refined successfully by Gemini!",
-    toastError: "Refinement failed. Please check your inputs.",
-    jiraStatus: "Jira Status",
+    toastSuccess: "Stories refined.",
+    toastError: "Refinement failed. Check your inputs.",
+    jiraStatus: "Jira",
     connected: "Connected",
-    disconnected: "Not Configured",
-    tabHealth: "Jira Healthcheck",
-    tabWorkspace: "Story Refiner Workspace",
-    tabDailyBoard: "My Daily Board & Logs",
-    tabMattermost: "Mattermost Bot Integration",
-    tabEpicSync: "Epic Component Sync",
-    heroTitle: "Jira Server AI Refiner & Publisher",
-    heroSubtitle:
-      "Structure unstructured drafts into Agile-ready stories and epics, then publish to your self-hosted Jira Server.",
-    draftSection: "1. Draft & Refine with AI",
-    boardSection: "2. Review & Publish to Jira",
+    disconnected: "Not configured",
+    tabHealth: "Health",
+    tabWorkspace: "Workspace",
+    tabDailyBoard: "Daily Board",
+    tabMattermost: "Mattermost",
+    tabEpicSync: "Epic Sync",
+    tabRoadmap: "Roadmap",
+    tabSettings: "AI Settings",
+    heroTitle: "Jira AI Workspace",
+    heroSubtitle: "Draft, refine, and publish to self-hosted Jira.",
+    draftSection: "1. Draft & refine",
+    boardSection: "2. Review & publish",
   },
   fa: {
-    toastSuccess: "اصلاح و تنظیم ساختار تیکت‌ها توسط هوش مصنوعی با موفقیت انجام شد!",
-    toastError: "خطا در برقراری ارتباط با هوش مصنوعی. لطفاً ورودی‌ها را بررسی کنید.",
-    jiraStatus: "وضعیت جیرا",
-    connected: "متصل شده",
+    toastSuccess: "تیکت‌ها اصلاح شدند.",
+    toastError: "اصلاح ناموفق بود. ورودی‌ها را بررسی کنید.",
+    jiraStatus: "جیرا",
+    connected: "متصل",
     disconnected: "پیکربندی نشده",
-    tabHealth: "سلامت اتصال جیرا",
-    tabWorkspace: "کارگاه ساخت و اصلاح تیکت‌ها",
-    tabDailyBoard: "میز کار و بورد روزانه من",
-    tabMattermost: "بات و پیش‌نویس‌های مترموست",
-    tabEpicSync: "همگام‌سازی کامپوننت‌های اپیک",
-    heroTitle: "تنظیم‌کننده و سازنده خودکار تیکت‌های جیرا (Self-Hosted)",
-    heroSubtitle:
-      "نیازمندی‌ها و پیش‌نویس‌های نامنظم را به استوری‌ها و اپیک‌های استاندارد تبدیل کنید و در سرور جیرا منتشر کنید.",
-    draftSection: "۱. ثبت پیش‌نویس و اصلاح با هوش مصنوعی",
-    boardSection: "۲. بازبینی تیکت‌ها و انتشار در جیرا",
+    tabHealth: "سلامت",
+    tabWorkspace: "کارگاه",
+    tabDailyBoard: "بورد روزانه",
+    tabMattermost: "مترموست",
+    tabEpicSync: "همگام‌سازی اپیک",
+    tabRoadmap: "رودمپ",
+    tabSettings: "تنظیمات AI",
+    heroTitle: "جیرا AI",
+    heroSubtitle: "پیش‌نویس، اصلاح و انتشار در جیرای سلف‌هاست.",
+    draftSection: "۱. پیش‌نویس و اصلاح",
+    boardSection: "۲. بازبینی و انتشار",
   },
 } as const;
 
@@ -163,6 +165,7 @@ export function JiraAppProvider({ children }: { children: React.ReactNode }) {
   const [fetchingSprints, setFetchingSprints] = useState(false);
   const [issues, setIssues] = useState<RefinedIssue[]>([]);
   const [refining, setRefining] = useState(false);
+  const [workspaceHydrated, setWorkspaceHydrated] = useState(false);
 
   useEffect(() => {
     document.documentElement.lang = language;
@@ -170,31 +173,64 @@ export function JiraAppProvider({ children }: { children: React.ReactNode }) {
   }, [language, isRtl]);
 
   useEffect(() => {
-    try {
-      const savedIssues = localStorage.getItem("jira_refined_issues");
-      const savedManualComps = localStorage.getItem("jira_manual_components");
-      if (savedIssues) setIssues(JSON.parse(savedIssues));
-      if (savedManualComps) setManualComponentsText(savedManualComps);
-      // Clear legacy client-side secrets if present
-      localStorage.removeItem("jira_creds");
-      localStorage.removeItem("jira_project_key");
-      localStorage.removeItem("jira_config");
-    } catch (e) {
-      console.error("Error loading saved local settings", e);
-    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const [issuesRes, compsRes] = await Promise.all([
+          fetch("/api/kv/workspace/refined_issues"),
+          fetch("/api/kv/workspace/manual_components"),
+        ]);
+        if (cancelled) return;
+        if (issuesRes.ok) {
+          const data = await issuesRes.json();
+          if (Array.isArray(data.value)) setIssues(data.value);
+        }
+        if (compsRes.ok) {
+          const data = await compsRes.json();
+          const text =
+            typeof data.value === "string"
+              ? data.value
+              : data.value?.text;
+          if (typeof text === "string") setManualComponentsText(text);
+        }
+        // Clear legacy client-side secrets if present
+        localStorage.removeItem("jira_creds");
+        localStorage.removeItem("jira_project_key");
+        localStorage.removeItem("jira_config");
+      } catch (e) {
+        console.error("Error loading saved settings", e);
+      } finally {
+        if (!cancelled) setWorkspaceHydrated(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
-    if (issues.length > 0) {
-      localStorage.setItem("jira_refined_issues", JSON.stringify(issues));
-    } else {
-      localStorage.removeItem("jira_refined_issues");
-    }
-  }, [issues]);
+    if (!workspaceHydrated) return;
+    const timer = setTimeout(() => {
+      void fetch("/api/kv/workspace/refined_issues", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ value: issues }),
+      }).catch((e) => console.error("Failed to persist refined issues", e));
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [issues, workspaceHydrated]);
 
   useEffect(() => {
-    localStorage.setItem("jira_manual_components", manualComponentsText);
-  }, [manualComponentsText]);
+    if (!workspaceHydrated) return;
+    const timer = setTimeout(() => {
+      void fetch("/api/kv/workspace/manual_components", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ value: { text: manualComponentsText } }),
+      }).catch((e) => console.error("Failed to persist manual components", e));
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [manualComponentsText, workspaceHydrated]);
 
   const refreshConnection = useCallback(async () => {
     setRefreshingConnection(true);

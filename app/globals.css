@@ -130,83 +130,394 @@
 
 body {
   font-family: var(--font-sans);
+  background-image:
+    radial-gradient(1200px 600px at 10% -10%, oklch(0.72 0.04 210 / 0.18), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, oklch(0.78 0.03 195 / 0.12), transparent 55%);
+  background-attachment: fixed;
+}
+
+.dark body {
+  background-image:
+    radial-gradient(1000px 500px at 0% -10%, oklch(0.28 0.03 210 / 0.45), transparent 55%),
+    radial-gradient(800px 400px at 100% 0%, oklch(0.25 0.025 195 / 0.35), transparent 50%);
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  color-scheme: light;
+  --background: oklch(0.975 0.008 210);
+  --foreground: oklch(0.22 0.02 220);
+  --card: oklch(0.995 0.004 210);
+  --card-foreground: oklch(0.22 0.02 220);
+  --popover: oklch(0.995 0.004 210);
+  --popover-foreground: oklch(0.22 0.02 220);
+  --primary: oklch(0.38 0.055 205);
+  --primary-foreground: oklch(0.98 0.01 205);
+  --secondary: oklch(0.94 0.012 210);
+  --secondary-foreground: oklch(0.28 0.03 220);
+  --muted: oklch(0.94 0.01 210);
+  --muted-foreground: oklch(0.5 0.02 220);
+  --accent: oklch(0.93 0.02 195);
+  --accent-foreground: oklch(0.28 0.04 205);
   --destructive: oklch(0.577 0.245 27.325);
-  --success: oklch(0.55 0.14 155);
+  --success: oklch(0.55 0.12 165);
   --success-foreground: oklch(0.985 0 0);
-  --warning: oklch(0.75 0.15 75);
+  --warning: oklch(0.75 0.12 75);
   --warning-foreground: oklch(0.3 0.05 75);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --border: oklch(0.88 0.015 210);
+  --input: oklch(0.88 0.015 210);
+  --ring: oklch(0.55 0.05 205);
+  --chart-1: oklch(0.55 0.08 205);
+  --chart-2: oklch(0.62 0.06 180);
+  --chart-3: oklch(0.45 0.04 220);
+  --chart-4: oklch(0.7 0.05 195);
+  --chart-5: oklch(0.35 0.03 210);
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: oklch(0.97 0.01 210);
+  --sidebar-foreground: oklch(0.22 0.02 220);
+  --sidebar-primary: oklch(0.38 0.055 205);
+  --sidebar-primary-foreground: oklch(0.98 0.01 205);
+  --sidebar-accent: oklch(0.93 0.015 205);
+  --sidebar-accent-foreground: oklch(0.28 0.03 220);
+  --sidebar-border: oklch(0.88 0.015 210);
+  --sidebar-ring: oklch(0.55 0.05 205);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  color-scheme: dark;
+  --background: oklch(0.17 0.015 215);
+  --foreground: oklch(0.95 0.01 210);
+  --card: oklch(0.22 0.018 215);
+  --card-foreground: oklch(0.95 0.01 210);
+  --popover: oklch(0.22 0.018 215);
+  --popover-foreground: oklch(0.95 0.01 210);
+  --primary: oklch(0.78 0.06 195);
+  --primary-foreground: oklch(0.18 0.03 210);
+  --secondary: oklch(0.28 0.02 215);
+  --secondary-foreground: oklch(0.95 0.01 210);
+  --muted: oklch(0.28 0.02 215);
+  --muted-foreground: oklch(0.7 0.02 210);
+  --accent: oklch(0.3 0.03 200);
+  --accent-foreground: oklch(0.95 0.01 210);
   --destructive: oklch(0.704 0.191 22.216);
-  --success: oklch(0.7 0.14 155);
-  --success-foreground: oklch(0.2 0.04 155);
+  --success: oklch(0.7 0.12 165);
+  --success-foreground: oklch(0.2 0.04 165);
   --warning: oklch(0.8 0.12 85);
   --warning-foreground: oklch(0.25 0.05 85);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.65 0.05 195);
+  --chart-1: oklch(0.7 0.07 195);
+  --chart-2: oklch(0.62 0.05 180);
+  --chart-3: oklch(0.55 0.04 220);
+  --chart-4: oklch(0.78 0.05 205);
+  --chart-5: oklch(0.45 0.03 210);
+  --sidebar: oklch(0.2 0.018 215);
+  --sidebar-foreground: oklch(0.95 0.01 210);
+  --sidebar-primary: oklch(0.72 0.07 195);
+  --sidebar-primary-foreground: oklch(0.16 0.03 210);
+  --sidebar-accent: oklch(0.28 0.025 205);
+  --sidebar-accent-foreground: oklch(0.95 0.01 210);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar-ring: oklch(0.65 0.05 195);
+}
+
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 4.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* SVAR Gantt — lock to app tokens (beats .wx-willow-theme defaults) */
+.roadmap-gantt.wx-willow-theme,
+.roadmap-gantt.wx-willow-dark-theme {
+  --wx-font-family: var(--font-sans);
+  --wx-font-size: 0.875rem;
+  --wx-font-size-sm: 0.75rem;
+  --wx-font-size-md: 0.875rem;
+  --wx-font-size-hd: 1rem;
+  --wx-font-weight: 400;
+  --wx-font-weight-md: 500;
+  --wx-font-weight-b: 600;
+  --wx-line-height: 1.4;
+  --wx-icon-size: 1rem;
+
+  --wx-background: var(--card);
+  --wx-background-alt: var(--muted);
+  --wx-background-hover: var(--accent);
+  --wx-border-radius: var(--radius);
+  /* SVAR grid samples a #hex from --wx-gantt-border; color-mix() is ignored → falls back to #e4e4e4 */
+  --wx-border-color: #00000014;
+  --wx-border: 1px solid #00000014;
+  --wx-border-light: 1px solid #0000000f;
+  --wx-border-medium: 1px solid #00000018;
+  --wx-box-shadow: none;
+  --wx-box-shadow-strong: none;
+
+  --wx-color-font: var(--foreground);
+  --wx-color-font-alt: var(--muted-foreground);
+  --wx-color-font-disabled: var(--muted-foreground);
+  --wx-color-primary: var(--primary);
+  --wx-color-primary-font: var(--primary-foreground);
+  --wx-color-primary-selected: color-mix(in oklch, var(--primary) 14%, var(--card));
+  --wx-color-link: var(--primary);
+  --wx-color-danger: var(--destructive);
+  --wx-color-success: var(--success);
+  --wx-color-warning: var(--warning);
+  --wx-color-info: var(--primary);
+  --wx-color-secondary: transparent;
+  --wx-color-secondary-hover: var(--accent);
+  --wx-color-secondary-font: var(--primary);
+  --wx-color-secondary-font-hover: var(--primary);
+  --wx-color-secondary-border: var(--border);
+  --wx-color-disabled: var(--muted);
+  --wx-color-disabled-alt: var(--muted);
+
+  --wx-gantt-border: 1px solid #00000012;
+  --wx-gantt-border-color: #00000012;
+  --wx-gantt-form-header-border: none;
+  --wx-gantt-icon-color: var(--muted-foreground);
+  --wx-gantt-select-color: color-mix(in oklch, var(--accent) 85%, transparent);
+  --wx-gantt-bar-border-radius: calc(var(--radius) * 0.55);
+  --wx-gantt-milestone-border-radius: calc(var(--radius) * 0.35);
+  --wx-gantt-baseline-border-radius: calc(var(--radius) * 0.35);
+  --wx-gantt-bar-shadow: none;
+  --wx-gantt-bar-font: var(--wx-font-weight-md) var(--wx-font-size-sm) /
+    1.25 var(--wx-font-family);
+
+  --wx-gantt-task-color: var(--primary);
+  --wx-gantt-task-font-color: var(--primary-foreground);
+  --wx-gantt-task-fill-color: color-mix(in oklch, var(--primary) 78%, black);
+  --wx-gantt-task-border-color: color-mix(in oklch, var(--primary) 70%, black);
+  --wx-gantt-task-border: 1px solid transparent;
+
+  --wx-gantt-summary-color: color-mix(in oklch, var(--secondary) 70%, var(--muted-foreground));
+  --wx-gantt-summary-font-color: var(--secondary-foreground);
+  --wx-gantt-summary-fill-color: color-mix(in oklch, var(--muted-foreground) 45%, var(--secondary));
+  --wx-gantt-summary-border-color: var(--border);
+  --wx-gantt-summary-border: 1px solid transparent;
+
+  --wx-gantt-milestone-color: var(--primary);
+  --wx-gantt-holiday-background: transparent;
+  --wx-gantt-holiday-color: var(--muted-foreground);
+  --wx-gantt-marker-color: color-mix(in oklch, var(--primary) 70%, transparent);
+  --wx-gantt-marker-font: var(--wx-font-weight-md) var(--wx-font-size-sm) /
+    1.2 var(--wx-font-family);
+  --wx-gantt-marker-font-color: var(--primary-foreground);
+  --wx-gantt-link-color: var(--muted-foreground);
+  --wx-gantt-link-color-hovered: var(--foreground);
+  --wx-gantt-link-marker-background: var(--card);
+  --wx-gantt-link-marker-color: var(--muted-foreground);
+  --wx-gantt-progress-border-color: var(--border);
+
+  --wx-grid-header-font: var(--wx-font-weight-md) var(--wx-font-size-sm) /
+    1.25 var(--wx-font-family);
+  --wx-grid-header-font-color: var(--muted-foreground);
+  --wx-grid-header-text-transform: none;
+  --wx-grid-header-shadow: none;
+  --wx-grid-body-font: var(--wx-font-weight) var(--wx-font-size-sm) / 1.35
+    var(--wx-font-family);
+  --wx-grid-body-font-color: var(--foreground);
+  --wx-grid-body-row-border: 1px solid #00000010;
+  --wx-grid-body-cell-border: 1px solid transparent;
+  --wx-grid-cell-padding-x: 0.75rem;
+
+  --wx-timescale-font: var(--wx-font-weight-md) var(--wx-font-size-sm) / 1.25
+    var(--wx-font-family);
+  --wx-timescale-font-color: var(--muted-foreground);
+  --wx-timescale-shadow: none;
+  --wx-timescale-border: 1px solid #00000014;
+
+  --wx-table-select-background: var(--wx-gantt-select-color);
+  --wx-table-select-focus-background: var(--wx-gantt-select-color);
+
+  color: var(--foreground);
+  background: var(--card);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  text-align: start;
+  letter-spacing: normal;
+}
+
+.roadmap-gantt .wx-gantt,
+.roadmap-gantt .wx-layout,
+.roadmap-gantt .wx-content {
+  height: 100%;
+  font-family: var(--font-sans);
+}
+
+.roadmap-gantt .wx-scale,
+.roadmap-gantt .wx-table,
+.roadmap-gantt .wx-grid,
+.roadmap-gantt .wx-cell,
+.roadmap-gantt .wx-bar,
+.roadmap-gantt .wx-text,
+.roadmap-gantt .wx-name {
+  font-family: var(--font-sans) !important;
+}
+
+.roadmap-gantt .wx-scale {
+  background-color: color-mix(in oklch, var(--muted) 40%, var(--card));
+}
+
+.roadmap-gantt .wx-scale .wx-cell {
+  border-right: 1px solid #00000012;
+}
+
+.roadmap-gantt .wx-scale .wx-row:not(:last-child) {
+  border-bottom: 1px solid #00000014;
+}
+
+.roadmap-gantt .wx-table .wx-body .wx-row {
+  border-bottom: 1px solid #0000000e;
+}
+
+.roadmap-gantt .wx-table-container {
+  border-right: 1px solid #00000014;
+}
+
+.roadmap-gantt .wx-weekend,
+.roadmap-gantt .wx-gantt-holidays {
+  display: none;
+}
+
+.roadmap-gantt .wx-cell {
+  color: var(--muted-foreground);
+}
+
+.roadmap-gantt.wx-willow-dark-theme {
+  --wx-border-color: #ffffff14;
+  --wx-border: 1px solid #ffffff14;
+  --wx-border-light: 1px solid #ffffff0f;
+  --wx-border-medium: 1px solid #ffffff18;
+  --wx-gantt-border: 1px solid #ffffff14;
+  --wx-gantt-border-color: #ffffff14;
+  --wx-grid-body-row-border: 1px solid #ffffff10;
+  --wx-timescale-border: 1px solid #ffffff14;
+}
+
+.roadmap-gantt.wx-willow-dark-theme .wx-scale .wx-cell {
+  border-right-color: #ffffff12;
+}
+
+.roadmap-gantt.wx-willow-dark-theme .wx-scale .wx-row:not(:last-child) {
+  border-bottom-color: #ffffff14;
+}
+
+.roadmap-gantt.wx-willow-dark-theme .wx-table .wx-body .wx-row {
+  border-bottom-color: #ffffff0e;
+}
+
+.roadmap-gantt.wx-willow-dark-theme .wx-table-container {
+  border-right-color: #ffffff14;
+}
+
+.roadmap-gantt .wx-table .wx-header .wx-cell {
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--muted-foreground);
+}
+
+.roadmap-gantt .wx-table .wx-body .wx-cell {
+  color: var(--foreground);
+}
+
+/* Keep task names RTL-friendly without flipping the timeline */
+.roadmap-gantt.roadmap-gantt-rtl .wx-table,
+.roadmap-gantt.roadmap-gantt-rtl .wx-table .wx-cell,
+.roadmap-gantt.roadmap-gantt-rtl .wx-grid {
+  direction: rtl;
+  text-align: start;
+}
+
+.roadmap-gantt.roadmap-gantt-rtl .rm-task-inner {
+  direction: rtl;
+  text-align: start;
+}
+
+.roadmap-gantt .wx-resizer {
+  background-color: var(--border);
+}
+
+.roadmap-gantt .wx-bar {
+  box-shadow: none;
+}
+
+.roadmap-gantt .wx-bar:hover,
+.roadmap-gantt .wx-bar:focus-visible {
+  box-shadow: none;
+  outline: 2px solid color-mix(in oklch, var(--ring) 70%, transparent);
+  outline-offset: 1px;
+}
+
+/* Status colors: paint bar directly (SVAR does not put task.css on .wx-bar) */
+.roadmap-gantt .wx-bar:has(.rm-bar-product) {
+  background-color: color-mix(in oklch, var(--muted) 55%, var(--muted-foreground)) !important;
+  color: var(--foreground) !important;
+  border-color: transparent !important;
+}
+
+.roadmap-gantt .wx-bar:has(.rm-bar-released),
+.roadmap-gantt .wx-bar:has(.rm-bar-released) .wx-progress-percent {
+  background-color: var(--success) !important;
+  color: var(--success-foreground) !important;
+  border-color: transparent !important;
+}
+
+.roadmap-gantt .wx-bar:has(.rm-bar-overdue) {
+  background-color: var(--destructive) !important;
+  color: var(--primary-foreground) !important;
+  border-color: transparent !important;
+}
+
+.roadmap-gantt .wx-bar:has(.rm-bar-archived) {
+  background-color: color-mix(
+    in oklch,
+    var(--muted-foreground) 40%,
+    var(--muted)
+  ) !important;
+  color: var(--foreground) !important;
+  border-color: transparent !important;
+}
+
+.roadmap-gantt .wx-bar:has(.rm-bar-unreleased) {
+  background-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+  border-color: transparent !important;
+}
+
+.roadmap-gantt .wx-bar:has(.rm-bar-issue) {
+  background-color: color-mix(in oklch, var(--primary) 28%, var(--muted)) !important;
+  color: var(--foreground) !important;
+  border-color: transparent !important;
+  opacity: 0.95;
+}
+
+.roadmap-gantt .rm-task-inner {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: normal;
+  color: inherit;
+  background: transparent;
+}
+
+.roadmap-gantt .rm-task-inner span {
+  min-width: 0;
 }
 
 @layer base {

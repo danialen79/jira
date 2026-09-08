@@ -1,0 +1,48 @@
+---
+description: Keep product UI copy short and layouts uncluttered (EN/FA)
+globs: "{app,components}/**/*.{tsx,jsx}"
+alwaysApply: false
+---
+
+# Concise product UI
+
+This app is a dense Jira workspace (daily board, roadmap, settings, etc.). Prefer clarity over explanation. Do not write marketing or tutorial prose into the UI.
+
+## Copy density
+
+- One job per section: title + at most one short supporting line.
+- Page `subtitle` / hero lines: max ~12 words (EN) / ~15 words (FA).
+- Helper text under fields: one line. Prefer a good `placeholder` over a paragraph.
+- Empty states: title ≤ 6 words; hint ≤ 1 sentence. No setup essays.
+- Buttons/labels: verb + object (`Log work`, `ثبت کار`) — no filler.
+- Toast / success / error: one short sentence. Point to the fix, don’t narrate the system.
+- EN and FA strings stay parallel and equally short — don’t inflate one language.
+
+## Layout clutter
+
+- Don’t stack cards, banners, and long descriptions that repeat the same idea.
+- Prefer whitespace and hierarchy over extra borders, nested panels, or decorative chrome.
+- Put deep how-to in docs/tooltips only when the control is genuinely unclear — not by default.
+- Filters and primary actions stay scannable; don’t bury them under instructional blocks.
+
+## Examples
+
+```tsx
+// ❌ BAD
+subtitle: "Check active tickets for the current project, log time spent, or use AI to parse your daily summary and log work in batch."
+aiBoxDesc: "Enter your daily accomplishments in plain text (English or Persian). The AI will identify matching tickets, distribute your hours, and write professional worklog descriptions."
+
+// ✅ GOOD
+subtitle: "Active tickets, quick log, or AI batch log."
+aiBoxDesc: "Paste today’s work; AI matches tickets and hours."
+```
+
+```tsx
+// ❌ BAD — empty state essay
+emptyHint: "Please connect to your self-hosted Jira Server first in '1. Connection & Config' tab to view your daily board."
+
+// ✅ GOOD
+emptyHint: "Connect Jira in Settings, then refresh."
+```
+
+When adding or rewriting UI strings, shorten first; only expand if the user cannot complete the task without the extra words.

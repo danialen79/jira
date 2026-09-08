@@ -5,7 +5,9 @@ import { usePathname } from "next/navigation";
 import {
   Activity,
   ClipboardList,
+  GanttChart,
   MessageSquare,
+  Settings2,
   Sparkles,
   Tag,
 } from "lucide-react";
@@ -44,6 +46,11 @@ const navItems = [
     labelKey: "tabDailyBoard" as const,
   },
   {
+    href: "/roadmap",
+    icon: GanttChart,
+    labelKey: "tabRoadmap" as const,
+  },
+  {
     href: "/mattermost",
     icon: MessageSquare,
     labelKey: "tabMattermost" as const,
@@ -52,6 +59,11 @@ const navItems = [
     href: "/epic-sync",
     icon: Tag,
     labelKey: "tabEpicSync" as const,
+  },
+  {
+    href: "/settings",
+    icon: Settings2,
+    labelKey: "tabSettings" as const,
   },
 ] as const;
 
