@@ -7,9 +7,7 @@ import {
   addJalaliMonths,
   addJalaliQuarters,
   addJalaliYears,
-  formatJalaliHalfYear,
   formatJalaliMonthYear,
-  formatJalaliQuarter,
   formatJalaliYear,
   isLeapJalaaliYear,
   isSameJalaliHalfYear,
@@ -37,7 +35,7 @@ import {
 const DAY_MS = 24 * 60 * 60 * 1000;
 const RANGE_PAD_DAYS = 14;
 
-export type RoadmapScaleMode = "month" | "quarter" | "halfYear";
+export type RoadmapScaleMode = "month" | "fourMonth" | "year";
 
 export type RoadmapTaskKind = "version" | "issue";
 
@@ -267,6 +265,26 @@ function versionDateRange(
   return { start, end };
 }
 
+/** Inclusive overlap: version touches the viewport at all. */
+export function rangesOverlap(
+  a: { start: Date; end: Date },
+  b: { start: Date; end: Date }
+): boolean {
+  return a.start.getTime() <= b.end.getTime() && a.end.getTime() >= b.start.getTime();
+}
+
+export function filterVersionsOverlappingView(
+  versions: JiraVersion[],
+  viewStart: Date,
+  viewEnd: Date
+): JiraVersion[] {
+  const view = { start: viewStart, end: viewEnd };
+  return versions.filter((v) => {
+    const range = versionDateRange(v);
+    return range ? rangesOverlap(range, view) : false;
+  });
+}
+
 function statusCss(
   status: ReturnType<typeof getVersionStatusLabel>
 ): string {
@@ -372,15 +390,122 @@ export function buildTimelineBounds(
   };
 }
 
-function enQuarter(d: Date): string {
-  const q = Math.floor(d.getMonth() / 3) + 1;
-  return `Q${q} ${d.getFullYear()}`;
+/** Four-month window: [anchor−1, anchor, anchor+1, anchor+2]. Year: full Jalali year. */
+export function getViewBounds(
+  mode: RoadmapScaleMode,
+  anchor: Date
+): { start: Date; end: Date } {
+  if (mode === "year") {
+    return {
+      start: jalaliYearStart(anchor),
+      end: jalaliYearEnd(anchor),
+    };
+  }
+  if (mode === "month") {
+    return {
+      start: jalaliMonthStart(anchor),
+      end: jalaliMonthEnd(anchor),
+    };
+  }
+  const start = jalaliMonthStart(addJalaliMonths(anchor, -1));
+  const end = jalaliMonthEnd(addJalaliMonths(anchor, 2));
+  return { start, end };
 }
 
-function enHalf(d: Date): string {
-  return d.getMonth() < 6
-    ? `H1 ${d.getFullYear()}`
-    : `H2 ${d.getFullYear()}`;
+export function normalizeAnchor(
+  mode: RoadmapScaleMode,
+  date: Date = new Date()
+): Date {
+  return mode === "year" ? jalaliYearStart(date) : jalaliMonthStart(date);
+}
+
+export function shiftAnchor(
+  mode: RoadmapScaleMode,
+  anchor: Date,
+  direction: -1 | 1
+): Date {
+  if (mode === "year") {
+    return jalaliYearStart(addJalaliYears(anchor, direction));
+  }
+  if (mode === "month") {
+    return jalaliMonthStart(addJalaliMonths(anchor, direction));
+  }
+  return jalaliMonthStart(addJalaliMonths(anchor, direction * 4));
+}
+
+/** Toolbar title for the visible period. */
+export function formatViewPeriodTitle(
+  mode: RoadmapScaleMode,
+  anchor: Date,
+  language: Language
+): string {
+  if (mode === "year") {
+    return formatJalaliYear(anchor);
+  }
+  if (mode === "month") {
+    return formatJalaliMonthYear(anchor, language);
+  }
+  const first = addJalaliMonths(anchor, -1);
+  const last = addJalaliMonths(anchor, 2);
+  const a = toJalaliParts(first);
+  const b = toJalaliParts(last);
+  const firstLabel = formatJalaliMonthYear(first, language);
+  const lastLabel = formatJalaliMonthYear(last, language);
+  if (language === "fa") {
+    if (a.jy === b.jy) {
+      const firstMonthOnly = firstLabel.replace(/\s+\d+$/, "");
+      const lastMonthOnly = lastLabel.replace(/\s+\d+$/, "");
+      return `از ${firstMonthOnly} تا ${lastMonthOnly} ${a.jy}`;
+    }
+    return `از ${firstLabel} تا ${lastLabel}`;
+  }
+  if (a.jy === b.jy) {
+    const firstMonthOnly = firstLabel.replace(/\s+\d+$/, "");
+    return `${firstMonthOnly} – ${lastLabel}`;
+  }
+  return `${firstLabel} – ${lastLabel}`;
+}
+
+/**
+ * Monthly list filter: real startDate and/or releaseDate falls in the Jalali month
+ * (not synthesized range endpoints, not mid-span overlap).
+ */
+export function filterVersionsWithBoundaryInMonth(
+  versions: JiraVersion[],
+  monthAnchor: Date
+): JiraVersion[] {
+  const matched = versions.filter((v) => {
+    const startIn = v.startDate
+      ? isSameJalaliMonth(toDateOnly(v.startDate), monthAnchor)
+      : false;
+    const endIn = v.releaseDate
+      ? isSameJalaliMonth(toDateOnly(v.releaseDate), monthAnchor)
+      : false;
+    return startIn || endIn;
+  });
+  return matched.sort((a, b) => {
+    const aDate = a.startDate || a.releaseDate || "";
+    const bDate = b.startDate || b.releaseDate || "";
+    return aDate.localeCompare(bDate);
+  });
+}
+
+const CURRENT_MONTH_MARK = "· ";
+
+export function formatScaleMonthLabel(
+  date: Date,
+  language: Language,
+  today: Date = new Date()
+): string {
+  const label = formatJalaliMonthYear(date, language);
+  if (isSameJalaliMonth(date, today)) {
+    return `${CURRENT_MONTH_MARK}${label}`;
+  }
+  return label;
+}
+
+export function isCurrentMonthScaleLabel(text: string): boolean {
+  return text.trimStart().startsWith(CURRENT_MONTH_MARK);
 }
 
 export function getScalesForMode(
@@ -388,106 +513,34 @@ export function getScalesForMode(
   language: Language
 ): IScaleConfig[] {
   ensureRoadmapScaleUnits();
-  const fa = language === "fa";
 
-  if (mode === "month") {
-    if (fa) {
-      return [
-        {
-          unit: "jyear",
-          step: 1,
-          format: (d) => formatJalaliYear(d),
-        },
-        {
-          unit: "jmonth",
-          step: 1,
-          format: (d) => formatJalaliMonthYear(d, "fa"),
-        },
-      ];
-    }
-    return [
-      {
-        unit: "year",
-        step: 1,
-        format: (d) => String(d.getFullYear()),
-      },
-      {
-        unit: "month",
-        step: 1,
-        format: (d) =>
-          d.toLocaleDateString("en-US", {
-            month: "short",
-            year: "numeric",
-          }),
-      },
-    ];
-  }
+  const monthScale: IScaleConfig = {
+    unit: "jmonth",
+    step: 1,
+    format: (d) => formatScaleMonthLabel(d, language),
+  };
 
-  if (mode === "quarter") {
-    if (fa) {
-      return [
-        {
-          unit: "jyear",
-          step: 1,
-          format: (d) => formatJalaliYear(d),
-        },
-        {
-          unit: "jquarter",
-          step: 1,
-          format: (d) => formatJalaliQuarter(d, "fa"),
-        },
-      ];
-    }
-    return [
-      {
-        unit: "year",
-        step: 1,
-        format: (d) => String(d.getFullYear()),
-      },
-      {
-        unit: "quarter",
-        step: 1,
-        format: (d) => enQuarter(d),
-      },
-    ];
-  }
-
-  if (fa) {
-    return [
-      {
-        unit: "jyear",
-        step: 1,
-        format: (d) => formatJalaliYear(d),
-      },
-      {
-        unit: "jhalfYear",
-        step: 1,
-        format: (d) => formatJalaliHalfYear(d, "fa"),
-      },
-    ];
+  if (mode === "fourMonth" || mode === "month") {
+    return [monthScale];
   }
 
   return [
     {
-      unit: "year",
+      unit: "jyear",
       step: 1,
-      format: (d) => String(d.getFullYear()),
+      format: (d) => formatJalaliYear(d),
     },
-    {
-      unit: "halfYear",
-      step: 1,
-      format: (d) => enHalf(d),
-    },
+    monthScale,
   ];
 }
 
 export function cellWidthForMode(mode: RoadmapScaleMode): number {
   switch (mode) {
+    case "fourMonth":
+      return 150;
+    case "year":
+      return 52;
     case "month":
-      return 72;
-    case "quarter":
-      return 140;
-    case "halfYear":
-      return 180;
+      return 150;
   }
 }

@@ -1,7 +1,19 @@
 import { getDb, nowIso } from "@/lib/db";
 import { getSetting, setSetting } from "@/lib/db/repos/settings";
+import {
+  AI_PROVIDER_IDS,
+  DEFAULT_AI_MODELS,
+  isAIProvider,
+  OMNIROUTE_DEFAULT_BASE_URL,
+  type AIProvider,
+} from "@/lib/ai-providers";
 
-export type AIProvider = "gemini" | "avalai" | "arvan";
+export type { AIProvider };
+export {
+  AI_PROVIDER_IDS,
+  isAIProvider,
+  OMNIROUTE_DEFAULT_BASE_URL,
+};
 
 export type AiDefaults = {
   defaultProvider: AIProvider;
@@ -9,6 +21,7 @@ export type AiDefaults = {
     gemini: string;
     avalai: string;
     arvan: string;
+    omniroute: string;
   };
 };
 
@@ -36,14 +49,13 @@ export type PublicAiSettings = {
 
 const AI_DEFAULTS_KEY = "ai.defaults";
 
-const PROVIDER_IDS: AIProvider[] = ["gemini", "avalai", "arvan"];
-
 export const DEFAULT_AI_DEFAULTS: AiDefaults = {
   defaultProvider: "gemini",
   defaultModels: {
-    gemini: "gemini-3.5-flash",
-    avalai: "gpt-4o-mini",
-    arvan: "Gemini-3-Flash-Preview",
+    gemini: DEFAULT_AI_MODELS.gemini,
+    avalai: DEFAULT_AI_MODELS.avalai,
+    arvan: DEFAULT_AI_MODELS.arvan,
+    omniroute: DEFAULT_AI_MODELS.omniroute,
   },
 };
 
@@ -51,10 +63,6 @@ function maskLast4(apiKey: string | null | undefined): string | null {
   if (!apiKey) return null;
   if (apiKey.length <= 4) return apiKey;
   return apiKey.slice(-4);
-}
-
-function isAIProvider(value: unknown): value is AIProvider {
-  return value === "gemini" || value === "avalai" || value === "arvan";
 }
 
 export function getAiDefaults(): AiDefaults {
@@ -75,6 +83,9 @@ export function getAiDefaults(): AiDefaults {
         arvan:
           process.env.ARVAN_DEFAULT_MODEL?.trim() ||
           DEFAULT_AI_DEFAULTS.defaultModels.arvan,
+        omniroute:
+          process.env.OMNIROUTE_DEFAULT_MODEL?.trim() ||
+          DEFAULT_AI_DEFAULTS.defaultModels.omniroute,
       },
     };
   }
@@ -92,6 +103,9 @@ export function getAiDefaults(): AiDefaults {
         stored.defaultModels?.avalai || DEFAULT_AI_DEFAULTS.defaultModels.avalai,
       arvan:
         stored.defaultModels?.arvan || DEFAULT_AI_DEFAULTS.defaultModels.arvan,
+      omniroute:
+        stored.defaultModels?.omniroute ||
+        DEFAULT_AI_DEFAULTS.defaultModels.omniroute,
     },
   };
 }
@@ -128,7 +142,7 @@ export function getAiProviderRow(id: AIProvider): AiProviderRow | null {
 }
 
 export function listAiProviderRows(): AiProviderRow[] {
-  return PROVIDER_IDS.map((id) => {
+  return AI_PROVIDER_IDS.map((id) => {
     const row = getAiProviderRow(id);
     return (
       row || {
@@ -216,6 +230,9 @@ function isProviderConfiguredInEnv(id: AIProvider): boolean {
       process.env.AVALAI_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim()
     );
   }
+  if (id === "omniroute") {
+    return !!process.env.OMNIROUTE_API_KEY?.trim();
+  }
   return !!(
     process.env.ARVAN_API_KEY?.trim() &&
     (process.env.ARVAN_BASE_URL?.trim() ||
@@ -278,6 +295,25 @@ export function getResolvedAiConfig(provider?: string): ResolvedAiConfig {
     };
   }
 
+  if (id === "omniroute") {
+    const apiKey =
+      row?.apiKey?.trim() || process.env.OMNIROUTE_API_KEY?.trim() || "";
+    const baseUrl = (
+      row?.baseUrl?.trim() ||
+      process.env.OMNIROUTE_BASE_URL?.trim() ||
+      OMNIROUTE_DEFAULT_BASE_URL
+    ).replace(/\/+$/, "");
+    return {
+      provider: id,
+      apiKey,
+      baseUrl,
+      defaultModel:
+        defaults.defaultModels.omniroute ||
+        process.env.OMNIROUTE_DEFAULT_MODEL?.trim() ||
+        "auto",
+    };
+  }
+
   const apiKey =
     row?.apiKey?.trim() || process.env.ARVAN_API_KEY?.trim() || "";
   const baseUrl = (
@@ -320,6 +356,8 @@ export function updateAiSettings(input: UpdateAiSettingsInput): PublicAiSettings
       gemini: input.defaultModels?.gemini || current.defaultModels.gemini,
       avalai: input.defaultModels?.avalai || current.defaultModels.avalai,
       arvan: input.defaultModels?.arvan || current.defaultModels.arvan,
+      omniroute:
+        input.defaultModels?.omniroute || current.defaultModels.omniroute,
     },
   };
   setAiDefaults(next);

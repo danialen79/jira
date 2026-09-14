@@ -9,7 +9,8 @@ import React, {
   useRef,
   useState,
 } from "react";
-import type { AIProvider } from "@/lib/ai-provider";
+import type { AIProvider } from "@/lib/ai-providers";
+import { DEFAULT_AI_MODELS } from "@/lib/ai-providers";
 
 export type PublicAiProvider = {
   id: AIProvider;
@@ -25,6 +26,7 @@ export type PublicAiSettings = {
     gemini: string;
     avalai: string;
     arvan: string;
+    omniroute: string;
   };
   providers: PublicAiProvider[];
 };
@@ -52,11 +54,7 @@ type AiSettingsContextValue = {
   ) => Promise<PublicAiSettings>;
 };
 
-const DEFAULT_MODELS = {
-  gemini: "gemini-3.5-flash",
-  avalai: "gpt-4o-mini",
-  arvan: "Gemini-3-Flash-Preview",
-} as const;
+const DEFAULT_MODELS = DEFAULT_AI_MODELS;
 
 const AiSettingsContext = createContext<AiSettingsContextValue | null>(null);
 

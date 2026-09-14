@@ -1,13 +1,22 @@
 "use client";
 
-import { useMemo } from "react";
+import { useState } from "react";
+import { format } from "date-fns";
+import { CalendarIcon } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { CalendarJalali } from "@/components/ui/calendar-jalali";
+import { Button } from "@/components/ui/button";
 import {
-  JALALI_MONTHS_FA,
-  isoDateToJalaliParts,
-  jalaaliMonthLength,
-  jalaliPartsToIsoDate,
-  toJalaliParts,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  formatIsoAsJalali,
+  isoDateToLocalDate,
+  localDateToIsoDate,
 } from "@/lib/jalali";
+import type { Language } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -17,10 +26,9 @@ type Props = {
   disabled?: boolean;
   className?: string;
   allowEmpty?: boolean;
+  language?: Language;
+  placeholder?: string;
 };
-
-const selectClass =
-  "h-8 min-w-0 rounded-lg border border-input bg-transparent px-1.5 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30";
 
 export default function JalaliDateInput({
   id,
@@ -29,94 +37,86 @@ export default function JalaliDateInput({
   disabled,
   className,
   allowEmpty = true,
+  language = "fa",
+  placeholder,
 }: Props) {
-  const today = toJalaliParts(new Date());
-  const parts = value ? isoDateToJalaliParts(value) : null;
-  const jy = parts?.jy ?? today.jy;
-  const jm = parts?.jm ?? today.jm;
-  const jd = parts?.jd ?? today.jd;
-  const empty = !parts;
+  const [open, setOpen] = useState(false);
+  const selected = value ? isoDateToLocalDate(value) : undefined;
+  const isFa = language === "fa";
+  const emptyLabel =
+    placeholder || (isFa ? "انتخاب تاریخ" : "Pick a date");
 
-  const years = useMemo(() => {
-    const center = parts?.jy ?? today.jy;
-    const list: number[] = [];
-    for (let y = center - 15; y <= center + 10; y++) list.push(y);
-    return list;
-  }, [parts?.jy, today.jy]);
+  const label = value
+    ? isFa
+      ? formatIsoAsJalali(value, "fa")
+      : format(isoDateToLocalDate(value) ?? new Date(), "PPP")
+    : emptyLabel;
 
-  const daysInMonth = jalaaliMonthLength(jy, jm);
-
-  const emit = (nextJy: number, nextJm: number, nextJd: number) => {
-    const dim = jalaaliMonthLength(nextJy, nextJm);
-    onChange(jalaliPartsToIsoDate(nextJy, nextJm, Math.min(nextJd, dim)));
+  const handleSelect = (date: Date | undefined) => {
+    if (!date) {
+      if (allowEmpty) onChange("");
+      return;
+    }
+    onChange(localDateToIsoDate(date));
+    setOpen(false);
   };
 
   return (
-    <div className={cn("flex w-full items-center gap-1.5", className)} dir="rtl">
-      <select
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
         id={id}
-        aria-label="روز"
-        className={cn(selectClass, "w-[4.25rem]")}
         disabled={disabled}
-        value={empty ? "" : jd}
-        onChange={(e) => {
-          const v = e.target.value;
-          if (!v) {
-            if (allowEmpty) onChange("");
-            return;
-          }
-          emit(jy, jm, Number(v));
-        }}
+        render={
+          <Button
+            type="button"
+            variant="outline"
+            disabled={disabled}
+            data-empty={!value}
+            className={cn(
+              "w-full justify-start font-normal data-[empty=true]:text-muted-foreground",
+              className
+            )}
+          />
+        }
       >
-        {allowEmpty && <option value="">—</option>}
-        {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((d) => (
-          <option key={d} value={d}>
-            {d}
-          </option>
-        ))}
-      </select>
-      <select
-        aria-label="ماه"
-        className={cn(selectClass, "min-w-0 flex-1")}
-        disabled={disabled}
-        value={empty ? "" : jm}
-        onChange={(e) => {
-          const v = e.target.value;
-          if (!v) {
-            if (allowEmpty) onChange("");
-            return;
-          }
-          emit(jy, Number(v), jd);
-        }}
-      >
-        {allowEmpty && <option value="">—</option>}
-        {JALALI_MONTHS_FA.map((name, i) => (
-          <option key={name} value={i + 1}>
-            {name}
-          </option>
-        ))}
-      </select>
-      <select
-        aria-label="سال"
-        className={cn(selectClass, "w-[5.25rem]")}
-        disabled={disabled}
-        value={empty ? "" : jy}
-        onChange={(e) => {
-          const v = e.target.value;
-          if (!v) {
-            if (allowEmpty) onChange("");
-            return;
-          }
-          emit(Number(v), jm, jd);
-        }}
-      >
-        {allowEmpty && <option value="">—</option>}
-        {years.map((y) => (
-          <option key={y} value={y}>
-            {y}
-          </option>
-        ))}
-      </select>
-    </div>
+        <CalendarIcon data-icon="inline-start" />
+        <span className="truncate">{label}</span>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-auto p-0">
+        {isFa ? (
+          <CalendarJalali
+            mode="single"
+            selected={selected}
+            onSelect={handleSelect}
+            defaultMonth={selected}
+            captionLayout="dropdown"
+          />
+        ) : (
+          <Calendar
+            mode="single"
+            selected={selected}
+            onSelect={handleSelect}
+            defaultMonth={selected}
+            captionLayout="dropdown"
+          />
+        )}
+        {allowEmpty && value ? (
+          <div className="border-t p-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="w-full"
+              onClick={() => {
+                onChange("");
+                setOpen(false);
+              }}
+            >
+              {isFa ? "پاک کردن" : "Clear"}
+            </Button>
+          </div>
+        ) : null}
+      </PopoverContent>
+    </Popover>
   );
 }

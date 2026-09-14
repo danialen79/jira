@@ -1,14 +1,10 @@
 import { NextResponse } from "next/server";
 import {
   getPublicAiSettings,
+  isAIProvider,
   updateAiSettings,
-  type AIProvider,
   type UpdateAiSettingsInput,
 } from "@/lib/db/repos/ai";
-
-function isAIProvider(value: unknown): value is AIProvider {
-  return value === "gemini" || value === "avalai" || value === "arvan";
-}
 
 export async function GET() {
   try {

@@ -13,6 +13,7 @@ import {
   getResolvedDefaultProvider,
   type AIProvider,
 } from "@/lib/db/repos/ai";
+import { isAIProvider } from "@/lib/ai-providers";
 
 export type { AIProvider };
 export type AIResponseKind =
@@ -21,10 +22,6 @@ export type AIResponseKind =
   | "aiWorklogPlan"
   | "mattermostRefine";
 
-function isAIProvider(value?: string): value is AIProvider {
-  return value === "gemini" || value === "avalai" || value === "arvan";
-}
-
 function normalizeProvider(provider?: string): AIProvider {
   if (isAIProvider(provider)) return provider;
   return getResolvedDefaultProvider();
@@ -32,6 +29,10 @@ function normalizeProvider(provider?: string): AIProvider {
 
 function getAvalaiDefaultModel(): string {
   return getResolvedAiConfig("avalai").defaultModel;
+}
+
+function getOmnirouteDefaultModel(): string {
+  return getResolvedAiConfig("omniroute").defaultModel || "auto";
 }
 
 function getArvanBaseURL(): string {
@@ -214,6 +215,10 @@ function getModelQueue(params: {
     return [resolveArvanModel(model)];
   }
 
+  if (provider === "omniroute") {
+    return [model || getOmnirouteDefaultModel()];
+  }
+
   return [model || getAvalaiDefaultModel()];
 }
 
@@ -254,7 +259,7 @@ async function generateWithGemini(params: {
 }
 
 async function generateWithOpenAICompatible(params: {
-  provider: "avalai" | "arvan";
+  provider: "avalai" | "arvan" | "omniroute";
   model: string;
   kind: AIResponseKind;
   systemInstruction: string;
@@ -264,12 +269,28 @@ async function generateWithOpenAICompatible(params: {
   const resolved = getResolvedAiConfig(params.provider);
   const apiKey = resolved.apiKey;
   const baseURL = resolved.baseUrl;
-  const providerLabel = params.provider === "avalai" ? "AvalAI" : "Arvan AIaaS";
+  const providerLabel =
+    params.provider === "avalai"
+      ? "AvalAI"
+      : params.provider === "omniroute"
+        ? "OmniRoute"
+        : "Arvan AIaaS";
 
   if (params.provider === "avalai") {
     if (!apiKey) {
       throw new Error(
         "AVALAI_API_KEY is not defined. Add it in Settings or environment variables."
+      );
+    }
+  } else if (params.provider === "omniroute") {
+    if (!apiKey) {
+      throw new Error(
+        "OMNIROUTE_API_KEY is not defined. Add it in Settings or environment variables."
+      );
+    }
+    if (!baseURL) {
+      throw new Error(
+        "OMNIROUTE_BASE_URL is not defined. Set your OmniRoute URL in Settings."
       );
     }
   } else {
@@ -357,7 +378,7 @@ export async function generateAIJson(params: {
               temperature: params.temperature,
             })
           : await generateWithOpenAICompatible({
-              provider: provider as "avalai" | "arvan",
+              provider: provider as "avalai" | "arvan" | "omniroute",
               model: currentModel,
               kind: params.kind,
               systemInstruction: params.systemInstruction,

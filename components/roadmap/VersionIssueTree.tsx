@@ -1,22 +1,23 @@
 "use client";
 
-import {
-  ArrowRightLeftIcon,
-  ChevronDownIcon,
-  ExternalLinkIcon,
-  Layers,
-  PencilIcon,
-} from "lucide-react";
+import { useCallback, useState, type ReactNode } from "react";
+import { toast } from "sonner";
+import { ArrowRightLeftIcon, Layers, PencilIcon, User } from "lucide-react";
 import type { Language, VersionIssue } from "@/lib/types";
 import { lensDisplayLabel } from "@/lib/lens";
+import { IssueStatusBadge } from "@/components/IssueStatusBadge";
+import { getIssueTypeBadgeClass } from "@/lib/issue-type-badge";
 import { isEpicIssueType } from "@/lib/fix-version-policy";
+import { jiraBrowseUrl, normalizeJiraBase } from "@/lib/jira-browse";
+import {
+  IssueCard,
+  IssueCardChildren,
+  IssueCardFooter,
+  IssueCardHeader,
+  IssueKeyLink,
+} from "@/components/issue-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import {
   Empty,
   EmptyDescription,
@@ -24,7 +25,8 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 
 type Props = {
   tree: VersionIssue[];
@@ -32,6 +34,8 @@ type Props = {
   jiraUrl: string;
   language: Language;
   className?: string;
+  /** When true (default), epics expand and load stories on open. */
+  lazyEpicChildren?: boolean;
   onEditIssue?: (issue: VersionIssue, nestedUnderEpic: boolean) => void;
   onChangeVersion?: (issue: VersionIssue) => void;
 };
@@ -42,6 +46,10 @@ const copy = {
     emptyHint: "Assign Fix Version on epics (or orphan stories) in Jira.",
     unassigned: "Unassigned",
     children: (n: number) => `${n} issues`,
+    loadChildren: "Stories",
+    loadingChildren: "Loading stories…",
+    loadFailed: "Could not load stories.",
+    noChildren: "No stories under this epic.",
     edit: "Edit",
     changeVersion: "Change version",
   },
@@ -50,10 +58,43 @@ const copy = {
     emptyHint: "Fix Version را روی اپیک (یا استوری بدون اپیک) تنظیم کنید.",
     unassigned: "بدون مسئول",
     children: (n: number) => `${n} ایشو`,
+    loadChildren: "استوری‌ها",
+    loadingChildren: "در حال بارگذاری استوری‌ها…",
+    loadFailed: "بارگذاری استوری‌ها ناموفق بود.",
+    noChildren: "استوری زیر این اپیک نیست.",
     edit: "ویرایش",
     changeVersion: "تغییر ورژن",
   },
 } as const;
+
+function issueBadges(
+  issue: VersionIssue,
+  language: Language,
+  jiraBase: string,
+  extra?: ReactNode
+) {
+  return (
+    <>
+      <IssueKeyLink
+        href={jiraBrowseUrl(jiraBase, issue.key)}
+        issueKey={issue.key}
+      />
+      <Badge className={getIssueTypeBadgeClass(issue.issuetype)}>
+        {issue.issuetype}
+      </Badge>
+      <IssueStatusBadge
+        status={issue.status}
+        statusCategoryKey={issue.statusCategoryKey}
+      />
+      {issue.lens ? (
+        <Badge variant="outline">
+          {lensDisplayLabel(issue.lens, language)}
+        </Badge>
+      ) : null}
+      {extra}
+    </>
+  );
+}
 
 function IssueActions({
   issue,
@@ -70,12 +111,11 @@ function IssueActions({
 }) {
   const t = copy[language];
   const canChangeVersion = !nestedUnderEpic;
-
   if (!onEditIssue && !onChangeVersion) return null;
 
   return (
-    <div className="flex flex-wrap gap-1.5 pt-1">
-      {onEditIssue && (
+    <>
+      {onEditIssue ? (
         <Button
           type="button"
           size="sm"
@@ -85,8 +125,8 @@ function IssueActions({
           <PencilIcon data-icon="inline-start" />
           {t.edit}
         </Button>
-      )}
-      {canChangeVersion && onChangeVersion && (
+      ) : null}
+      {canChangeVersion && onChangeVersion ? (
         <Button
           type="button"
           size="sm"
@@ -96,16 +136,21 @@ function IssueActions({
           <ArrowRightLeftIcon data-icon="inline-start" />
           {t.changeVersion}
         </Button>
-      )}
-    </div>
+      ) : null}
+    </>
   );
 }
 
-function IssueRow({
+function TreeIssueCard({
   issue,
   jiraBase,
   language,
   nested = false,
+  lazyEpicChildren,
+  childrenByEpic,
+  loadingEpics,
+  expanded,
+  onToggleEpic,
   onEditIssue,
   onChangeVersion,
 }: {
@@ -113,50 +158,109 @@ function IssueRow({
   jiraBase: string;
   language: Language;
   nested?: boolean;
+  lazyEpicChildren: boolean;
+  childrenByEpic: Record<string, VersionIssue[]>;
+  loadingEpics: Set<string>;
+  expanded: Set<string>;
+  onToggleEpic: (epicKey: string, open: boolean, seed?: VersionIssue[]) => void;
   onEditIssue?: (issue: VersionIssue, nestedUnderEpic: boolean) => void;
   onChangeVersion?: (issue: VersionIssue) => void;
 }) {
   const t = copy[language];
+  const isEpic = isEpicIssueType(issue.issuetype);
+  const seeded = issue.children;
+  const kids =
+    childrenByEpic[issue.key] ??
+    (seeded && seeded.length > 0 ? seeded : undefined);
+  const kidsLoading = loadingEpics.has(issue.key);
+  const expandable = isEpic && (lazyEpicChildren || (kids?.length ?? 0) > 0);
+  const isOpen = expanded.has(issue.key);
+  const actions = (
+    <IssueActions
+      issue={issue}
+      language={language}
+      nestedUnderEpic={nested}
+      onEditIssue={onEditIssue}
+      onChangeVersion={onChangeVersion}
+    />
+  );
+  const hasActions = !!(onEditIssue || (!nested && onChangeVersion));
+  const countLabel =
+    kids != null
+      ? t.children(kids.length)
+      : lazyEpicChildren && isEpic
+        ? t.loadChildren
+        : null;
+
   return (
-    <div
-      className={cn(
-        "flex flex-col gap-1 rounded-lg border border-border/70 bg-card/40 px-3 py-2.5",
-        nested && "border-dashed bg-muted/20"
-      )}
+    <IssueCard
+      nested={nested}
+      collapsible={expandable}
+      expandable={expandable}
+      open={expandable ? isOpen : undefined}
+      onOpenChange={
+        expandable
+          ? (open) => onToggleEpic(issue.key, open, seeded)
+          : undefined
+      }
     >
-      <div className="flex min-w-0 items-start justify-between gap-2">
-        <a
-          href={`${jiraBase}/browse/${issue.key}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
-          translate="no"
-        >
-          {issue.key}
-          <ExternalLinkIcon className="size-3 opacity-60" aria-hidden />
-        </a>
-        <div className="flex flex-wrap justify-end gap-1">
-          <Badge variant="secondary">{issue.issuetype}</Badge>
-          <Badge variant="outline">{issue.status}</Badge>
-          {issue.lens && (
-            <Badge variant="outline">
-              {lensDisplayLabel(issue.lens, language)}
-            </Badge>
-          )}
-        </div>
-      </div>
-      <p className="text-sm leading-snug text-foreground">{issue.summary}</p>
-      <p className="text-xs text-muted-foreground">
-        {issue.assigneeDisplayName || t.unassigned}
-      </p>
-      <IssueActions
-        issue={issue}
-        language={language}
-        nestedUnderEpic={nested}
-        onEditIssue={onEditIssue}
-        onChangeVersion={onChangeVersion}
+      <IssueCardHeader
+        title={issue.summary}
+        badges={issueBadges(
+          issue,
+          language,
+          jiraBase,
+          countLabel ? (
+            <Badge variant="secondary">{countLabel}</Badge>
+          ) : null
+        )}
       />
-    </div>
+      <IssueCardFooter
+        meta={[
+          {
+            icon: User,
+            label: issue.assigneeDisplayName || t.unassigned,
+            key: "assignee",
+          },
+        ]}
+        actions={hasActions ? actions : undefined}
+      />
+      {expandable ? (
+        <IssueCardChildren>
+          {kidsLoading ? (
+            <div className="flex items-center gap-2 px-1 py-2 text-xs text-muted-foreground">
+              <Spinner />
+              {t.loadingChildren}
+            </div>
+          ) : kids == null ? (
+            <div className="flex flex-col gap-2 px-1 py-1">
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : kids.length === 0 ? (
+            <p className="px-1 py-2 text-xs text-muted-foreground">
+              {t.noChildren}
+            </p>
+          ) : (
+            kids.map((child) => (
+              <TreeIssueCard
+                key={child.key}
+                issue={child}
+                jiraBase={jiraBase}
+                language={language}
+                nested
+                lazyEpicChildren={false}
+                childrenByEpic={childrenByEpic}
+                loadingEpics={loadingEpics}
+                expanded={expanded}
+                onToggleEpic={onToggleEpic}
+                onEditIssue={onEditIssue}
+                onChangeVersion={onChangeVersion}
+              />
+            ))
+          )}
+        </IssueCardChildren>
+      ) : null}
+    </IssueCard>
   );
 }
 
@@ -166,11 +270,86 @@ export default function VersionIssueTree({
   jiraUrl,
   language,
   className,
+  lazyEpicChildren = true,
   onEditIssue,
   onChangeVersion,
 }: Props) {
   const t = copy[language];
-  const base = jiraUrl.replace(/\/+$/, "");
+  const base = normalizeJiraBase(jiraUrl);
+  const [childrenByEpic, setChildrenByEpic] = useState<
+    Record<string, VersionIssue[]>
+  >({});
+  const [loadingEpics, setLoadingEpics] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const loadEpicChildren = useCallback(
+    async (epicKey: string) => {
+      setLoadingEpics((prev) => new Set(prev).add(epicKey));
+      try {
+        const res = await fetch(
+          `/api/jira/issues/epic-children?epicKey=${encodeURIComponent(epicKey)}`
+        );
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          toast.error(data.error || t.loadFailed);
+          setExpanded((prev) => {
+            const next = new Set(prev);
+            next.delete(epicKey);
+            return next;
+          });
+          return;
+        }
+        setChildrenByEpic((prev) => ({
+          ...prev,
+          [epicKey]: (data.issues || []) as VersionIssue[],
+        }));
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : t.loadFailed);
+        setExpanded((prev) => {
+          const next = new Set(prev);
+          next.delete(epicKey);
+          return next;
+        });
+      } finally {
+        setLoadingEpics((prev) => {
+          const next = new Set(prev);
+          next.delete(epicKey);
+          return next;
+        });
+      }
+    },
+    [t.loadFailed]
+  );
+
+  const onToggleEpic = useCallback(
+    (epicKey: string, open: boolean, seed?: VersionIssue[]) => {
+      if (!open) {
+        setExpanded((prev) => {
+          const next = new Set(prev);
+          next.delete(epicKey);
+          return next;
+        });
+        return;
+      }
+
+      setExpanded((prev) => new Set(prev).add(epicKey));
+
+      if (childrenByEpic[epicKey]) return;
+
+      if (seed && seed.length > 0) {
+        setChildrenByEpic((prev) => ({ ...prev, [epicKey]: seed }));
+        return;
+      }
+
+      if (lazyEpicChildren) {
+        void loadEpicChildren(epicKey);
+      } else {
+        setChildrenByEpic((prev) => ({ ...prev, [epicKey]: seed || [] }));
+      }
+    },
+    [childrenByEpic, lazyEpicChildren, loadEpicChildren]
+  );
+
   const flatCount = tree.reduce(
     (n, issue) => n + 1 + (issue.children?.length || 0),
     0
@@ -200,93 +379,22 @@ export default function VersionIssueTree({
         </p>
       )}
       <ul className="flex flex-col gap-2">
-        {tree.map((issue) => {
-          if (isEpicIssueType(issue.issuetype)) {
-            const kids = issue.children || [];
-            return (
-              <li key={issue.key}>
-                <Collapsible defaultOpen={false}>
-                  <div className="rounded-xl border border-border/80 bg-muted/15">
-                    <CollapsibleTrigger className="group flex w-full items-start gap-2 px-3 py-2.5 text-start outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/50">
-                      <ChevronDownIcon className="mt-1 size-4 shrink-0 text-muted-foreground transition-transform group-data-panel-open:rotate-180" />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-                          <a
-                            href={`${base}/browse/${issue.key}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
-                            translate="no"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {issue.key}
-                            <ExternalLinkIcon
-                              className="size-3 opacity-60"
-                              aria-hidden
-                            />
-                          </a>
-                          <div className="flex flex-wrap gap-1">
-                            <Badge variant="default">Epic</Badge>
-                            <Badge variant="outline">{issue.status}</Badge>
-                            <Badge variant="secondary">
-                              {t.children(kids.length)}
-                            </Badge>
-                          </div>
-                        </div>
-                        <p className="mt-1 text-sm leading-snug">
-                          {issue.summary}
-                        </p>
-                      </div>
-                    </CollapsibleTrigger>
-                    <div className="border-t border-border/40 px-3 py-2">
-                      <IssueActions
-                        issue={issue}
-                        language={language}
-                        nestedUnderEpic={false}
-                        onEditIssue={onEditIssue}
-                        onChangeVersion={onChangeVersion}
-                      />
-                    </div>
-                    <CollapsibleContent className="border-t border-border/60 px-3 py-2">
-                      {kids.length === 0 ? (
-                        <p className="py-2 text-xs text-muted-foreground">
-                          {t.empty}
-                        </p>
-                      ) : (
-                        <ul className="flex flex-col gap-2 ps-2">
-                          {kids.map((child) => (
-                            <li key={child.key}>
-                              <IssueRow
-                                issue={child}
-                                jiraBase={base}
-                                language={language}
-                                nested
-                                onEditIssue={onEditIssue}
-                                onChangeVersion={onChangeVersion}
-                              />
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </CollapsibleContent>
-                  </div>
-                </Collapsible>
-              </li>
-            );
-          }
-
-          return (
-            <li key={issue.key}>
-              <IssueRow
-                issue={issue}
-                jiraBase={base}
-                language={language}
-                onEditIssue={onEditIssue}
-                onChangeVersion={onChangeVersion}
-              />
-            </li>
-          );
-        })}
+        {tree.map((issue) => (
+          <li key={issue.key}>
+            <TreeIssueCard
+              issue={issue}
+              jiraBase={base}
+              language={language}
+              lazyEpicChildren={lazyEpicChildren}
+              childrenByEpic={childrenByEpic}
+              loadingEpics={loadingEpics}
+              expanded={expanded}
+              onToggleEpic={onToggleEpic}
+              onEditIssue={onEditIssue}
+              onChangeVersion={onChangeVersion}
+            />
+          </li>
+        ))}
       </ul>
     </div>
   );

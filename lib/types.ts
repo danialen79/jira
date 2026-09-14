@@ -37,6 +37,39 @@ export interface JiraSprint {
   name: string;
   state: "active" | "future" | "closed";
   boardName?: string;
+  boardId?: number;
+  goal?: string;
+  startDate?: string;
+  endDate?: string;
+  completeDate?: string;
+}
+
+export interface JiraBoard {
+  id: number;
+  name: string;
+  type: string;
+}
+
+export interface SprintIssue {
+  key: string;
+  id: string;
+  summary: string;
+  status: string;
+  statusCategoryKey?: string;
+  issuetype: string;
+  priority?: string;
+  assignee?: string;
+  assigneeDisplayName?: string;
+  timeoriginalestimate?: number;
+  timeestimate?: number;
+  timespent?: number;
+  /** Parent story/task key when this is a sub-task. */
+  parentKey?: string;
+  parentSummary?: string;
+  isSubtask?: boolean;
+  children?: SprintIssue[];
+  /** True when this row is a placeholder for a parent not in the sprint. */
+  placeholder?: boolean;
 }
 
 export interface JiraVersion {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getJiraClient, JiraEnvError } from "@/lib/jira";
+import { toJiraWorklogStarted } from "@/lib/jira-worklog-time";
 
 export async function POST(req: Request) {
   try {
@@ -24,13 +25,12 @@ export async function POST(req: Request) {
     };
 
     if (started) {
-      let jiraStarted = started;
-      if (typeof started === "string") {
-        if (started.endsWith("Z")) {
-          jiraStarted = started.replace(/Z$/, "+0000");
-        } else if (started.endsWith("+00:00")) {
-          jiraStarted = started.replace(/\+00:00$/, "+0000");
-        }
+      const jiraStarted = toJiraWorklogStarted(started);
+      if (!jiraStarted) {
+        return NextResponse.json(
+          { error: `Invalid worklog started datetime: ${started}` },
+          { status: 400 }
+        );
       }
       bodyData.started = jiraStarted;
     }

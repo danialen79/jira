@@ -170,14 +170,14 @@ export default function CurrentVersionsPanel({
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid h-[min(70vh,40rem)] auto-rows-fr gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {versions.map((v) => {
         const bundle = bundles[v.id];
         const status = getVersionStatusLabel(v);
         return (
           <Card
             key={v.id}
-            className="cursor-pointer transition-colors hover:bg-muted/40"
+            className="h-full cursor-pointer transition-colors hover:bg-muted/40"
             onClick={() => onOpenVersion(v)}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
@@ -188,7 +188,7 @@ export default function CurrentVersionsPanel({
             role="button"
             tabIndex={0}
           >
-            <CardHeader className="gap-2">
+            <CardHeader className="shrink-0 gap-2">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant={statusBadgeVariant(status)}>{t[status]}</Badge>
               </div>
@@ -200,22 +200,22 @@ export default function CurrentVersionsPanel({
                 {t.release}: {formatRoadmapDate(v.releaseDate, language)}
               </CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-col gap-3">
+            <CardContent className="flex min-h-0 flex-1 flex-col gap-3">
               {bundle == null || bundle.state === "loading" ? (
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-1 flex-col gap-2">
                   <p className="text-xs text-muted-foreground">{t.loading}</p>
                   <Skeleton className="h-2 w-full" />
-                  <Skeleton className="h-16 w-full" />
+                  <Skeleton className="min-h-16 w-full flex-1" />
                 </div>
               ) : bundle.state === "error" ? (
                 <p className="text-xs text-destructive">—</p>
               ) : (
                 <>
-                  <Progress value={bundle.progress.percent}>
+                  <Progress value={bundle.progress.percent} className="shrink-0">
                     <ProgressLabel>{t.progress}</ProgressLabel>
                     <ProgressValue className="tabular-nums" />
                   </Progress>
-                  <div className="flex flex-wrap gap-2 text-xs tabular-nums text-muted-foreground">
+                  <div className="flex shrink-0 flex-wrap gap-2 text-xs tabular-nums text-muted-foreground">
                     <span>
                       {t.todo}: {bundle.progress.todo}
                     </span>
@@ -237,6 +237,7 @@ export default function CurrentVersionsPanel({
                     jiraUrl={jiraUrl}
                     language={language}
                     compact
+                    className="min-h-0 flex-1"
                   />
                 </>
               )}

@@ -13,6 +13,7 @@ import {
   Users,
 } from "lucide-react";
 import { useJiraApp } from "@/components/providers/jira-app-provider";
+import { IssueStatusBadge } from "@/components/IssueStatusBadge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -85,6 +86,7 @@ type HealthPayload = {
     key: string;
     summary: string;
     status?: string;
+    statusCategoryKey?: string;
     components?: string[];
   }>;
   statuses?: Array<{ id: string; name: string; category?: string }>;
@@ -513,7 +515,10 @@ export default function HealthPage() {
                       </div>
                       <div className="flex flex-wrap gap-1">
                         {epic.status ? (
-                          <Badge variant="outline">{epic.status}</Badge>
+                          <IssueStatusBadge
+                            status={epic.status}
+                            statusCategoryKey={epic.statusCategoryKey}
+                          />
                         ) : null}
                         {(epic.components || []).map((c) => (
                           <Badge key={`${epic.key}-${c}`} variant="secondary">

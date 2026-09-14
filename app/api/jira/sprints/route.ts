@@ -1,65 +1,130 @@
 import { NextResponse } from "next/server";
 import { getJiraClient, JiraEnvError } from "@/lib/jira";
+import { JiraBoardConfigError, requireScrumBoard } from "@/lib/jira-board";
+import { mapAgileSprint } from "@/lib/sprint/map";
 
 export async function GET() {
   try {
+    const board = requireScrumBoard();
     const { jiraUrl, headers, projectKey } = getJiraClient();
 
-    const boardRes = await fetch(
-      `${jiraUrl}/rest/agile/1.0/board?projectKeyOrId=${projectKey}`,
-      {
-        method: "GET",
-        headers,
-      }
+    const [openRes, closedRes] = await Promise.all([
+      fetch(
+        `${jiraUrl}/rest/agile/1.0/board/${board.boardId}/sprint?state=active,future&maxResults=50`,
+        { method: "GET", headers }
+      ),
+      fetch(
+        `${jiraUrl}/rest/agile/1.0/board/${board.boardId}/sprint?state=closed&maxResults=6`,
+        { method: "GET", headers }
+      ),
+    ]);
+
+    if (!openRes.ok) {
+      const text = await openRes.text();
+      return NextResponse.json(
+        {
+          error: `Failed to fetch sprints (${openRes.status}): ${text || openRes.statusText}`,
+        },
+        { status: openRes.status }
+      );
+    }
+
+    const openData = await openRes.json();
+    const closedData = closedRes.ok ? await closedRes.json() : { values: [] };
+
+    const boardMeta = { id: board.boardId, name: board.boardName };
+    const open = ((openData.values || []) as Array<Record<string, unknown>>).map(
+      (s) => mapAgileSprint(s, boardMeta)
     );
+    const closed = (
+      (closedData.values || []) as Array<Record<string, unknown>>
+    ).map((s) => mapAgileSprint(s, boardMeta));
 
-    if (!boardRes.ok) {
-      console.warn(`Jira Agile Board API returned status ${boardRes.status}`);
-      return NextResponse.json({ success: true, sprints: [], projectKey });
-    }
+    // Closed API returns newest-first on many servers; keep last 6
+    const closedRecent = closed.slice(0, 6);
 
-    const boardData = await boardRes.json();
-    const boards = boardData.values || [];
-    const scrumBoards = boards.filter((b: any) => b.type === "scrum");
-
-    const sprints: any[] = [];
-    const seenSprints = new Set<number>();
-
-    for (const board of scrumBoards) {
-      try {
-        const sprintRes = await fetch(
-          `${jiraUrl}/rest/agile/1.0/board/${board.id}/sprint?state=active,future`,
-          {
-            method: "GET",
-            headers,
-          }
-        );
-        if (sprintRes.ok) {
-          const sprintData = await sprintRes.json();
-          const list = sprintData.values || [];
-          for (const s of list) {
-            if (!seenSprints.has(s.id)) {
-              seenSprints.add(s.id);
-              sprints.push({
-                id: s.id,
-                name: s.name,
-                state: s.state,
-                boardName: board.name,
-              });
-            }
-          }
-        }
-      } catch (e) {
-        console.error(`Error fetching sprints for board ${board.id}:`, e);
-      }
-    }
-
-    return NextResponse.json({ success: true, sprints, projectKey });
+    return NextResponse.json({
+      success: true,
+      sprints: [...open, ...closedRecent],
+      active: open.filter((s) => s.state === "active"),
+      future: open.filter((s) => s.state === "future"),
+      closed: closedRecent,
+      board,
+      projectKey,
+    });
   } catch (err: unknown) {
-    if (err instanceof JiraEnvError) {
+    if (err instanceof JiraEnvError || err instanceof JiraBoardConfigError) {
       return NextResponse.json({ error: err.message }, { status: 503 });
     }
+    const message = err instanceof Error ? err.message : "Unknown error";
     console.error("Jira Sprints Fetch Error:", err);
-    return NextResponse.json({ success: true, sprints: [] });
+    return NextResponse.json(
+      { error: `Failed to fetch sprints: ${message}` },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const board = requireScrumBoard();
+    const { jiraUrl, headers } = getJiraClient();
+    const body = await request.json();
+
+    const name = String(body?.name || "").trim();
+    if (!name) {
+      return NextResponse.json({ error: "Sprint name is required" }, { status: 400 });
+    }
+
+    const payload: Record<string, unknown> = {
+      name,
+      originBoardId: board.boardId,
+    };
+    if (body?.startDate) payload.startDate = body.startDate;
+    if (body?.endDate) payload.endDate = body.endDate;
+    if (typeof body?.goal === "string") payload.goal = body.goal;
+
+    const res = await fetch(`${jiraUrl}/rest/agile/1.0/sprint`, {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const text = await res.text();
+    let data: any = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = text;
+    }
+
+    if (!res.ok) {
+      return NextResponse.json(
+        {
+          error: `Failed to create sprint (${res.status}): ${
+            typeof data === "string" ? data : data?.errorMessages?.[0] || text
+          }`,
+        },
+        { status: res.status }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      sprint: mapAgileSprint(data, {
+        id: board.boardId,
+        name: board.boardName,
+      }),
+    });
+  } catch (err: unknown) {
+    if (err instanceof JiraEnvError || err instanceof JiraBoardConfigError) {
+      return NextResponse.json({ error: err.message }, { status: 503 });
+    }
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("Jira Sprint Create Error:", err);
+    return NextResponse.json(
+      { error: `Failed to create sprint: ${message}` },
+      { status: 500 }
+    );
   }
 }

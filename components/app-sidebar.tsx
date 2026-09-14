@@ -6,6 +6,9 @@ import {
   Activity,
   ClipboardList,
   GanttChart,
+  Headset,
+  IterationCcw,
+  ListTodo,
   MessageSquare,
   Settings2,
   Sparkles,
@@ -44,6 +47,21 @@ const navItems = [
     href: "/daily-board",
     icon: ClipboardList,
     labelKey: "tabDailyBoard" as const,
+  },
+  {
+    href: "/support",
+    icon: Headset,
+    labelKey: "tabSupport" as const,
+  },
+  {
+    href: "/ops",
+    icon: ListTodo,
+    labelKey: "tabOps" as const,
+  },
+  {
+    href: "/sprint",
+    icon: IterationCcw,
+    labelKey: "tabSprint" as const,
   },
   {
     href: "/roadmap",

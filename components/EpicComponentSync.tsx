@@ -20,8 +20,17 @@ import {
   Square,
   Info,
 } from "lucide-react";
+import { getIssueTypeBadgeClass } from "@/lib/issue-type-badge";
+import { jiraBrowseUrl, normalizeJiraBase } from "@/lib/jira-browse";
 import { cn } from "@/lib/utils";
+import {
+  IssueCard,
+  IssueCardFooter,
+  IssueCardHeader,
+  IssueKeyLink,
+} from "@/components/issue-card";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -120,22 +129,14 @@ const syncTranslations = {
   },
 };
 
-function issueTypeVariant(
-  issuetype: string
-): "success" | "destructive" | "secondary" {
-  if (issuetype === "Story") return "success";
-  if (issuetype === "Bug") return "destructive";
-  return "secondary";
-}
-
 export default function EpicComponentSync({
   language,
-  jiraUrl: _jiraUrl,
+  jiraUrl,
   jiraConnected,
 }: EpicComponentSyncProps) {
   const t = syncTranslations[language];
   const isRtl = language === "fa";
-
+  const jiraBase = normalizeJiraBase(jiraUrl);
   const [loading, setLoading] = useState(false);
   const [epics, setEpics] = useState<EpicAuditItem[]>([]);
   const [totalEpics, setTotalEpics] = useState(0);
@@ -515,7 +516,7 @@ export default function EpicComponentSync({
 
                       <Separator />
 
-                      <div className="flex flex-col gap-1">
+                      <div className="flex flex-col gap-2">
                         {filteredChildIssues.map((child) => {
                           const isSelected = selectedIssueKeys.includes(
                             child.key
@@ -523,81 +524,74 @@ export default function EpicComponentSync({
                           const isMissingComps =
                             child.missingComponents.length > 0 ||
                             child.components.length === 0;
+                          const componentsLabel =
+                            child.components.length > 0
+                              ? `${t.currentComponents} ${child.components.join(", ")}`
+                              : t.noComponentBadge;
+                          const missingLabel = isMissingComps
+                            ? `${t.missingToAdd} ${epic.components.map((ec) => `+${ec}`).join(" ")}`
+                            : null;
 
                           return (
-                            <label
+                            <IssueCard
                               key={child.key}
+                              density="compact"
                               className={cn(
-                                "flex cursor-pointer flex-col justify-between gap-3 rounded-lg border px-3 py-3 transition-colors sm:flex-row sm:items-center",
-                                isSelected
-                                  ? "border-primary/30 bg-primary/5"
-                                  : "border-transparent hover:bg-muted/50"
+                                isSelected &&
+                                  "border-primary/30 bg-primary/5 ring-1 ring-primary/20"
                               )}
                             >
-                              <div className="flex items-start gap-3 sm:items-center">
-                                <input
-                                  type="checkbox"
-                                  className="sr-only"
-                                  checked={isSelected}
-                                  onChange={() =>
-                                    toggleIssueSelection(child.key)
-                                  }
-                                />
-                                <span className="mt-0.5 text-muted-foreground sm:mt-0" aria-hidden="true">
-                                  {isSelected ? (
-                                    <CheckSquare className="size-4 text-primary" />
-                                  ) : (
-                                    <Square className="size-4 text-muted-foreground/40" />
-                                  )}
-                                </span>
-
-                                <span className="shrink-0 font-mono text-xs font-bold text-foreground">
-                                  {child.key}
-                                </span>
-
-                                <Badge
-                                  variant={issueTypeVariant(child.issuetype)}
-                                  className="shrink-0 uppercase"
-                                >
-                                  {child.issuetype}
-                                </Badge>
-
-                                <span className="line-clamp-1 text-xs font-medium text-foreground">
-                                  {child.summary}
-                                </span>
-                              </div>
-
-                              <div className="ms-7 flex shrink-0 items-center gap-2 text-[11px] sm:ms-0">
-                                <div className="me-2 flex items-center gap-1 text-muted-foreground">
-                                  <span>{t.currentComponents}</span>
-                                  {child.components.length > 0 ? (
-                                    child.components.map((c) => (
-                                      <Badge key={c} variant="secondary">
-                                        {c}
-                                      </Badge>
-                                    ))
-                                  ) : (
-                                    <Badge variant="warning">
-                                      {t.noComponentBadge}
+                              <IssueCardHeader
+                                title={child.summary}
+                                leading={
+                                  <Checkbox
+                                    checked={isSelected}
+                                    onCheckedChange={() =>
+                                      toggleIssueSelection(child.key)
+                                    }
+                                    aria-label={child.key}
+                                  />
+                                }
+                                badges={
+                                  <>
+                                    <IssueKeyLink
+                                      href={jiraBrowseUrl(
+                                        jiraBase,
+                                        child.key
+                                      )}
+                                      issueKey={child.key}
+                                      showIcon={false}
+                                    />
+                                    <Badge
+                                      className={cn(
+                                        "uppercase",
+                                        getIssueTypeBadgeClass(
+                                          child.issuetype
+                                        )
+                                      )}
+                                    >
+                                      {child.issuetype}
                                     </Badge>
-                                  )}
-                                </div>
-
-                                {isMissingComps && (
-                                  <Badge variant="outline" className="gap-1">
-                                    <span>{t.missingToAdd}</span>
-                                    {epic.components.map((ec) => (
-                                      <span
-                                        key={ec}
-                                        className="underline decoration-muted-foreground/40"
-                                      >
-                                        +{ec}
-                                      </span>
-                                    ))}
-                                  </Badge>
-                                )}
-                              </div>
-                            </label>
+                                  </>
+                                }
+                              />
+                              <IssueCardFooter
+                                meta={[
+                                  {
+                                    label: componentsLabel,
+                                    key: "components",
+                                  },
+                                  ...(missingLabel
+                                    ? [
+                                        {
+                                          label: missingLabel,
+                                          key: "missing" as const,
+                                        },
+                                      ]
+                                    : []),
+                                ]}
+                              />
+                            </IssueCard>
                           );
                         })}
                       </div>

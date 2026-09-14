@@ -74,6 +74,21 @@ export function jalaliPartsToIsoDate(jy: number, jm: number, jd: number): string
   return `${g.gy}-${mm}-${dd}`;
 }
 
+/** Parse `YYYY-MM-DD` to a local Date (no UTC shift). */
+export function isoDateToLocalDate(iso: string): Date | undefined {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso.trim());
+  if (!m) return undefined;
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+}
+
+/** Format a local Date as `YYYY-MM-DD`. */
+export function localDateToIsoDate(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 export function formatIsoAsJalali(
   iso: string | undefined,
   language: "en" | "fa" = "fa"

@@ -47,7 +47,11 @@ export default function SearchableSelect({
       <Combobox
         items={items}
         value={value || null}
-        onValueChange={(next) => onChange((next as string | null) ?? "")}
+        onValueChange={(next) => {
+          // Ignore clear/blur nulls when clear is disabled — prevents wiping filters
+          if (next == null || next === "") return;
+          onChange(next as string);
+        }}
         disabled={disabled}
         itemToStringLabel={(item) => {
           const opt = options.find((o) => o.value === item);

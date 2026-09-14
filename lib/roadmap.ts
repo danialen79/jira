@@ -1,5 +1,5 @@
 import type { JiraVersion } from "@/lib/types";
-import { formatJalaliDate } from "@/lib/jalali";
+import { formatJalaliDate, toJalaliParts } from "@/lib/jalali";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const RANGE_PADDING_DAYS = 14;
@@ -99,6 +99,68 @@ export function parseProductVersionParts(name: string): {
     product: parseProductFromVersionName(name),
     version: null,
   };
+}
+
+/** Jalali Q + month-in-quarter from a Gregorian calendar day (Farvardin = 1). */
+export function jalaliQuarterMonthFromDate(date: Date): {
+  quarter: number;
+  monthInQuarter: number;
+} {
+  const { jm } = toJalaliParts(date);
+  return {
+    quarter: Math.ceil(jm / 3),
+    monthInQuarter: ((jm - 1) % 3) + 1,
+  };
+}
+
+const PRODUCT_VERSION_RE = /^\d+(?:\.\d+)*$/;
+const PRODUCT_NAME_RE = /^[A-Za-z][A-Za-z0-9]*$/;
+
+/** Normalize product for Fix Version names (`Club`, not `club `). */
+export function normalizeVersionProduct(product: string): string {
+  return product.trim().replace(/\s+/g, "");
+}
+
+export function isValidProductVersion(version: string): boolean {
+  return PRODUCT_VERSION_RE.test(version.trim());
+}
+
+export function isValidVersionProduct(product: string): boolean {
+  return PRODUCT_NAME_RE.test(normalizeVersionProduct(product));
+}
+
+/**
+ * New naming: `Q{quarter}.{monthInQuarter}-{Product}{version}` from start date.
+ * Example: start in Shahrivar → `Q2.3-Club2.6`
+ */
+export function buildVersionName(opts: {
+  startDate: string;
+  product: string;
+  version: string;
+}): string | null {
+  const start = opts.startDate.trim();
+  const product = normalizeVersionProduct(opts.product);
+  const version = opts.version.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) return null;
+  if (!isValidVersionProduct(product) || !isValidProductVersion(version)) {
+    return null;
+  }
+  const { quarter, monthInQuarter } = jalaliQuarterMonthFromDate(
+    toDateOnly(start)
+  );
+  return `Q${quarter}.${monthInQuarter}-${product}${version}`;
+}
+
+/** Distinct product names from existing Fix Versions (excludes `Other`). */
+export function listProductsFromVersions(
+  versions: Pick<JiraVersion, "name">[]
+): string[] {
+  const set = new Set<string>();
+  for (const v of versions) {
+    const product = parseProductFromVersionName(v.name);
+    if (product && product !== "Other") set.add(product);
+  }
+  return Array.from(set).sort((a, b) => a.localeCompare(b));
 }
 
 export function toDateOnly(isoOrDate: string | Date): Date {

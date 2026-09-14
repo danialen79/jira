@@ -8,6 +8,7 @@ import {
   type PublicAiProvider,
 } from "@/components/providers/ai-settings-provider";
 import { useJiraApp } from "@/components/providers/jira-app-provider";
+import JiraBoardSettings from "@/components/settings/JiraBoardSettings";
 import SearchableSelect from "@/components/SearchableSelect";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +24,11 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
-import type { AIProvider } from "@/lib/ai-provider";
+import type { AIProvider } from "@/lib/ai-providers";
+import {
+  AI_PROVIDER_IDS,
+  OMNIROUTE_DEFAULT_BASE_URL,
+} from "@/lib/ai-providers";
 
 type ProviderFormState = {
   apiKey: string;
@@ -37,8 +42,15 @@ const emptyForm = (): ProviderFormState => ({
   clearApiKey: false,
 });
 
+const PROVIDER_LABEL: Record<AIProvider, string> = {
+  gemini: "Gemini",
+  avalai: "AvalAI",
+  arvan: "Arvan AIaaS",
+  omniroute: "OmniRoute",
+};
+
 export default function SettingsPage() {
-  const { language, isRtl } = useJiraApp();
+  const { language, isRtl, jiraConnected } = useJiraApp();
   const { settings, loading, saveSettings, refresh, aiProvider, selectedModel, setAiProvider, setSelectedModel } =
     useAiSettings();
 
@@ -46,11 +58,13 @@ export default function SettingsPage() {
     gemini: emptyForm(),
     avalai: emptyForm(),
     arvan: emptyForm(),
+    omniroute: { ...emptyForm(), baseUrl: OMNIROUTE_DEFAULT_BASE_URL },
   });
   const [defaultModels, setDefaultModels] = useState({
     gemini: "gemini-3.5-flash",
     avalai: "gpt-4o-mini",
     arvan: "Gemini-3-Flash-Preview",
+    omniroute: "auto",
   });
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState<AIProvider | null>(null);
@@ -63,7 +77,9 @@ export default function SettingsPage() {
       for (const p of settings.providers) {
         next[p.id] = {
           apiKey: "",
-          baseUrl: p.baseUrl || "",
+          baseUrl:
+            p.baseUrl ||
+            (p.id === "omniroute" ? OMNIROUTE_DEFAULT_BASE_URL : ""),
           clearApiKey: false,
         };
       }
@@ -125,7 +141,7 @@ export default function SettingsPage() {
         apiKey?: string | null;
         clearApiKey?: boolean;
         baseUrl?: string | null;
-      }> = (["gemini", "avalai", "arvan"] as AIProvider[]).map((id) => {
+      }> = AI_PROVIDER_IDS.map((id) => {
         const form = forms[id];
         return {
           id,
@@ -147,6 +163,7 @@ export default function SettingsPage() {
         gemini: { ...forms.gemini, apiKey: "", clearApiKey: false },
         avalai: { ...forms.avalai, apiKey: "", clearApiKey: false },
         arvan: { ...forms.arvan, apiKey: "", clearApiKey: false },
+        omniroute: { ...forms.omniroute, apiKey: "", clearApiKey: false },
       });
       await refresh();
       toast.success(t.saved);
@@ -204,9 +221,23 @@ export default function SettingsPage() {
     if (provider === "avalai") {
       return [{ value: "gpt-4o-mini", label: "gpt-4o-mini" }];
     }
+    if (provider === "omniroute") {
+      return [
+        { value: "auto", label: "auto" },
+        { value: "auto/coding", label: "auto/coding" },
+        { value: "auto/fast", label: "auto/fast" },
+        { value: "auto/cheap", label: "auto/cheap" },
+      ];
+    }
     return [
       { value: "Gemini-3-Flash-Preview", label: "Gemini-3-Flash-Preview" },
     ];
+  };
+
+  const baseUrlPlaceholder = (id: AIProvider) => {
+    if (id === "avalai") return "https://api.avalai.ir/v1";
+    if (id === "omniroute") return OMNIROUTE_DEFAULT_BASE_URL;
+    return "https://your-arvan-gateway/v1";
   };
 
   return (
@@ -218,6 +249,12 @@ export default function SettingsPage() {
         </h2>
         <p className="text-sm text-muted-foreground">{t.subtitle}</p>
       </div>
+
+      <JiraBoardSettings
+        language={language}
+        isRtl={isRtl}
+        jiraConnected={jiraConnected}
+      />
 
       {loading && !settings ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -238,11 +275,10 @@ export default function SettingsPage() {
                 <Field>
                   <FieldLabel>{t.defaultProvider}</FieldLabel>
                   <SearchableSelect
-                    options={[
-                      { value: "gemini", label: "Gemini" },
-                      { value: "avalai", label: "AvalAI" },
-                      { value: "arvan", label: "Arvan AIaaS" },
-                    ]}
+                    options={AI_PROVIDER_IDS.map((id) => ({
+                      value: id,
+                      label: PROVIDER_LABEL[id],
+                    }))}
                     value={aiProvider}
                     onChange={(val) => setAiProvider(val as AIProvider)}
                     isRtl={isRtl}
@@ -269,15 +305,18 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          {(["gemini", "avalai", "arvan"] as AIProvider[]).map((id) => {
+          {AI_PROVIDER_IDS.map((id) => {
             const meta = providerMeta(id);
             const form = forms[id];
-            const showBaseUrl = id === "avalai" || id === "arvan";
+            const showBaseUrl =
+              id === "avalai" || id === "arvan" || id === "omniroute";
             return (
               <Card key={id}>
                 <CardHeader>
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <CardTitle className="text-base capitalize">{id === "arvan" ? "Arvan AIaaS" : id === "avalai" ? "AvalAI" : "Gemini"}</CardTitle>
+                    <CardTitle className="text-base">
+                      {PROVIDER_LABEL[id]}
+                    </CardTitle>
                     <Badge variant={meta?.configured ? "success" : "secondary"}>
                       {meta?.configured
                         ? meta.apiKeyLast4 === "env"
@@ -313,11 +352,7 @@ export default function SettingsPage() {
                       <FieldLabel>{t.baseUrl}</FieldLabel>
                       <Input
                         type="url"
-                        placeholder={
-                          id === "avalai"
-                            ? "https://api.avalai.ir/v1"
-                            : "https://your-arvan-gateway/v1"
-                        }
+                        placeholder={baseUrlPlaceholder(id)}
                         value={form.baseUrl}
                         onChange={(e) =>
                           setForms((prev) => ({

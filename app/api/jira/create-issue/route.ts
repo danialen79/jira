@@ -46,6 +46,11 @@ export async function POST(req: Request) {
         )
       : [];
 
+    const baseLabels = ["agent", ...suggested];
+    if (issue.fromPs === true && !baseLabels.includes("from-ps")) {
+      baseLabels.push("from-ps");
+    }
+
     const fields: Record<string, any> = {
       project: {
         key: projectKey,
@@ -56,7 +61,7 @@ export async function POST(req: Request) {
         name: issue.issuetype,
       },
       labels: applyLensToLabels(
-        ["agent", ...suggested],
+        baseLabels,
         issue.issuetype === "Story" ? issue.selectedLens : null
       ),
     };

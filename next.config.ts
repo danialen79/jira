@@ -5,6 +5,8 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["better-sqlite3"],
   // SVAR packages are ESM; transpile so Webpack can follow their deps.
   transpilePackages: [
+    "@daypicker/react",
+    "@daypicker/persian",
     "@svar-ui/react-gantt",
     "@svar-ui/react-core",
     "@svar-ui/react-grid",

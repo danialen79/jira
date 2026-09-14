@@ -136,6 +136,9 @@ export async function GET() {
           key: issue.key,
           summary: issue.fields?.summary || issue.key,
           status: issue.fields?.status?.name,
+          statusCategoryKey: issue.fields?.status?.statusCategory?.key as
+            | string
+            | undefined,
           components: (issue.fields?.components || []).map((c: any) => c.name),
         }))
       : [];

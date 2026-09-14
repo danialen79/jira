@@ -2,13 +2,9 @@ import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import {
   getResolvedAiConfig,
-  type AIProvider,
+  isAIProvider,
 } from "@/lib/db/repos/ai";
 import { getGeminiClient } from "@/lib/gemini";
-
-function isAIProvider(value: unknown): value is AIProvider {
-  return value === "gemini" || value === "avalai" || value === "arvan";
-}
 
 export async function POST(request: Request) {
   try {
@@ -16,7 +12,7 @@ export async function POST(request: Request) {
     const provider = body?.provider;
     if (!isAIProvider(provider)) {
       return NextResponse.json(
-        { error: "provider must be gemini, avalai, or arvan" },
+        { error: "provider must be gemini, avalai, arvan, or omniroute" },
         { status: 400 }
       );
     }
@@ -53,9 +49,15 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-    if (provider === "arvan" && !config.baseUrl) {
+    if (
+      (provider === "arvan" || provider === "omniroute") &&
+      !config.baseUrl
+    ) {
       return NextResponse.json(
-        { success: false, error: "Arvan base URL is not configured" },
+        {
+          success: false,
+          error: `${provider === "omniroute" ? "OmniRoute" : "Arvan"} base URL is not configured`,
+        },
         { status: 400 }
       );
     }

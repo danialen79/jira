@@ -20,6 +20,13 @@ import {
   fixVersionValidationError,
   issueOwnsFixVersion,
 } from "@/lib/fix-version-policy";
+import { getIssueTypeBadgeClass } from "@/lib/issue-type-badge";
+import {
+  IssueCard,
+  IssueCardFooter,
+  IssueCardHeader,
+  IssueKeyLink,
+} from "@/components/issue-card";
 import { getSearchParam, useUrlQueryState } from "@/lib/url-state";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -221,14 +228,6 @@ const getPriorityBadgeStyles = (priority?: string): BadgeVariant => {
     default:
       return "secondary";
   }
-};
-
-const getIssueTypeBadgeVariant = (
-  issuetype: RefinedIssue["issuetype"]
-): BadgeVariant => {
-  if (issuetype === "Epic") return "default";
-  if (issuetype === "Bug") return "destructive";
-  return "secondary";
 };
 
 // Helper to track assignee assignment frequency in server kv + memory cache
@@ -1410,9 +1409,8 @@ export default function RefinedList({
           );
 
           return (
-            <Card
+            <IssueCard
               key={issue.id}
-              id={`issue-card-${issue.id}`}
               className={cn(
                 "cv-auto transition-[color,background-color,border-color,box-shadow,opacity] duration-200",
                 issue.status === "success" && "ring-success/40",
@@ -1423,19 +1421,33 @@ export default function RefinedList({
                   "ring-primary/25"
               )}
             >
-              <CardHeader className="border-b bg-muted/30">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="flex flex-wrap items-center gap-2.5">
-                    {issue.status !== "success" && (
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.includes(issue.id)}
-                        onChange={() => toggleSelectIssue(issue.id)}
-                        className="size-4 cursor-pointer accent-primary"
+              <div id={`issue-card-${issue.id}`} className="sr-only" />
+              <IssueCardHeader
+                title={issue.summary}
+                leading={
+                  issue.status !== "success" ? (
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(issue.id)}
+                      onChange={() => toggleSelectIssue(issue.id)}
+                      className="size-4 cursor-pointer accent-primary"
+                      aria-label={issue.summary}
+                    />
+                  ) : undefined
+                }
+                badges={
+                  <>
+                    {issue.status === "success" && issue.createdKey ? (
+                      <IssueKeyLink
+                        href={getJiraBrowseUrl(issue.createdKey)}
+                        issueKey={issue.createdKey}
                       />
+                    ) : (
+                      <Badge variant="secondary" className="font-mono">
+                        #{issue.id}
+                      </Badge>
                     )}
-
-                    <Badge variant={getIssueTypeBadgeVariant(issue.issuetype)}>
+                    <Badge className={getIssueTypeBadgeClass(issue.issuetype)}>
                       {issue.issuetype === "Epic" ? (
                         <Layers data-icon="inline-start" />
                       ) : issue.issuetype === "Bug" ? (
@@ -1449,42 +1461,39 @@ export default function RefinedList({
                           ? t.bug
                           : t.story}
                     </Badge>
-
-                    <span className="font-mono text-[11px] text-muted-foreground">
-                      #{issue.id}
-                    </span>
-
-                    <Badge variant={getPriorityBadgeStyles(issue.selectedPriority)}>
+                    <Badge
+                      variant={getPriorityBadgeStyles(issue.selectedPriority)}
+                    >
                       {priorityLabels[language][
                         issue.selectedPriority || "Medium"
                       ] ||
                         issue.selectedPriority ||
                         "Medium"}
                     </Badge>
-
-                    {issue.issuetype === "Story" && issue.selectedLens && (
+                    {issue.issuetype === "Story" && issue.selectedLens ? (
                       <Badge variant="outline">
                         {lensDisplayLabel(issue.selectedLens, language)}
                       </Badge>
-                    )}
-
-                    {issue.status === "success" && issue.createdKey && (
-                      <Badge variant="success" className="font-mono">
+                    ) : null}
+                    {issue.status === "success" && issue.createdKey ? (
+                      <Badge variant="success">
                         <CheckCircle2 data-icon="inline-start" />
-                        {issue.createdKey}
+                        OK
                       </Badge>
-                    )}
-
-                    {issue.status === "creating" && (
+                    ) : null}
+                    {issue.status === "creating" ? (
                       <Badge variant="warning">
                         <Spinner data-icon="inline-start" />
                         {t.creating}
                       </Badge>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    {!isEditing && issue.status !== "success" && (
+                    ) : null}
+                  </>
+                }
+              />
+              <IssueCardFooter
+                actions={
+                  <>
+                    {!isEditing && issue.status !== "success" ? (
                       <Button
                         type="button"
                         size="sm"
@@ -1509,9 +1518,9 @@ export default function RefinedList({
                           {isRtl ? "بازبینی مجدد" : "Re-Review"}
                         </span>
                       </Button>
-                    )}
+                    ) : null}
 
-                    {!isEditing && issue.status !== "success" && (
+                    {!isEditing && issue.status !== "success" ? (
                       <Button
                         type="button"
                         size="sm"
@@ -1522,35 +1531,35 @@ export default function RefinedList({
                         <Edit2 data-icon="inline-start" />
                         <span className="hidden sm:inline">{t.edit}</span>
                       </Button>
-                    )}
+                    ) : null}
 
                     {jiraConnected &&
-                      issue.status !== "success" &&
-                      !isEditing && (
-                        <Button
-                          type="button"
-                          size="sm"
-                          disabled={
-                            issue.status === "creating" || bulkPublishing
-                          }
-                          onClick={() => publishSingleIssue(issue.id, issues)}
-                        >
-                          {issue.status === "creating" ? (
-                            <Spinner data-icon="inline-start" />
-                          ) : (
-                            <ArrowUpRight data-icon="inline-start" />
-                          )}
-                          {issue.createdKey
-                            ? isRtl
-                              ? "به‌روزرسانی در جیرا"
-                              : "Update in Jira"
-                            : issue.status === "failed"
-                              ? t.rePublish
-                              : t.createInJira}
-                        </Button>
-                      )}
+                    issue.status !== "success" &&
+                    !isEditing ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={
+                          issue.status === "creating" || bulkPublishing
+                        }
+                        onClick={() => publishSingleIssue(issue.id, issues)}
+                      >
+                        {issue.status === "creating" ? (
+                          <Spinner data-icon="inline-start" />
+                        ) : (
+                          <ArrowUpRight data-icon="inline-start" />
+                        )}
+                        {issue.createdKey
+                          ? isRtl
+                            ? "به‌روزرسانی در جیرا"
+                            : "Update in Jira"
+                          : issue.status === "failed"
+                            ? t.rePublish
+                            : t.createInJira}
+                      </Button>
+                    ) : null}
 
-                    {issue.status === "success" && issue.createdKey && (
+                    {issue.status === "success" && issue.createdKey ? (
                       <a
                         href={getJiraBrowseUrl(issue.createdKey)}
                         target="_blank"
@@ -1563,13 +1572,12 @@ export default function RefinedList({
                         {isRtl ? "مشاهده در جیرا" : "Open in Jira"}
                         <ExternalLink data-icon="inline-end" />
                       </a>
-                    )}
-                  </div>
-                </div>
-              </CardHeader>
+                    ) : null}
+                  </>
+                }
+              />
 
-              <CardContent className="flex flex-col gap-4">
-                {isEditing ? (
+              <div className="mt-2 flex flex-col gap-4 border-t border-border/60 pt-4">                {isEditing ? (
                   <FieldGroup className="gap-3.5">
                     <Field>
                       <FieldLabel htmlFor={`summary-${issue.id}`}>
@@ -1913,13 +1921,6 @@ export default function RefinedList({
                   </FieldGroup>
                 ) : (
                   <div className="flex flex-col gap-3.5">
-                    <h4
-                      className="text-sm font-semibold leading-snug tracking-tight text-foreground sm:text-base"
-                      dir="auto"
-                    >
-                      {issue.summary}
-                    </h4>
-
                     {!isEpic && (
                       <div className="flex flex-col justify-between gap-3 rounded-lg border bg-muted/40 p-3 text-xs sm:flex-row sm:items-center">
                         <div className="font-medium text-muted-foreground">
@@ -2541,8 +2542,8 @@ export default function RefinedList({
                     )}
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </IssueCard>
           );
         })}
       </div>

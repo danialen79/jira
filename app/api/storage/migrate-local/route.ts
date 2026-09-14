@@ -1,15 +1,11 @@
 import { NextResponse } from "next/server";
 import { getAppMeta, setAppMeta } from "@/lib/db/repos/settings";
-import { updateAiSettings, type AIProvider } from "@/lib/db/repos/ai";
+import { updateAiSettings, isAIProvider } from "@/lib/db/repos/ai";
 import { setKv } from "@/lib/db/repos/kv";
 import { replaceAllCustomPrompts } from "@/lib/db/repos/prompts";
 import { replaceRecentWorklogs } from "@/lib/db/repos/recent-logs";
 
 const MIGRATED_KEY = "local_storage_migrated";
-
-function isAIProvider(value: unknown): value is AIProvider {
-  return value === "gemini" || value === "avalai" || value === "arvan";
-}
 
 export async function POST(request: Request) {
   try {

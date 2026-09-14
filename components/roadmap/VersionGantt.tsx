@@ -14,10 +14,11 @@ import { en as enCore } from "@svar-ui/core-locales";
 import { en as enGantt } from "@svar-ui/gantt-locales";
 import type { Language, JiraVersion } from "@/lib/types";
 import {
-  buildTimelineBounds,
   cellWidthForMode,
+  filterVersionsOverlappingView,
   getScalesForMode,
   getVersionRangeFromTasks,
+  isCurrentMonthScaleLabel,
   mapIssuesToGanttTasks,
   mapVersionsToGanttTasks,
   parseIssueTaskId,
@@ -43,6 +44,8 @@ type Props = {
   isRtl: boolean;
   jiraUrl: string;
   scaleMode: RoadmapScaleMode;
+  viewStart: Date;
+  viewEnd: Date;
   onOpenVersion?: (version: JiraVersion) => void;
 };
 
@@ -113,10 +116,13 @@ export default function VersionGantt({
   isRtl,
   jiraUrl,
   scaleMode,
+  viewStart,
+  viewEnd,
   onOpenVersion,
 }: Props) {
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const apiRef = useRef<IApi | null>(null);
   const tasksRef = useRef<RoadmapGanttTask[]>([]);
   const versionsRef = useRef(versions);
@@ -128,10 +134,16 @@ export default function VersionGantt({
     setMounted(true);
   }, []);
 
-  const tasks = useMemo(() => mapVersionsToGanttTasks(versions), [versions]);
+  const tasks = useMemo(() => {
+    const inView = filterVersionsOverlappingView(
+      versions,
+      viewStart,
+      viewEnd
+    );
+    return mapVersionsToGanttTasks(inView);
+  }, [versions, viewStart, viewEnd]);
   tasksRef.current = tasks;
 
-  const bounds = useMemo(() => buildTimelineBounds(tasks), [tasks]);
   const scales = useMemo(
     () => getScalesForMode(scaleMode, language),
     [scaleMode, language]
@@ -156,6 +168,22 @@ export default function VersionGantt({
     ],
     [language]
   );
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root || !mounted) return;
+
+    const mark = () => {
+      root.querySelectorAll(".wx-scale .wx-cell").forEach((el) => {
+        const text = el.textContent?.trim() || "";
+        el.classList.toggle("rm-scale-current", isCurrentMonthScaleLabel(text));
+      });
+    };
+
+    mark();
+    const timer = window.setTimeout(mark, 50);
+    return () => window.clearTimeout(timer);
+  }, [mounted, scaleMode, language, viewStart, viewEnd, tasks.length]);
 
   const handleRequestData = useCallback(
     async ({ id }: { id: string | number }) => {
@@ -194,24 +222,27 @@ export default function VersionGantt({
     []
   );
 
-  const openByTaskId = useCallback((id: string | number) => {
-    const issueKey = parseIssueTaskId(id);
-    if (issueKey) {
-      const base = jiraUrl.replace(/\/+$/, "");
-      window.open(
-        `${base}/browse/${issueKey}`,
-        "_blank",
-        "noopener,noreferrer"
-      );
-      return;
-    }
+  const openByTaskId = useCallback(
+    (id: string | number) => {
+      const issueKey = parseIssueTaskId(id);
+      if (issueKey) {
+        const base = jiraUrl.replace(/\/+$/, "");
+        window.open(
+          `${base}/browse/${issueKey}`,
+          "_blank",
+          "noopener,noreferrer"
+        );
+        return;
+      }
 
-    const versionId = parseVersionTaskId(id);
-    if (versionId && onOpenRef.current) {
-      const v = versionsRef.current.find((x) => x.id === versionId);
-      if (v) onOpenRef.current(v);
-    }
-  }, [jiraUrl]);
+      const versionId = parseVersionTaskId(id);
+      if (versionId && onOpenRef.current) {
+        const v = versionsRef.current.find((x) => x.id === versionId);
+        if (v) onOpenRef.current(v);
+      }
+    },
+    [jiraUrl]
+  );
 
   const TaskBarTemplate = useMemo(
     () => createTaskBarTemplate(openByTaskId),
@@ -235,17 +266,19 @@ export default function VersionGantt({
     [handleRequestData, openByTaskId]
   );
 
-  if (tasks.length === 0 || !bounds) {
+  if (tasks.length === 0) {
     return (
       <Empty className="border py-12">
         <EmptyHeader>
           <EmptyTitle>
-            {language === "fa" ? "بازه تاریخی نیست" : "No dated versions"}
+            {language === "fa"
+              ? "ورژنی در این بازه نیست"
+              : "No versions in this period"}
           </EmptyTitle>
           <EmptyDescription>
             {language === "fa"
-              ? "برای ورژن‌ها Start/Release Date بگذارید."
-              : "Set Start/Release dates on Fix Versions."}
+              ? "دوره را عوض کنید یا برای ورژن Start/Release Date بگذارید."
+              : "Change the period, or set Start/Release dates on Fix Versions."}
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -258,9 +291,11 @@ export default function VersionGantt({
 
   const dark = resolvedTheme === "dark";
   const themeClass = dark ? "wx-willow-dark-theme" : "wx-willow-theme";
+  const rangeKey = `${viewStart.getTime()}-${viewEnd.getTime()}`;
 
   return (
     <div
+      ref={rootRef}
       className={cn(
         "roadmap-gantt bg-card text-card-foreground h-[min(70vh,40rem)] min-h-[28rem] overflow-hidden rounded-xl border shadow-none",
         themeClass,
@@ -274,13 +309,13 @@ export default function VersionGantt({
         {dark ? <WillowDark fonts={false} /> : <Willow fonts={false} />}
         <div className="h-full min-w-0 w-full">
           <Gantt
-            key={`${scaleMode}-${language}-${tasks.length}`}
+            key={`${scaleMode}-${language}-${rangeKey}-${tasks.length}`}
             tasks={tasks}
             links={[]}
             scales={scales}
             columns={columns}
-            start={bounds.start}
-            end={bounds.end}
+            start={viewStart}
+            end={viewEnd}
             cellWidth={cellWidth}
             cellHeight={36}
             scaleHeight={28}

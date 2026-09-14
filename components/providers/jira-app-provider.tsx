@@ -20,6 +20,7 @@ import type {
   Language,
   RefinedIssue,
 } from "@/lib/types";
+import type { AIProvider } from "@/lib/ai-providers";
 
 const appTranslations = {
   en: {
@@ -31,12 +32,16 @@ const appTranslations = {
     tabHealth: "Health",
     tabWorkspace: "Workspace",
     tabDailyBoard: "Daily Board",
+    tabSupport: "Support",
+    tabOps: "Ops",
+    tabSprint: "Sprint",
     tabMattermost: "Mattermost",
     tabEpicSync: "Epic Sync",
     tabRoadmap: "Roadmap",
     tabSettings: "AI Settings",
     heroTitle: "Jira AI Workspace",
     heroSubtitle: "Draft, refine, and publish to self-hosted Jira.",
+    supportSubtitle: "PS inbox → review, comment, create or link SIP.",
     draftSection: "1. Draft & refine",
     boardSection: "2. Review & publish",
   },
@@ -49,20 +54,22 @@ const appTranslations = {
     tabHealth: "سلامت",
     tabWorkspace: "کارگاه",
     tabDailyBoard: "بورد روزانه",
+    tabSupport: "ساپورت",
+    tabOps: "عملیات",
+    tabSprint: "اسپرینت",
     tabMattermost: "مترموست",
     tabEpicSync: "همگام‌سازی اپیک",
     tabRoadmap: "رودمپ",
     tabSettings: "تنظیمات AI",
     heroTitle: "جیرا AI",
     heroSubtitle: "پیش‌نویس، اصلاح و انتشار در جیرای سلف‌هاست.",
+    supportSubtitle: "صف PS → بررسی، کامنت، ساخت یا لینک SIP.",
     draftSection: "۱. پیش‌نویس و اصلاح",
     boardSection: "۲. بازبینی و انتشار",
   },
 } as const;
 
 type AppTranslations = (typeof appTranslations)[Language];
-
-type AIProvider = "gemini" | "avalai" | "arvan";
 
 interface JiraSessionUser {
   name?: string;

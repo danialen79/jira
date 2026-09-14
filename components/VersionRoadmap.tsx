@@ -1,10 +1,23 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { GanttChart, Layers } from "lucide-react";
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  GanttChart,
+  Layers,
+  PlusIcon,
+} from "lucide-react";
 import type { Language, JiraVersion } from "@/lib/types";
 import { isCurrentVersion } from "@/lib/roadmap";
-import type { RoadmapScaleMode } from "@/lib/gantt-roadmap";
+import {
+  filterVersionsWithBoundaryInMonth,
+  formatViewPeriodTitle,
+  getViewBounds,
+  normalizeAnchor,
+  shiftAnchor,
+  type RoadmapScaleMode,
+} from "@/lib/gantt-roadmap";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -20,6 +33,8 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import VersionDetailSheet from "@/components/VersionDetailSheet";
 import VersionGantt from "@/components/roadmap/VersionGantt";
 import CurrentVersionsPanel from "@/components/roadmap/CurrentVersionsPanel";
+import CreateVersionDialog from "@/components/roadmap/CreateVersionDialog";
+import MonthlyVersionsPanel from "@/components/roadmap/MonthlyVersionsPanel";
 
 type Props = {
   language: Language;
@@ -37,28 +52,34 @@ const copy = {
     current: "Current versions",
     showArchived: "Show archived",
     noVersions: "No versions found",
-    noVersionsHint: "Create Fix Versions in Jira Releases.",
+    noVersionsHint: "Create a Fix Version from New version.",
     notConnected: "Jira is not connected",
     notConnectedHint: "Configure Jira in Settings, then refresh.",
     refresh: "Refresh",
-    scaleMonth: "Month",
-    scaleQuarter: "3 mo",
-    scaleHalf: "6 mo",
-    scaleLabel: "Scale",
+    create: "New version",
+    fourMonth: "4 months",
+    year: "Year",
+    month: "Month",
+    scaleLabel: "View",
+    prevPeriod: "Previous period",
+    nextPeriod: "Next period",
   },
   fa: {
     timeline: "رودمپ",
     current: "ورژن فعلی",
     showArchived: "نمایش بایگانی",
     noVersions: "ورژنی یافت نشد",
-    noVersionsHint: "در Releases جیرا Fix Version بسازید.",
+    noVersionsHint: "از «ورژن جدید» یک Fix Version بسازید.",
     notConnected: "جیرا متصل نیست",
     notConnectedHint: "جیرا را در Settings پیکربندی کنید.",
     refresh: "بروزرسانی",
-    scaleMonth: "ماه",
-    scaleQuarter: "۳ ماه",
-    scaleHalf: "۶ ماه",
-    scaleLabel: "مقیاس",
+    create: "ورژن جدید",
+    fourMonth: "۴ ماهه",
+    year: "سالانه",
+    month: "ماهانه",
+    scaleLabel: "نمایش",
+    prevPeriod: "دوره قبل",
+    nextPeriod: "دوره بعد",
   },
 } as const;
 
@@ -73,9 +94,13 @@ export default function VersionRoadmap({
 }: Props) {
   const t = copy[language];
   const [showArchived, setShowArchived] = useState(false);
-  const [scaleMode, setScaleMode] = useState<RoadmapScaleMode>("month");
+  const [scaleMode, setScaleMode] = useState<RoadmapScaleMode>("fourMonth");
+  const [anchorDate, setAnchorDate] = useState(() =>
+    normalizeAnchor("fourMonth")
+  );
   const [selected, setSelected] = useState<JiraVersion | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const visibleVersions = useMemo(
     () => (showArchived ? versions : versions.filter((v) => !v.archived)),
@@ -85,6 +110,21 @@ export default function VersionRoadmap({
   const currentVersions = useMemo(
     () => versions.filter((v) => isCurrentVersion(v)),
     [versions]
+  );
+
+  const viewBounds = useMemo(
+    () => getViewBounds(scaleMode, anchorDate),
+    [scaleMode, anchorDate]
+  );
+
+  const monthlyVersions = useMemo(
+    () => filterVersionsWithBoundaryInMonth(visibleVersions, anchorDate),
+    [visibleVersions, anchorDate]
+  );
+
+  const periodTitle = useMemo(
+    () => formatViewPeriodTitle(scaleMode, anchorDate, language),
+    [scaleMode, anchorDate, language]
   );
 
   const openVersion = useCallback((v: JiraVersion) => {
@@ -100,9 +140,16 @@ export default function VersionRoadmap({
     [onRefreshVersions]
   );
 
+  const handleModeChange = (values: string[]) => {
+    if (!values.length) return;
+    const next = values[0] as RoadmapScaleMode;
+    setScaleMode(next);
+    setAnchorDate(normalizeAnchor(next));
+  };
+
   if (!jiraConnected) {
     return (
-      <Empty className="border py-16">
+      <Empty className="border py-16" dir={isRtl ? "rtl" : "ltr"}>
         <EmptyHeader>
           <EmptyMedia variant="icon">
             <GanttChart />
@@ -115,7 +162,7 @@ export default function VersionRoadmap({
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4" dir={isRtl ? "rtl" : "ltr"}>
       <Tabs defaultValue="timeline">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <TabsList>
@@ -143,25 +190,56 @@ export default function VersionRoadmap({
             >
               {t.refresh}
             </Button>
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <PlusIcon data-icon="inline-start" />
+              {t.create}
+            </Button>
           </div>
         </div>
 
         <TabsContent value="timeline" className="mt-4 flex flex-col gap-4">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <ToggleGroup
               value={[scaleMode]}
-              onValueChange={(values) => {
-                if (!values.length) return;
-                setScaleMode(values[0] as RoadmapScaleMode);
-              }}
+              onValueChange={handleModeChange}
               variant="outline"
               size="sm"
               aria-label={t.scaleLabel}
             >
-              <ToggleGroupItem value="month">{t.scaleMonth}</ToggleGroupItem>
-              <ToggleGroupItem value="quarter">{t.scaleQuarter}</ToggleGroupItem>
-              <ToggleGroupItem value="halfYear">{t.scaleHalf}</ToggleGroupItem>
+              <ToggleGroupItem value="month">{t.month}</ToggleGroupItem>
+              <ToggleGroupItem value="fourMonth">{t.fourMonth}</ToggleGroupItem>
+              <ToggleGroupItem value="year">{t.year}</ToggleGroupItem>
             </ToggleGroup>
+
+            <div className="flex items-center gap-1" dir="ltr">
+              <Button
+                size="sm"
+                variant="outline"
+                aria-label={t.prevPeriod}
+                onClick={() =>
+                  setAnchorDate((d) => shiftAnchor(scaleMode, d, -1))
+                }
+              >
+                <ChevronLeftIcon />
+              </Button>
+              <div
+                className="min-w-[10rem] px-2 text-center text-sm font-medium tracking-tight"
+                translate="no"
+                dir={isRtl ? "rtl" : "ltr"}
+              >
+                {periodTitle}
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                aria-label={t.nextPeriod}
+                onClick={() =>
+                  setAnchorDate((d) => shiftAnchor(scaleMode, d, 1))
+                }
+              >
+                <ChevronRightIcon />
+              </Button>
+            </div>
           </div>
           {fetchingVersions && versions.length === 0 ? (
             <div className="flex flex-col gap-3">
@@ -177,7 +255,19 @@ export default function VersionRoadmap({
                 <EmptyTitle>{t.noVersions}</EmptyTitle>
                 <EmptyDescription>{t.noVersionsHint}</EmptyDescription>
               </EmptyHeader>
+              <Button size="sm" onClick={() => setCreateOpen(true)}>
+                <PlusIcon data-icon="inline-start" />
+                {t.create}
+              </Button>
             </Empty>
+          ) : scaleMode === "month" ? (
+            <MonthlyVersionsPanel
+              versions={monthlyVersions}
+              monthAnchor={anchorDate}
+              language={language}
+              jiraUrl={jiraUrl}
+              onOpenVersion={openVersion}
+            />
           ) : (
             <VersionGantt
               versions={visibleVersions}
@@ -185,6 +275,8 @@ export default function VersionRoadmap({
               isRtl={isRtl}
               jiraUrl={jiraUrl}
               scaleMode={scaleMode}
+              viewStart={viewBounds.start}
+              viewEnd={viewBounds.end}
               onOpenVersion={openVersion}
             />
           )}
@@ -209,6 +301,14 @@ export default function VersionRoadmap({
         language={language}
         isRtl={isRtl}
         onVersionUpdated={handleVersionUpdated}
+      />
+
+      <CreateVersionDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        language={language}
+        versions={versions}
+        onCreated={() => void onRefreshVersions()}
       />
     </div>
   );

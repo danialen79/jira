@@ -58,6 +58,12 @@ export function getJiraEnvProjectKey(): string {
   return key.toUpperCase();
 }
 
+/** Product Support / helpdesk project (inbox source). Defaults to PS. */
+export function getJiraSupportProjectKey(): string {
+  const key = process.env.JIRA_SUPPORT_PROJECT?.trim() || "PS";
+  return key.toUpperCase();
+}
+
 export function getJiraEnvConfig(): ConnectionConfig {
   return {
     epicNameField:

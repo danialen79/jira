@@ -368,7 +368,7 @@ export default function VersionDetailSheet({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
           className={cn(
-            "flex max-h-[min(92vh,48rem)] w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-4xl",
+            "flex max-h-[min(94vh,72rem)] w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-4xl",
             isRtl && "font-sans"
           )}
           dir={isRtl ? "rtl" : "ltr"}
@@ -524,41 +524,23 @@ export default function VersionDetailSheet({
             <FieldGroup className="gap-3">
               <Field>
                 <FieldLabel htmlFor="version-start">{t.start}</FieldLabel>
-                {language === "fa" ? (
-                  <JalaliDateInput
-                    id="version-start"
-                    value={startDate}
-                    onChange={setStartDate}
-                    disabled={saving || !!version.archived}
-                  />
-                ) : (
-                  <Input
-                    id="version-start"
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    disabled={saving || !!version.archived}
-                  />
-                )}
+                <JalaliDateInput
+                  id="version-start"
+                  language={language}
+                  value={startDate}
+                  onChange={setStartDate}
+                  disabled={saving || !!version.archived}
+                />
               </Field>
               <Field>
                 <FieldLabel htmlFor="version-release">{t.release}</FieldLabel>
-                {language === "fa" ? (
-                  <JalaliDateInput
-                    id="version-release"
-                    value={releaseDate}
-                    onChange={setReleaseDate}
-                    disabled={saving || !!version.archived}
-                  />
-                ) : (
-                  <Input
-                    id="version-release"
-                    type="date"
-                    value={releaseDate}
-                    onChange={(e) => setReleaseDate(e.target.value)}
-                    disabled={saving || !!version.archived}
-                  />
-                )}
+                <JalaliDateInput
+                  id="version-release"
+                  language={language}
+                  value={releaseDate}
+                  onChange={setReleaseDate}
+                  disabled={saving || !!version.archived}
+                />
               </Field>
               <Field orientation="horizontal" className="items-center">
                 <Switch

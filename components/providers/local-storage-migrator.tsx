@@ -64,7 +64,8 @@ export function LocalStorageMigrator({
           aiProvider:
             aiProvider === "gemini" ||
             aiProvider === "avalai" ||
-            aiProvider === "arvan"
+            aiProvider === "arvan" ||
+            aiProvider === "omniroute"
               ? aiProvider
               : undefined,
           aiModel: aiModel || undefined,
