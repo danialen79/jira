@@ -1,8 +1,7 @@
 "use client";
 
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { ChevronRightIcon } from "lucide-react";
 import { useIssuePeek } from "@/components/providers/issue-peek-provider";
-import { useJiraApp } from "@/components/providers/jira-app-provider";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -22,7 +21,7 @@ const t = {
 type Props = { className?: string };
 
 export function IssuePeekTrail({ className }: Props) {
-  const { isRtl } = useJiraApp();  const { navStack, openIssue, issueKey } = useIssuePeek();
+  const { navStack, openIssue, issueKey } = useIssuePeek();
 
   if (navStack.length <= 1) return null;
 
@@ -32,7 +31,7 @@ export function IssuePeekTrail({ className }: Props) {
   const visibleHead = showCollapse ? head.slice(-1) : head;
   const hidden = showCollapse ? head.slice(0, -1) : [];
 
-  const BackIcon = isRtl ? ChevronRightIcon : ChevronLeftIcon;
+  const BackIcon = ChevronRightIcon;
 
   return (
     <nav

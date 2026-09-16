@@ -4,16 +4,15 @@ import { useState } from "react";
 import { SparklesIcon } from "lucide-react";
 import { MarkdownPreview } from "@/components/MarkdownPreview";
 import { IssuePeekRewriteDialog } from "@/components/issue-peek/IssuePeekRewriteDialog";
-import { useJiraApp } from "@/components/providers/jira-app-provider";
 import { Button } from "@/components/ui/button";
 import type { PeekIssue } from "@/lib/issue-peek";
 import { cn } from "@/lib/utils";
 
 const t = {
-    description: "توضیحات",
-    empty: "توضیحی نیست.",
-    rewrite: "بازنویسی با AI",
-  } as const;
+  description: "توضیحات",
+  empty: "توضیحی نیست.",
+  rewrite: "بازنویسی با AI",
+} as const;
 
 type Props = {
   issue: PeekIssue;
@@ -22,16 +21,12 @@ type Props = {
 };
 
 export function IssuePeekDescription({ issue, label, className }: Props) {
-  const { isRtl } = useJiraApp();  const [dialogOpen, setDialogOpen] = useState(false);
-
+  const [dialogOpen, setDialogOpen] = useState(false);
   const title = label || t.description;
 
   return (
     <>
-      <div
-        className={cn("flex flex-col gap-1.5", className)}
-        dir="rtl"
-      >
+      <div className={cn("flex flex-col gap-1.5", className)} dir="rtl">
         <div className="flex items-center justify-between gap-2">
           <p className="text-xs font-medium">{title}</p>
           <Button

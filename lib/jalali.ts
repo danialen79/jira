@@ -20,21 +20,6 @@ export const JALALI_MONTHS_FA = [
   "اسفند",
 ] as const;
 
-export const JALALI_MONTHS_EN = [
-  "Farvardin",
-  "Ordibehesht",
-  "Khordad",
-  "Tir",
-  "Mordad",
-  "Shahrivar",
-  "Mehr",
-  "Aban",
-  "Azar",
-  "Dey",
-  "Bahman",
-  "Esfand",
-] as const;
-
 export type JalaliParts = { jy: number; jm: number; jd: number };
 
 /** Local Y/M/D only — avoids UTC midnight shifting the calendar day. */

@@ -10,7 +10,6 @@ import { Spinner } from "@/components/ui/spinner";
 
 export default function WorkspacePage() {
   const { t,
-    isRtl,
     handleRefine,
     refining,
     importedDraftText,

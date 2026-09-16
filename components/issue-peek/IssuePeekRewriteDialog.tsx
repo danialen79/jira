@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { SparklesIcon } from "lucide-react";
 import { toast } from "sonner";
 import { MarkdownPreview } from "@/components/MarkdownPreview";
+import SearchableSelect from "@/components/SearchableSelect";
 import { useAiSettings } from "@/components/providers/ai-settings-provider";
 import { useIssuePeek } from "@/components/providers/issue-peek-provider";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,15 +17,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@/components/ui/toggle-group";
 import type { PeekIssue } from "@/lib/issue-peek";
-import { cn } from "@/lib/utils";
 
 const STYLE_PRESETS = {
   clarify: {
@@ -51,29 +50,49 @@ const STYLE_PRESETS = {
 
 type StyleId = keyof typeof STYLE_PRESETS;
 
+const BUILTIN_TEMPLATES = [
+  {
+    id: "farsi",
+    name: "فارسی روان",
+    prompt:
+      "توضیحات را به فارسی روان و ساده بنویس. معیارهای پذیرش را با خطوط متنی ساده مشخص کن. از مارکداون و مارکاپ جیرا خودداری کن.",
+  },
+  {
+    id: "tech",
+    name: "مشخصات فنی",
+    prompt:
+      "با دید فنی دقیق و فارسی روان بنویس. API، پارامترها و کدهای خطا را در معیارها ذکر کن. اصطلاحات فنی انگلیسی بمانند.",
+  },
+  {
+    id: "simple",
+    name: "چک‌لیست",
+    prompt:
+      "خلاصه و به فارسی روان. کارهای اصلی و معیارها به صورت خطوط ساده. بدون h3.، بولد یا [ ].",
+  },
+] as const;
+
 const t = {
-    title: "بازنویسی توضیحات",
-    subtitle: "استایل و دستور را تنظیم کنید؛ قبل از ذخیره در جیرا بررسی کنید.",
-    style: "استایل",
-    instruction: "دستور تکمیلی",
-    instructionPh: "نکته اختیاری برای اصلاح…",
-    customLabel: "دستور سفارشی",
-    customPh: "دستور کامل بازنویسی…",
-    previewEmpty: "بازنویسی را بزنید تا نتیجه اینجا بیاید.",
-    templates: "الگوهای پرامپت",
-    original: "فعلی",
-    preview: "نتیجه AI",
-    rewrite: "بازنویسی",
-    save: "ذخیره در جیرا",
-    cancel: "انصراف",
-    rewriting: "در حال بازنویسی…",
-    saving: "در حال ذخیره…",
-    ok: "توضیحات به‌روز شد.",
-    failed: "بازنویسی ناموفق.",
-    saveFailed: "ذخیره توضیحات نشد.",
-    needPrompt: "اول دستور سفارشی را بنویس.",
-    emptyDesc: "توضیحی نیست — AI از خلاصه پیش‌نویس می‌سازد.",
-  } as const;
+  title: "بازنویسی با AI",
+  style: "استایل",
+  instruction: "دستور تکمیلی",
+  instructionPh: "نکته اختیاری…",
+  customLabel: "دستور سفارشی",
+  customPh: "دستور کامل بازنویسی…",
+  template: "الگوی پرامپت",
+  templateNone: "بدون الگو",
+  result: "نتیجه",
+  current: "فعلی",
+  emptyDesc: "توضیحی نیست.",
+  rewrite: "بازنویسی",
+  save: "ذخیره در جیرا",
+  cancel: "انصراف",
+  rewriting: "در حال بازنویسی…",
+  saving: "در حال ذخیره…",
+  ok: "توضیحات به‌روز شد.",
+  failed: "بازنویسی ناموفق.",
+  saveFailed: "ذخیره توضیحات نشد.",
+  needPrompt: "اول دستور سفارشی را بنویس.",
+} as const;
 
 type Props = {
   open: boolean;
@@ -87,35 +106,13 @@ export function IssuePeekRewriteDialog({ open, onOpenChange, issue }: Props) {
 
   const [style, setStyle] = useState<StyleId>("clarify");
   const [instruction, setInstruction] = useState("");
+  const [templateId, setTemplateId] = useState("");
   const [busy, setBusy] = useState<"rewrite" | "apply" | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [reviewTab, setReviewTab] = useState<"result" | "current">("result");
   const [userTemplates, setUserTemplates] = useState<
     { id: string; name: string; prompt: string }[]
   >([]);
-
-  const builtInTemplates = useMemo(
-    () => [
-      {
-        id: "farsi",
-        name: "فارسی روان",
-        prompt:
-          "توضیحات را به فارسی روان و ساده بنویس. معیارهای پذیرش را با خطوط متنی ساده مشخص کن. از مارکداون و مارکاپ جیرا خودداری کن.",
-      },
-      {
-        id: "tech",
-        name: "مشخصات فنی",
-        prompt:
-          "با دید فنی دقیق و فارسی روان بنویس. API، پارامترها و کدهای خطا را در معیارها ذکر کن. اصطلاحات فنی انگلیسی بمانند.",
-      },
-      {
-        id: "simple",
-        name: "چک‌لیست",
-        prompt:
-          "خلاصه و به فارسی روان. کارهای اصلی و معیارها به صورت خطوط ساده. بدون h3.، بولد یا [ ].",
-      },
-    ],
-    []
-  );
 
   useEffect(() => {
     if (!open) return;
@@ -139,13 +136,27 @@ export function IssuePeekRewriteDialog({ open, onOpenChange, issue }: Props) {
   const resetForm = () => {
     setStyle("clarify");
     setInstruction("");
+    setTemplateId("");
     setPreview(null);
     setBusy(null);
+    setReviewTab("result");
   };
 
   const handleOpenChange = (next: boolean) => {
     if (!next) resetForm();
     onOpenChange(next);
+  };
+
+  const allTemplates = [...BUILTIN_TEMPLATES, ...userTemplates];
+
+  const applyTemplate = (id: string) => {
+    setTemplateId(id);
+    if (!id) return;
+    const tpl = allTemplates.find((x) => x.id === id);
+    if (!tpl) return;
+    setStyle("custom");
+    setInstruction(tpl.prompt);
+    setPreview(null);
   };
 
   const resolvePrompt = (): string | null => {
@@ -185,6 +196,7 @@ export function IssuePeekRewriteDialog({ open, onOpenChange, issue }: Props) {
         throw new Error(data.error || t.failed);
       }
       setPreview(String(data.description));
+      setReviewTab("result");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t.failed);
     } finally {
@@ -219,146 +231,119 @@ export function IssuePeekRewriteDialog({ open, onOpenChange, issue }: Props) {
     }
   };
 
-  const applyTemplate = (prompt: string) => {
-    setStyle("custom");
-    setInstruction(prompt);
-    setPreview(null);
-  };
-
-  const allTemplates = [...builtInTemplates, ...userTemplates];
-
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        className="flex max-h-[min(92vh,820px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl"
+        className="flex max-h-[min(92vh,40rem)] flex-col gap-0 overflow-y-auto overscroll-contain sm:max-w-lg"
         dir="rtl"
       >
-        <DialogHeader className="gap-1 border-b px-4 py-3">
-          <DialogTitle>{t.title}</DialogTitle>
-          <DialogDescription className="flex flex-wrap items-center gap-2">
-            <span>{t.subtitle}</span>
-            <Badge variant="secondary" translate="no">
-              {issue.key}
-            </Badge>
-          </DialogDescription>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <SparklesIcon data-icon="inline-start" />
+            {t.title}
+          </DialogTitle>
+          <DialogDescription translate="no">{issue.key}</DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="min-h-0 flex-1 overscroll-contain">
-          <div className="flex flex-col gap-4 px-4 py-4">
-            <FieldGroup className="gap-4">
-              <Field>
-                <FieldLabel>{t.style}</FieldLabel>
-                <ToggleGroup
-                  value={[style]}
-                  onValueChange={(v) => {
-                    const next = (v[0] as StyleId | undefined) ?? style;
-                    if (next in STYLE_PRESETS) {
-                      setStyle(next);
-                      setPreview(null);
-                    }
-                  }}
-                  variant="outline"
-                  size="sm"
-                  className="flex-wrap justify-start"
+        <FieldGroup className="gap-3 px-1 py-2">
+          <Field>
+            <FieldLabel>{t.style}</FieldLabel>
+            <ToggleGroup
+              value={[style]}
+              onValueChange={(v) => {
+                const next = (v[0] as StyleId | undefined) ?? style;
+                if (next in STYLE_PRESETS) {
+                  setStyle(next);
+                  setPreview(null);
+                }
+              }}
+              variant="outline"
+              size="sm"
+              className="flex-wrap justify-start"
+            >
+              {(Object.keys(STYLE_PRESETS) as StyleId[]).map((id) => (
+                <ToggleGroupItem key={id} value={id}>
+                  {STYLE_PRESETS[id].label}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          </Field>
+
+          <Field>
+            <FieldLabel>{t.template}</FieldLabel>
+            <SearchableSelect
+              options={[
+                { value: "", label: t.templateNone },
+                ...allTemplates.map((tpl) => ({
+                  value: tpl.id,
+                  label: tpl.name,
+                })),
+              ]}
+              value={templateId}
+              onChange={applyTemplate}
+              showSearch={allTemplates.length > 5}
+            />
+          </Field>
+
+          <Field>
+            <FieldLabel htmlFor="peek-rewrite-instruction">
+              {style === "custom" ? t.customLabel : t.instruction}
+            </FieldLabel>
+            <Textarea
+              id="peek-rewrite-instruction"
+              name="rewrite-instruction"
+              value={instruction}
+              onChange={(e) => {
+                setInstruction(e.target.value);
+                setPreview(null);
+              }}
+              placeholder={style === "custom" ? t.customPh : t.instructionPh}
+              rows={3}
+              className="min-h-20"
+              dir="auto"
+              autoComplete="off"
+            />
+          </Field>
+
+          {preview ? (
+            <Field>
+              <Tabs
+                value={reviewTab}
+                onValueChange={(v) =>
+                  setReviewTab(v === "current" ? "current" : "result")
+                }
+              >
+                <TabsList className="w-full">
+                  <TabsTrigger value="result" className="flex-1">
+                    {t.result}
+                  </TabsTrigger>
+                  <TabsTrigger value="current" className="flex-1">
+                    {t.current}
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent
+                  value="result"
+                  className="mt-2 max-h-48 overflow-y-auto overscroll-contain rounded-md border bg-muted/20 p-3 text-xs"
+                  aria-live="polite"
                 >
-                  {(Object.keys(STYLE_PRESETS) as StyleId[]).map((id) => (
-                    <ToggleGroupItem
-                      key={id}
-                      value={id}
-                      className="px-2.5 text-xs"
-                    >
-                      {STYLE_PRESETS[id].label}
-                    </ToggleGroupItem>
-                  ))}
-                </ToggleGroup>
-              </Field>
-
-              <Field>
-                <FieldLabel htmlFor="peek-rewrite-instruction">
-                  {style === "custom" ? t.customLabel : t.instruction}
-                </FieldLabel>
-                <Textarea
-                  id="peek-rewrite-instruction"
-                  value={instruction}
-                  onChange={(e) => {
-                    setInstruction(e.target.value);
-                    setPreview(null);
-                  }}
-                  placeholder={
-                    style === "custom" ? t.customPh : t.instructionPh
-                  }
-                  rows={3}
-                  className="min-h-20 text-sm"
-                  dir="auto"
-                  spellCheck
-                />
-              </Field>
-
-              {allTemplates.length > 0 ? (
-                <Field>
-                  <FieldLabel>{t.templates}</FieldLabel>
-                  <div className="flex flex-wrap gap-1.5">
-                    {allTemplates.map((tpl) => (
-                      <Button
-                        key={tpl.id}
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-auto max-w-full py-1.5 text-xs"
-                        disabled={busy !== null}
-                        onClick={() => applyTemplate(tpl.prompt)}
-                      >
-                        {tpl.name}
-                      </Button>
-                    ))}
-                  </div>
-                </Field>
-              ) : null}
-            </FieldGroup>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <p className="text-xs font-medium text-muted-foreground">
-                  {t.original}
-                </p>
-                <div
-                  className={cn(
-                    "max-h-56 min-h-32 overflow-y-auto overscroll-contain rounded-md border border-border/60 bg-muted/20 p-2.5 text-xs",
-                    !issue.description && "text-muted-foreground"
-                  )}
+                  <MarkdownPreview text={preview} />
+                </TabsContent>
+                <TabsContent
+                  value="current"
+                  className="mt-2 max-h-48 overflow-y-auto overscroll-contain rounded-md border bg-muted/20 p-3 text-xs"
                 >
                   {issue.description ? (
                     <MarkdownPreview text={issue.description} />
                   ) : (
-                    t.emptyDesc
+                    <p className="text-muted-foreground">{t.emptyDesc}</p>
                   )}
-                </div>
-              </div>
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <p className="text-xs font-medium text-muted-foreground">
-                  {t.preview}
-                </p>
-                <div
-                  className={cn(
-                    "max-h-56 min-h-32 overflow-y-auto overscroll-contain rounded-md border p-2.5 text-xs",
-                    preview
-                      ? "border-primary/30 bg-primary/5"
-                      : "border-dashed border-border/60 bg-muted/10 text-muted-foreground"
-                  )}
-                  aria-live="polite"
-                >
-                  {preview ? (
-                    <MarkdownPreview text={preview} />
-                  ) : (
-                    <span className="text-[11px]">{t.previewEmpty}</span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </ScrollArea>
+                </TabsContent>
+              </Tabs>
+            </Field>
+          ) : null}
+        </FieldGroup>
 
-        <DialogFooter className="border-t px-4 py-3 sm:justify-between">
+        <DialogFooter className="gap-2">
           <Button
             type="button"
             variant="outline"
@@ -367,32 +352,31 @@ export function IssuePeekRewriteDialog({ open, onOpenChange, issue }: Props) {
           >
             {t.cancel}
           </Button>
-          <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant={preview ? "secondary" : "default"}
+            disabled={
+              busy !== null || (style === "custom" && !instruction.trim())
+            }
+            onClick={() => void runRewrite()}
+          >
+            {busy === "rewrite" ? (
+              <Spinner data-icon="inline-start" />
+            ) : (
+              <SparklesIcon data-icon="inline-start" />
+            )}
+            {busy === "rewrite" ? t.rewriting : t.rewrite}
+          </Button>
+          {preview ? (
             <Button
               type="button"
-              variant="secondary"
-              disabled={
-                busy !== null ||
-                (style === "custom" && !instruction.trim())
-              }
-              onClick={() => void runRewrite()}
-            >
-              {busy === "rewrite" ? (
-                <Spinner data-icon="inline-start" />
-              ) : (
-                <SparklesIcon data-icon="inline-start" />
-              )}
-              {busy === "rewrite" ? t.rewriting : t.rewrite}
-            </Button>
-            <Button
-              type="button"
-              disabled={busy !== null || !preview}
+              disabled={busy !== null}
               onClick={() => void applyPreview()}
             >
               {busy === "apply" ? <Spinner data-icon="inline-start" /> : null}
               {busy === "apply" ? t.saving : t.save}
             </Button>
-          </div>
+          ) : null}
         </DialogFooter>
       </DialogContent>
     </Dialog>

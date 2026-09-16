@@ -113,7 +113,7 @@ function SectionList({
 }
 
 export default function HealthPage() {
-  const { isRtl, refreshConnection } = useJiraApp();
+  const { refreshConnection } = useJiraApp();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<HealthPayload | null>(null);
 

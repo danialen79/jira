@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  ChevronLeftIcon,
   ChevronRightIcon,
   PanelLeftIcon,
   TicketIcon,
@@ -35,7 +34,8 @@ const t = {
   } as const;
 
 export function IssuePeekDock() {
-  const { jiraConnected, isRtl } = useJiraApp();  const {
+  const { jiraConnected } = useJiraApp();
+  const {
     collapsed,
     setCollapsed,
     expandAndFocusSearch,
@@ -113,7 +113,7 @@ export function IssuePeekDock() {
               title={t.collapse}
               onClick={() => setCollapsed(true)}
             >
-              {isRtl ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+              <ChevronRightIcon />
             </Button>
           </div>
 

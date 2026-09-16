@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { ArrowRightLeftIcon, Layers, PencilIcon, User } from "lucide-react";
 import type { VersionIssue } from "@/lib/types";
@@ -40,23 +40,17 @@ type Props = {
 };
 
 const t = {
-    empty: "ایشویی نیست",
-    emptyHint: "Fix Version را روی اپیک (یا استوری بدون اپیک) تنظیم کنید.",
-    unassigned: "بدون مسئول",
-    children: (n: number) => `${n} ایشو`,
-    loadChildren: "استوری‌ها",
-    loadingChildren: "در حال بارگذاری استوری‌ها…",
-    loadFailed: "بارگذاری استوری‌ها ناموفق بود.",
-    noChildren: "استوری زیر این اپیک نیست.",
-    edit: "ویرایش",
-    changeVersion: "تغییر ورژن",
-  } as const;
+  empty: "ایشویی نیست",
+  emptyHint: "Fix Version را روی اپیک (یا استوری بدون اپیک) تنظیم کنید.",
+  unassigned: "بدون مسئول",
+  loadingChildren: "در حال بارگذاری استوری‌ها…",
+  loadFailed: "بارگذاری استوری‌ها ناموفق بود.",
+  noChildren: "استوری زیر این اپیک نیست.",
+  edit: "ویرایش",
+  changeVersion: "تغییر ورژن",
+} as const;
 
-function issueBadges(
-  issue: VersionIssue,
-  jiraBase: string,
-  extra?: ReactNode
-) {
+function issueBadges(issue: VersionIssue, jiraBase: string) {
   return (
     <>
       <IssueKeyLink
@@ -71,11 +65,8 @@ function issueBadges(
         statusCategoryKey={issue.statusCategoryKey}
       />
       {issue.lens ? (
-        <Badge variant="outline">
-          {lensDisplayLabel(issue.lens)}
-        </Badge>
+        <Badge variant="outline">{lensDisplayLabel(issue.lens)}</Badge>
       ) : null}
-      {extra}
     </>
   );
 }
@@ -162,12 +153,6 @@ function TreeIssueCard({
     />
   );
   const hasActions = !!(onEditIssue || (!nested && onChangeVersion));
-  const countLabel =
-    kids != null
-      ? t.children(kids.length)
-      : lazyEpicChildren && isEpic
-        ? t.loadChildren
-        : null;
 
   return (
     <IssueCard
@@ -183,13 +168,7 @@ function TreeIssueCard({
     >
       <IssueCardHeader
         title={issue.summary}
-        badges={issueBadges(
-          issue,
-          jiraBase,
-          countLabel ? (
-            <Badge variant="secondary">{countLabel}</Badge>
-          ) : null
-        )}
+        badges={issueBadges(issue, jiraBase)}
       />
       <IssueCardFooter
         meta={[

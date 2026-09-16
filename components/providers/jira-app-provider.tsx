@@ -54,8 +54,6 @@ interface JiraSessionUser {
 
 interface JiraAppContextValue {
   t: AppTranslations;
-  /** UI is Persian-only; layout is always RTL. */
-  isRtl: boolean;
   jiraUrl: string;
   jiraUsername: string;
   projectKey: string;
@@ -487,7 +485,6 @@ export function JiraAppProvider({ children }: { children: React.ReactNode }) {
 
   const value: JiraAppContextValue = {
     t,
-    isRtl: true,
     jiraUrl,
     jiraUsername,
     projectKey,

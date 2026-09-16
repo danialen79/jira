@@ -72,9 +72,7 @@ export default function DraftInput({
   loading,
   draftText: draftTextProp,
 }: DraftInputProps) {
-  const t = translations;
-  const isRtl = true;
-  const { aiProvider, selectedModel } = useAiSettings();
+  const t = translations;  const { aiProvider, selectedModel } = useAiSettings();
 
   const [draftText, setDraftText] = useState("");
   const [customPrompt, setCustomPrompt] = useState("");

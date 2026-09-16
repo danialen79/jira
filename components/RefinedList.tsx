@@ -239,9 +239,7 @@ export default function RefinedList({
   fetchingSprints,
   onFetchSprints,
 }: RefinedListProps) {
-  const t = translations;
-  const isRtl = true;
-  const { aiProvider, selectedModel } = useAiSettings();
+  const t = translations;  const { aiProvider, selectedModel } = useAiSettings();
   const searchParams = useSearchParams();
   const [, setFreqTick] = useState(0);
 

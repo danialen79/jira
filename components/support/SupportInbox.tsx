@@ -156,7 +156,6 @@ export default function SupportInbox() {
   } = useJiraApp();
   const { aiProvider, selectedModel } = useAiSettings();
 
-  const fa = true;
   const browse = (key: string) =>
     `${(jiraUrl || "").replace(/\/$/, "")}/browse/${key}`;
 
@@ -214,7 +213,7 @@ export default function SupportInbox() {
       return `صف من (${items.length})`;
     }
     return `صف من (${filteredItems.length}/${items.length})`;
-  }, [fa, filteredItems.length, items.length, statusFilter]);
+  }, [filteredItems.length, items.length, statusFilter]);
 
   const loadInbox = useCallback(async () => {
     if (!jiraConnected) return;
@@ -912,11 +911,11 @@ export default function SupportInbox() {
                     </Field>
                     {form.issuetype === "Story" ? (
                       <Field>
-                        <FieldLabel>Lens</FieldLabel>
+                        <FieldLabel>لنز</FieldLabel>
                         <SearchableSelect
                           options={LENS_OPTIONS.map((o) => ({
                             value: o.value,
-                            label: fa ? o.labelFa : o.labelEn,
+                            label: o.labelFa,
                           }))}
                           value={form.selectedLens || ""}
                           onChange={(val) =>

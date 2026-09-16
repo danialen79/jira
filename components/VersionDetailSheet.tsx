@@ -131,9 +131,7 @@ export default function VersionDetailSheet({
   versions,
   jiraUrl,
   onVersionUpdated,
-}: Props) {
-  const isRtl = true;
-  const [loading, setLoading] = useState(false);
+}: Props) {  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tree, setTree] = useState<VersionIssue[]>([]);
   const [total, setTotal] = useState(0);
@@ -312,7 +310,7 @@ export default function VersionDetailSheet({
         <DialogContent
           className={cn(
             "flex max-h-[min(94vh,72rem)] w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-4xl",
-            isRtl && "font-sans"
+            "font-sans"
           )}
           dir="rtl"
         >

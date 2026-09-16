@@ -77,10 +77,7 @@ export function lensToLabel(lens: IssueLens): string {
   return LENS_BY_VALUE.get(lens)!.jiraLabel;
 }
 
-export function lensDisplayLabel(
-  lens: IssueLens,
-  _language?: "fa"
-): string {
+export function lensDisplayLabel(lens: IssueLens): string {
   const opt = LENS_BY_VALUE.get(lens)!;
   return opt.labelFa;
 }

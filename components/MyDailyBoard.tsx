@@ -77,9 +77,7 @@ export default function MyDailyBoard({  jiraUrl,
   jiraConnected,
   jiraUsers,
 }: MyDailyBoardProps) {
-  const t = translations;
-  const isRtl = true;
-  const searchParams = useSearchParams();
+  const t = translations;  const searchParams = useSearchParams();
   const urlAssignee = searchParams.get("assignee");
   const assigneeFromUrl = useRef(!!urlAssignee);
 

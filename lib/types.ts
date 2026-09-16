@@ -143,9 +143,6 @@ export interface ConnectionConfig {
   sprintFieldId?: string;
 }
 
-/** App UI is Persian-only. */
-export type Language = "fa";
-
 export interface EpicAuditChildIssue {
   key: string;
   summary: string;

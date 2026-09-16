@@ -153,9 +153,7 @@ export default function EpicComponentSync({
   jiraUrl,
   jiraConnected,
 }: EpicComponentSyncProps) {
-  const t = syncTranslations;
-  const isRtl = true;
-  const jiraBase = normalizeJiraBase(jiraUrl);
+  const t = syncTranslations;  const jiraBase = normalizeJiraBase(jiraUrl);
   const reduceMotion = useReducedMotion();
   const { componentNames } = useJiraApp();
 
@@ -677,11 +675,7 @@ export default function EpicComponentSync({
               onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
               disabled={currentPage === 1 || loading}
             >
-              {isRtl ? (
-                <ChevronRight data-icon="inline-start" />
-              ) : (
-                <ChevronLeft data-icon="inline-start" />
-              )}
+              <ChevronRight data-icon="inline-start" />
               {"صفحه قبل"}
             </Button>
 
@@ -699,11 +693,7 @@ export default function EpicComponentSync({
               disabled={currentPage === totalPages || loading}
             >
               {"صفحه بعد"}
-              {isRtl ? (
-                <ChevronLeft data-icon="inline-end" />
-              ) : (
-                <ChevronRight data-icon="inline-end" />
-              )}
+              <ChevronLeft data-icon="inline-end" />
             </Button>
           </CardContent>
         </Card>

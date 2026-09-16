@@ -50,7 +50,7 @@ const PROVIDER_LABEL: Record<AIProvider, string> = {
 };
 
 export default function SettingsPage() {
-  const { jiraConnected, isRtl } = useJiraApp();
+  const { jiraConnected } = useJiraApp();
   const { settings, loading, saveSettings, refresh, aiProvider, selectedModel, setAiProvider, setSelectedModel } =
     useAiSettings();
 
@@ -243,7 +243,7 @@ export default function SettingsPage() {
             <CardHeader>
               <CardTitle className="text-base">{t.defaultProvider}</CardTitle>
               <CardDescription>
-                Used by Workspace, Daily Board, and Mattermost when no override is passed.
+                برای کارگاه، بورد روزانه و مترموست وقتی override نباشد.
               </CardDescription>
             </CardHeader>
             <CardContent>

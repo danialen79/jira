@@ -9,7 +9,6 @@ import {
   HelpCircle,
   Copy,
   ArrowLeft,
-  ArrowRight,
   User,
   RefreshCw,
 } from "lucide-react";
@@ -95,10 +94,7 @@ const translations = {
 export default function MattermostIntegration({
   onImportDraft,
 }: MattermostIntegrationProps) {
-  const t = translations;
-  const isRtl = true;
-
-  const [config, setConfig] = useState<MattermostConfig | null>(null);
+  const t = translations;  const [config, setConfig] = useState<MattermostConfig | null>(null);
   const [loadingConfig, setLoadingConfig] = useState(true);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<any | null>(null);
@@ -483,11 +479,7 @@ MATTERMOST_BOT_TOKEN="your-bot-account-token"`}
                             }
                           >
                             {t.importBtn}
-                            {isRtl ? (
-                              <ArrowLeft data-icon="inline-end" />
-                            ) : (
-                              <ArrowRight data-icon="inline-end" />
-                            )}
+                            <ArrowLeft data-icon="inline-end" />
                           </Button>
                         </CardFooter>
                       </Card>

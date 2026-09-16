@@ -10,8 +10,6 @@ import {
   type ITask,
 } from "@svar-ui/react-gantt";
 import { Locale } from "@svar-ui/react-core";
-import { en as enCore } from "@svar-ui/core-locales";
-import { en as enGantt } from "@svar-ui/gantt-locales";
 import type { JiraVersion } from "@/lib/types";
 import {
   cellWidthForMode,
@@ -115,9 +113,7 @@ export default function VersionGantt({
   viewStart,
   viewEnd,
   onOpenVersion,
-}: Props) {
-  const isRtl = true;
-  const { resolvedTheme } = useTheme();
+}: Props) {  const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const apiRef = useRef<IApi | null>(null);
@@ -288,7 +284,7 @@ export default function VersionGantt({
       className={cn(
         "roadmap-gantt bg-card text-card-foreground h-[min(70vh,40rem)] min-h-[28rem] overflow-hidden rounded-xl border shadow-none",
         themeClass,
-        isRtl && "roadmap-gantt-rtl"
+        "roadmap-gantt-rtl"
       )}
       // SVAR timeline uses absolute LTR coords — dir=rtl shifts bars vs scale labels
       dir="ltr"

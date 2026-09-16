@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { HistoryIcon, SearchIcon } from "lucide-react";
 import { useIssuePeek } from "@/components/providers/issue-peek-provider";
-import { useJiraApp } from "@/components/providers/jira-app-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -13,18 +12,18 @@ import {
 import { cn } from "@/lib/utils";
 
 const t = {
-    placeholder: "PROJ-123…",
-    fetch: "بارگذاری",
-    invalid: "فرمت KEY-123",
-    recent: "اخیر",
-  } as const;
+  placeholder: "PROJ-123…",
+  fetch: "بارگذاری",
+  invalid: "فرمت KEY-123",
+  recent: "اخیر",
+} as const;
 
 type Props = {
   className?: string;
 };
 
 export function IssuePeekSearch({ className }: Props) {
-  const { isRtl } = useJiraApp();  const { issueKey, openIssue, recentKeys, loading } = useIssuePeek();
+  const { issueKey, openIssue, recentKeys, loading } = useIssuePeek();
   const [value, setValue] = useState(issueKey || "");
   const [showRecent, setShowRecent] = useState(false);
 

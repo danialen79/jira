@@ -88,10 +88,7 @@ export default function JiraConfig({
   availableProjects,
   onAvailableProjectsChange,
 }: JiraConfigProps) {
-  const t = translations;
-  const isRtl = true;
-
-  const [testing, setTesting] = useState(false);
+  const t = translations;  const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{
     success: boolean;
     message: string;
