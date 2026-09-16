@@ -5,7 +5,10 @@ import { ArrowRightLeftIcon } from "lucide-react";
 import { toast } from "sonner";
 import type { JiraVersion, Language, VersionIssue } from "@/lib/types";
 import { parseProductFromVersionName } from "@/lib/roadmap";
-import { isEpicIssueType } from "@/lib/fix-version-policy";
+import {
+  isEpicIssueType,
+  selectableFixVersions,
+} from "@/lib/fix-version-policy";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -89,20 +92,14 @@ export default function ChangeVersionDialog({
   );
 
   const versionOptions = useMemo(() => {
-    return allVersions
-      .filter((v) => !v.archived)
+    return selectableFixVersions(allVersions)
       .filter((v) => v.id !== currentVersion.id)
       .filter((v) => parseProductFromVersionName(v.name) === product)
       .map((v) => ({
         value: v.id,
         label: v.name,
-        sublabel: v.released
-          ? language === "fa"
-            ? "منتشرشده"
-            : "released"
-          : undefined,
       }));
-  }, [allVersions, currentVersion.id, product, language]);
+  }, [allVersions, currentVersion.id, product]);
 
   const selectOptions = useMemo(
     () => [

@@ -17,7 +17,7 @@ export function IssuePeekBody({ issue }: Props) {
   const t = normalizeIssueTypeName(issue.issuetype);
 
   if (t === "epic") {
-    return <EpicLayout epicKey={issue.key} />;
+    return <EpicLayout issue={issue} />;
   }
   if (t === "bug") {
     return <BugLayout issue={issue} />;

@@ -45,7 +45,7 @@ export function IssuePeekSearch({ className }: Props) {
   const submit = () => {
     const key = normalizeIssueKey(value);
     if (!isValidIssueKey(key)) return;
-    openIssue(key);
+    openIssue(key, { replace: true });
     setShowRecent(false);
   };
 
@@ -105,7 +105,7 @@ export function IssuePeekSearch({ className }: Props) {
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
                     setValue(k);
-                    openIssue(k);
+                    openIssue(k, { replace: true });
                     setShowRecent(false);
                   }}
                 >

@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  CalendarIcon,
   CopyIcon,
   ExternalLinkIcon,
+  FlagIcon,
   RefreshCwIcon,
   TimerIcon,
   UserIcon,
@@ -23,7 +25,11 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { jiraBrowseUrl } from "@/lib/jira-browse";
-import type { PeekIssue } from "@/lib/issue-peek";
+import {
+  peekCanSetFixVersion,
+  peekCanSetSprint,
+  type PeekIssue,
+} from "@/lib/issue-peek";
 import { cn } from "@/lib/utils";
 
 const copy = {
@@ -37,9 +43,17 @@ const copy = {
     open: "Open in Jira",
     copyKey: "Copy key",
     refresh: "Refresh",
+    version: "Version",
+    sprint: "Sprint",
+    backlog: "Backlog",
+    pickVersion: "Fix version",
+    pickSprint: "Sprint",
+    noneVersion: "No version",
     transitionOk: "Status updated.",
     assignOk: "Assignee updated.",
     logOk: "Work logged.",
+    versionOk: "Version updated.",
+    sprintOk: "Sprint updated.",
     copied: "Copied.",
     failed: "Action failed.",
   },
@@ -53,9 +67,17 @@ const copy = {
     open: "باز کردن در جیرا",
     copyKey: "کپی کلید",
     refresh: "تازه‌سازی",
+    version: "ورژن",
+    sprint: "اسپرینت",
+    backlog: "بک‌لاگ",
+    pickVersion: "Fix version",
+    pickSprint: "اسپرینت",
+    noneVersion: "بدون ورژن",
     transitionOk: "وضعیت به‌روز شد.",
     assignOk: "مسئول به‌روز شد.",
     logOk: "کار ثبت شد.",
+    versionOk: "ورژن به‌روز شد.",
+    sprintOk: "اسپرینت به‌روز شد.",
     copied: "کپی شد.",
     failed: "عملیات ناموفق.",
   },
@@ -67,19 +89,36 @@ type Props = {
 };
 
 export function IssuePeekActions({ issue, className }: Props) {
-  const { language, isRtl, jiraUrl, jiraUsers, fetchJiraUsers, fetchingUsers } =
-    useJiraApp();
+  const {
+    language,
+    isRtl,
+    jiraUrl,
+    jiraUsers,
+    fetchJiraUsers,
+    fetchingUsers,
+    jiraVersions,
+    fetchJiraVersions,
+    jiraSprints,
+    fetchJiraSprints,
+  } = useJiraApp();
   const t = copy[language];
   const { refresh, patchIssue } = useIssuePeek();
+
+  const canVersion = peekCanSetFixVersion(issue);
+  const canSprint = peekCanSetSprint(issue.issuetype);
 
   const [statuses, setStatuses] = useState<string[]>([]);
   const [busyStatus, setBusyStatus] = useState<string | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
+  const [versionOpen, setVersionOpen] = useState(false);
+  const [sprintOpen, setSprintOpen] = useState(false);
   const [timeSpent, setTimeSpent] = useState("");
   const [note, setNote] = useState("");
   const [logging, setLogging] = useState(false);
   const [assigning, setAssigning] = useState(false);
+  const [settingVersion, setSettingVersion] = useState(false);
+  const [settingSprint, setSettingSprint] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -109,6 +148,14 @@ export function IssuePeekActions({ issue, className }: Props) {
     if (assignOpen) void fetchJiraUsers();
   }, [assignOpen, fetchJiraUsers]);
 
+  useEffect(() => {
+    if (versionOpen && jiraVersions.length === 0) void fetchJiraVersions();
+  }, [versionOpen, jiraVersions.length, fetchJiraVersions]);
+
+  useEffect(() => {
+    if (sprintOpen && jiraSprints.length === 0) void fetchJiraSprints();
+  }, [sprintOpen, jiraSprints.length, fetchJiraSprints]);
+
   const userOptions = useMemo(
     () => [
       { value: "", label: t.unassign },
@@ -121,6 +168,44 @@ export function IssuePeekActions({ issue, className }: Props) {
     ],
     [jiraUsers, t.unassign]
   );
+
+  const versionOptions = useMemo(
+    () =>
+      jiraVersions
+        .filter((v) => !v.archived)
+        .map((v) => ({
+          value: v.id,
+          label: v.name,
+          sublabel: v.released ? "released" : undefined,
+        })),
+    [jiraVersions]
+  );
+
+  const sprintOptions = useMemo(() => {
+    const open = jiraSprints.filter((s) => s.state !== "closed");
+    const ordered = [
+      ...open.filter((s) => s.state === "active"),
+      ...open.filter((s) => s.state === "future"),
+    ];
+    return [
+      { value: "backlog", label: t.backlog },
+      ...ordered.map((s) => ({
+        value: String(s.id),
+        label: s.name,
+        sublabel: s.state,
+      })),
+    ];
+  }, [jiraSprints, t.backlog]);
+
+  const versionLabel =
+    issue.fixVersionNames?.[0] ||
+    versionOptions.find((v) => v.value === issue.selectedRelease)?.label ||
+    t.noneVersion;
+
+  const sprintLabel =
+    issue.sprintName ||
+    jiraSprints.find((s) => String(s.id) === issue.selectedSprint)?.name ||
+    (issue.selectedSprint ? issue.selectedSprint : t.backlog);
 
   const transitionTo = async (statusName: string) => {
     if (busyStatus) return;
@@ -173,6 +258,81 @@ export function IssuePeekActions({ issue, className }: Props) {
       toast.error(e instanceof Error ? e.message : t.failed);
     } finally {
       setAssigning(false);
+    }
+  };
+
+  const setVersion = async (fixVersionId: string) => {
+    if (!fixVersionId) return;
+    setSettingVersion(true);
+    try {
+      const res = await fetch("/api/jira/issues/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "setFixVersion",
+          issueKeys: [issue.key],
+          params: { fixVersionId },
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      const result = data.results?.[0];
+      if (!res.ok || result?.success === false) {
+        throw new Error(result?.error || data.error || t.failed);
+      }
+      const opt = versionOptions.find((o) => o.value === fixVersionId);
+      patchIssue({
+        selectedRelease: fixVersionId,
+        fixVersionIds: [fixVersionId],
+        fixVersionNames: opt ? [opt.label] : issue.fixVersionNames,
+      });
+      toast.success(t.versionOk);
+      setVersionOpen(false);
+      void refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t.failed);
+    } finally {
+      setSettingVersion(false);
+    }
+  };
+
+  const setSprint = async (sprintIdOrBacklog: string) => {
+    setSettingSprint(true);
+    try {
+      const toBacklog = sprintIdOrBacklog === "backlog" || !sprintIdOrBacklog;
+      const sprintId = toBacklog
+        ? "backlog"
+        : sprintIdOrBacklog;
+      const res = await fetch(
+        `/api/jira/sprints/${encodeURIComponent(sprintId)}/move`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            issues: [issue.key],
+            target: toBacklog ? "backlog" : "sprint",
+          }),
+        }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) {
+        throw new Error(data.error || t.failed);
+      }
+      if (toBacklog) {
+        patchIssue({ selectedSprint: undefined, sprintName: undefined });
+      } else {
+        const opt = sprintOptions.find((o) => o.value === sprintIdOrBacklog);
+        patchIssue({
+          selectedSprint: sprintIdOrBacklog,
+          sprintName: opt?.label,
+        });
+      }
+      toast.success(t.sprintOk);
+      setSprintOpen(false);
+      void refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t.failed);
+    } finally {
+      setSettingSprint(false);
     }
   };
 
@@ -262,6 +422,52 @@ export function IssuePeekActions({ issue, className }: Props) {
             )}
           </PopoverContent>
         </Popover>
+
+        {canVersion ? (
+          <Popover open={versionOpen} onOpenChange={setVersionOpen}>
+            <PopoverTrigger
+              render={
+                <Button type="button" size="sm" variant="outline" />
+              }
+            >
+              <FlagIcon data-icon="inline-start" />
+              <span className="max-w-24 truncate">{versionLabel}</span>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-64 p-2">
+              <SearchableSelect
+                options={versionOptions}
+                value={issue.selectedRelease || issue.fixVersionIds?.[0] || ""}
+                onChange={(v) => void setVersion(v)}
+                isRtl={isRtl}
+                disabled={settingVersion}
+                placeholder={t.pickVersion}
+              />
+            </PopoverContent>
+          </Popover>
+        ) : null}
+
+        {canSprint ? (
+          <Popover open={sprintOpen} onOpenChange={setSprintOpen}>
+            <PopoverTrigger
+              render={
+                <Button type="button" size="sm" variant="outline" />
+              }
+            >
+              <CalendarIcon data-icon="inline-start" />
+              <span className="max-w-24 truncate">{sprintLabel}</span>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-64 p-2">
+              <SearchableSelect
+                options={sprintOptions}
+                value={issue.selectedSprint || "backlog"}
+                onChange={(v) => void setSprint(v)}
+                isRtl={isRtl}
+                disabled={settingSprint}
+                placeholder={t.pickSprint}
+              />
+            </PopoverContent>
+          </Popover>
+        ) : null}
 
         <Popover open={logOpen} onOpenChange={setLogOpen}>
           <PopoverTrigger

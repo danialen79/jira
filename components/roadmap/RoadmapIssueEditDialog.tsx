@@ -22,6 +22,7 @@ import {
   fixVersionValidationError,
   isEpicIssueType,
   issueOwnsFixVersion,
+  selectableFixVersions,
 } from "@/lib/fix-version-policy";
 import { Button } from "@/components/ui/button";
 import {
@@ -216,18 +217,18 @@ export default function RoadmapIssueEditDialog({
 
   const versionOptions = useMemo(
     () =>
-      versions
-        .filter((v) => !v.archived)
-        .map((v) => ({
-          value: v.id,
-          label: v.name,
-          sublabel: v.released
-            ? language === "fa"
-              ? "منتشرشده"
-              : "released"
-            : undefined,
-        })),
-    [versions, language]
+      selectableFixVersions(versions, {
+        includeId: form?.selectedRelease,
+      }).map((v) => ({
+        value: v.id,
+        label: v.name,
+        sublabel: v.released
+          ? language === "fa"
+            ? "منتشرشده"
+            : "released"
+          : undefined,
+      })),
+    [versions, form?.selectedRelease, language]
   );
 
   const handleSave = async () => {

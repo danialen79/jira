@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { IssueStatusBadge } from "@/components/IssueStatusBadge";
+import { IssuePeekDescription } from "@/components/issue-peek/IssuePeekDescription";
 import { useIssuePeek } from "@/components/providers/issue-peek-provider";
 import { useJiraApp } from "@/components/providers/jira-app-provider";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getIssueTypeBadgeClass } from "@/lib/issue-type-badge";
 import { resolveIssueStatusTone } from "@/lib/issue-status-badge";
+import type { PeekIssue } from "@/lib/issue-peek";
 import type { VersionIssue } from "@/lib/types";
 
 const copy = {
@@ -17,18 +19,21 @@ const copy = {
     empty: "No child issues.",
     loadFail: "Could not load children.",
     progress: "Progress",
+    description: "Description",
   },
   fa: {
     children: "فرزندان",
     empty: "فرزندی نیست.",
     loadFail: "بارگذاری فرزندان نشد.",
     progress: "پیشرفت",
+    description: "توضیحات",
   },
 } as const;
 
-type Props = { epicKey: string };
+type Props = { issue: PeekIssue };
 
-export function EpicLayout({ epicKey }: Props) {
+export function EpicLayout({ issue }: Props) {
+  const epicKey = issue.key;
   const { language } = useJiraApp();
   const t = copy[language];
   const { openIssue } = useIssuePeek();
@@ -78,73 +83,73 @@ export function EpicLayout({ epicKey }: Props) {
     return { todo, inProgress, done, total, percent };
   }, [children]);
 
-  if (loading) {
-    return (
-      <div className="flex flex-col gap-2">
-        <Skeleton className="h-2 w-full" />
-        <Skeleton className="h-8 w-full" />
-        <Skeleton className="h-8 w-full" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return <p className="text-xs text-destructive">{error}</p>;
-  }
-
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1.5">
-        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-          <span>{t.progress}</span>
-          <span className="tabular-nums">
-            {stats.done}/{stats.total} · {stats.percent}%
-          </span>
-        </div>
-        <Progress value={stats.percent} className="w-full shrink-0" />
-        <p className="text-[11px] text-muted-foreground tabular-nums">
-          Todo {stats.todo} · IP {stats.inProgress} · Done {stats.done}
-        </p>
-      </div>
+      <IssuePeekDescription issue={issue} label={t.description} />
 
-      <div className="flex flex-col gap-1">
-        <p className="text-xs font-medium">{t.children}</p>
-        {children.length === 0 ? (
-          <p className="text-xs text-muted-foreground">{t.empty}</p>
-        ) : (
-          <ul className="flex max-h-56 flex-col gap-1 overflow-y-auto overscroll-contain">
-            {children.map((c) => (
-              <li key={c.key}>
-                <button
-                  type="button"
-                  className="flex w-full cursor-pointer items-start gap-2 rounded-md border border-transparent px-1.5 py-1 text-start hover:border-border hover:bg-muted/50"
-                  onClick={() => openIssue(c.key)}
-                >
-                  <span
-                    className="shrink-0 font-mono text-[11px] text-primary"
-                    translate="no"
-                  >
-                    {c.key}
-                  </span>
-                  <span className="min-w-0 flex-1 text-[11px] leading-snug line-clamp-2">
-                    {c.summary}
-                  </span>
-                  <Badge
-                    className={`shrink-0 text-[10px] ${getIssueTypeBadgeClass(c.issuetype)}`}
-                  >
-                    {c.issuetype}
-                  </Badge>
-                  <IssueStatusBadge
-                    status={c.status}
-                    statusCategoryKey={c.statusCategoryKey}
-                    className="shrink-0 text-[10px]"
-                  />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      {loading ? (
+        <div className="flex flex-col gap-2">
+          <Skeleton className="h-2 w-full" />
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-full" />
+        </div>
+      ) : error ? (
+        <p className="text-xs text-destructive">{error}</p>
+      ) : (
+        <>
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+              <span>{t.progress}</span>
+              <span className="tabular-nums">
+                {stats.done}/{stats.total} · {stats.percent}%
+              </span>
+            </div>
+            <Progress value={stats.percent} className="w-full shrink-0" />
+            <p className="text-[11px] text-muted-foreground tabular-nums">
+              Todo {stats.todo} · IP {stats.inProgress} · Done {stats.done}
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <p className="text-xs font-medium">{t.children}</p>
+            {children.length === 0 ? (
+              <p className="text-xs text-muted-foreground">{t.empty}</p>
+            ) : (
+              <ul className="flex max-h-56 flex-col gap-1 overflow-y-auto overscroll-contain">
+                {children.map((c) => (
+                  <li key={c.key}>
+                    <button
+                      type="button"
+                      className="flex w-full cursor-pointer items-start gap-2 rounded-md border border-transparent px-1.5 py-1 text-start hover:border-border hover:bg-muted/50"
+                      onClick={() => openIssue(c.key)}
+                    >
+                      <span
+                        className="shrink-0 font-mono text-[11px] text-primary"
+                        translate="no"
+                      >
+                        {c.key}
+                      </span>
+                      <span className="min-w-0 flex-1 text-[11px] leading-snug line-clamp-2">
+                        {c.summary}
+                      </span>
+                      <Badge
+                        className={`shrink-0 text-[10px] ${getIssueTypeBadgeClass(c.issuetype)}`}
+                      >
+                        {c.issuetype}
+                      </Badge>
+                      <IssueStatusBadge
+                        status={c.status}
+                        statusCategoryKey={c.statusCategoryKey}
+                        className="shrink-0 text-[10px]"
+                      />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -466,7 +466,6 @@ export function JiraAppProvider({ children }: { children: React.ReactNode }) {
               return {
                 ...issue,
                 status: "draft" as const,
-                suggestedLabels: issue.suggestedLabels || [],
                 selectedPriority: issue.suggestedPriority || "Medium",
                 selectedComponent: matchedComponent || undefined,
               };

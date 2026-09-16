@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import {
   applyLensToLabels,
   isIssueLens,
-  isLensLabel,
   isStoryLens,
 } from "@/lib/lens";
 import { convertToJiraWikiMarkup, getJiraClient, JiraEnvError } from "@/lib/jira";
@@ -52,14 +51,9 @@ export async function POST(req: Request) {
     const epicNameField = config.epicNameField;
     const epicLinkField = config.epicLinkField;
 
-    const suggested = Array.isArray(issue.suggestedLabels)
-      ? (issue.suggestedLabels as string[]).filter(
-          (l) => typeof l === "string" && l.trim() && !isLensLabel(l)
-        )
-      : [];
-
-    const baseLabels = ["agent", ...suggested];
-    if (issue.fromPs === true && !baseLabels.includes("from-ps")) {
+    // Only system labels: agent (+ from-ps for support promote) and optional lens-*.
+    const baseLabels = ["agent"];
+    if (issue.fromPs === true) {
       baseLabels.push("from-ps");
     }
 

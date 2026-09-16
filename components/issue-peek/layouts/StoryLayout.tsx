@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MarkdownPreview } from "@/components/MarkdownPreview";
 import { IssueStatusBadge } from "@/components/IssueStatusBadge";
+import { IssuePeekDescription } from "@/components/issue-peek/IssuePeekDescription";
 import { useIssuePeek } from "@/components/providers/issue-peek-provider";
 import { useJiraApp } from "@/components/providers/jira-app-provider";
 import { Badge } from "@/components/ui/badge";
@@ -67,14 +67,7 @@ export function StoryLayout({ issue }: Props) {
         </Badge>
       ) : null}
 
-      {issue.description ? (
-        <div className="flex flex-col gap-1">
-          <p className="text-xs font-medium">{t.description}</p>
-          <div className="max-h-40 overflow-y-auto overscroll-contain rounded-md border border-border/60 bg-muted/20 p-2 text-xs">
-            <MarkdownPreview text={issue.description} />
-          </div>
-        </div>
-      ) : null}
+      <IssuePeekDescription issue={issue} label={t.description} />
 
       <div className="flex flex-col gap-1">
         <p className="text-xs font-medium">{t.subtasks}</p>

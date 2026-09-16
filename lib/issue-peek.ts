@@ -1,11 +1,41 @@
 import type { IssueLens } from "@/lib/lens";
+import { issueOwnsFixVersion } from "@/lib/fix-version-policy";
+import { normalizeIssueTypeName } from "@/lib/issue-type-badge";
 
 export const ISSUE_KEY_RE = /^[A-Z][A-Z0-9]+-\d+$/i;
 export const RECENT_KEYS_STORAGE = "issue-peek-recent";
 export const COLLAPSED_STORAGE = "issue-peek-collapsed";
 export const MAX_RECENT_KEYS = 12;
+export const MAX_NAV_STACK = 8;
 export const DOCK_WIDTH_PX = 400;
 export const DOCK_RAIL_PX = 44;
+
+/** Peek can set Fix Version on Epic or orphan Story/Bug. */
+export function peekCanSetFixVersion(issue: {
+  issuetype: string;
+  epicKey?: string;
+}): boolean {
+  return issueOwnsFixVersion(issue.issuetype, Boolean(issue.epicKey));
+}
+
+/** Peek can move Story / Bug / Task between sprints. */
+export function peekCanSetSprint(issuetype: string): boolean {
+  const t = normalizeIssueTypeName(issuetype);
+  return t === "story" || t === "bug" || t === "task";
+}
+
+export function pushNavStack(
+  stack: string[],
+  key: string,
+  opts?: { replace?: boolean }
+): string[] {
+  const k = normalizeIssueKey(key);
+  if (!isValidIssueKey(k)) return stack;
+  if (opts?.replace) return [k];
+  const idx = stack.findIndex((x) => x === k);
+  if (idx >= 0) return stack.slice(0, idx + 1);
+  return [...stack, k].slice(-MAX_NAV_STACK);
+}
 
 export type PeekIssue = {
   key: string;

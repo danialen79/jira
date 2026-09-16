@@ -16,7 +16,6 @@ export interface RefinedIssue {
   description: string;
   issuetype: "Story" | "Epic" | "Bug";
   epicReference?: string;
-  suggestedLabels?: string[];
   suggestedPriority?: string;
   suggestedComponent?: string;
   status: "draft" | "creating" | "success" | "failed";

@@ -13,7 +13,6 @@ import {
 import {
   EPIC_LENS_OPTIONS,
   isIssueLens,
-  isLensLabel,
   isStoryLens,
   LENS_OPTIONS,
   lensDisplayLabel,
@@ -21,6 +20,7 @@ import {
 import {
   fixVersionValidationError,
   issueOwnsFixVersion,
+  selectableFixVersions,
 } from "@/lib/fix-version-policy";
 import { getIssueTypeBadgeClass } from "@/lib/issue-type-badge";
 import {
@@ -118,13 +118,11 @@ const translations = {
     createInJira: "Publish",
     creating: "Creating…",
     published: "Published",
-    labels: "Labels",
     edit: "Edit",
     save: "Save",
     cancel: "Discard",
     summary: "Summary",
     description: "Description (Markdown)",
-    addLabel: "Add tag",
     existingEpics: "Link existing Jira epic",
     linkHelp: "Bulk publish creates epics first, then links stories.",
     errorOccurred: "Error:",
@@ -163,13 +161,11 @@ const translations = {
     createInJira: "انتشار",
     creating: "در حال ساخت…",
     published: "منتشر شد",
-    labels: "برچسب‌ها",
     edit: "ویرایش",
     save: "ذخیره",
     cancel: "انصراف",
     summary: "عنوان",
     description: "توضیحات (مارک‌داون)",
-    addLabel: "افزودن برچسب",
     existingEpics: "لینک به اپیک موجود",
     linkHelp: "در انتشار گروهی اول اپیک‌ها ساخته می‌شوند، بعد استوری‌ها لینک می‌شوند.",
     errorOccurred: "خطا:",
@@ -335,7 +331,6 @@ export default function RefinedList({
   const [editForm, setEditForm] = useState<{
     summary: string;
     description: string;
-    suggestedLabels: string[];
     selectedComponent?: string;
     selectedAssignee?: string;
     selectedSprint?: string;
@@ -346,7 +341,6 @@ export default function RefinedList({
   }>({
     summary: "",
     description: "",
-    suggestedLabels: [],
     selectedComponent: "",
     selectedAssignee: "",
     selectedSprint: "",
@@ -355,7 +349,6 @@ export default function RefinedList({
     selectedLens: "",
     issuetype: "Story",
   });
-  const [newLabel, setNewLabel] = useState("");
   const [bulkPublishing, setBulkPublishing] = useState(false);
 
   // States for AI re-refining
@@ -495,7 +488,6 @@ export default function RefinedList({
               ...iss,
               summary: data.summary || iss.summary,
               description: data.description || iss.description,
-              suggestedLabels: data.suggestedLabels || iss.suggestedLabels,
               selectedPriority: data.suggestedPriority || iss.selectedPriority,
               selectedComponent:
                 data.suggestedComponent || iss.selectedComponent,
@@ -532,11 +524,6 @@ export default function RefinedList({
       });
       const data = await response.json();
       if (response.ok && data.success && data.issue) {
-        const loadedLabels: string[] = Array.isArray(data.issue.labels)
-          ? data.issue.labels.filter(
-              (l: string) => typeof l === "string" && !isLensLabel(l)
-            )
-          : [];
         const newIssue: RefinedIssue = {
           id: `loaded-${Date.now()}`,
           summary: data.issue.summary,
@@ -544,7 +531,6 @@ export default function RefinedList({
           issuetype: data.issue.issuetype as "Epic" | "Story" | "Bug",
           status: "draft", // Load as draft so they can edit or review
           createdKey: data.issue.key, // Save key so we can update it
-          suggestedLabels: loadedLabels,
           selectedPriority: data.issue.priority || "Medium",
           selectedComponent: data.issue.component || undefined,
           selectedAssignee: data.issue.assignee || undefined,
@@ -653,7 +639,6 @@ export default function RefinedList({
             summary: targetIssue.summary,
             description: targetIssue.description,
             issuetype: targetIssue.issuetype,
-            suggestedLabels: targetIssue.suggestedLabels,
             epicKey,
             selectedComponent: targetIssue.selectedComponent,
             selectedAssignee: targetIssue.selectedAssignee,
@@ -747,7 +732,6 @@ export default function RefinedList({
     setEditForm({
       summary: issue.summary,
       description: issue.description,
-      suggestedLabels: issue.suggestedLabels || [],
       selectedComponent: issue.selectedComponent || "",
       selectedAssignee: issue.selectedAssignee || "",
       selectedSprint: issue.selectedSprint || "",
@@ -756,7 +740,6 @@ export default function RefinedList({
       selectedLens: issue.selectedLens || "",
       issuetype: issue.issuetype,
     });
-    setNewLabel("");
   };
 
   const handleSaveEdit = (id: string) => {
@@ -777,7 +760,6 @@ export default function RefinedList({
           summary: editForm.summary,
           description: editForm.description,
           issuetype: editForm.issuetype,
-          suggestedLabels: editForm.suggestedLabels,
           selectedComponent: editForm.selectedComponent || undefined,
           selectedAssignee: editForm.selectedAssignee || undefined,
           selectedSprint: editForm.selectedSprint || undefined,
@@ -798,34 +780,6 @@ export default function RefinedList({
     });
     onIssuesChange(updated);
     setEditingId(null);
-  };
-
-  const handleAddLabel = () => {
-    if (!newLabel.trim()) return;
-    const cleanLabel = newLabel.trim().replace(/\s+/g, "_");
-    if (isLensLabel(cleanLabel)) {
-      toast.error(
-        isRtl
-          ? "لنز را از فیلد Lens انتخاب کنید، نه برچسب."
-          : "Use the Lens field, not a free label."
-      );
-      setNewLabel("");
-      return;
-    }
-    if (!editForm.suggestedLabels.includes(cleanLabel)) {
-      setEditForm({
-        ...editForm,
-        suggestedLabels: [...editForm.suggestedLabels, cleanLabel],
-      });
-    }
-    setNewLabel("");
-  };
-
-  const handleRemoveLabel = (label: string) => {
-    setEditForm({
-      ...editForm,
-      suggestedLabels: editForm.suggestedLabels.filter((l) => l !== label),
-    });
   };
 
   const handleEpicLinkOverride = (issueId: string, epicKey: string) => {
@@ -1342,13 +1296,12 @@ export default function RefinedList({
                                     ? "پاک کردن ریلیز"
                                     : "Clear release",
                                 },
-                                ...availableVersions.map((version) => ({
-                                  value: version.id,
-                                  label: version.name,
-                                  sublabel: version.released
-                                    ? `(${isRtl ? "منتشر شده" : "released"})`
-                                    : "",
-                                })),
+                                ...selectableFixVersions(availableVersions).map(
+                                  (version) => ({
+                                    value: version.id,
+                                    label: version.name,
+                                  })
+                                ),
                               ]}
                               value={bulkRelease}
                               onChange={(val) => setBulkRelease(val)}
@@ -1804,7 +1757,9 @@ export default function RefinedList({
                                       ? "انتخاب نشده"
                                       : "None / Unreleased",
                                   },
-                                  ...availableVersions.map((version) => ({
+                                  ...selectableFixVersions(availableVersions, {
+                                    includeId: editForm.selectedRelease,
+                                  }).map((version) => ({
                                     value: version.id,
                                     label: version.name,
                                     sublabel: version.released
@@ -2245,7 +2200,9 @@ export default function RefinedList({
                                       value: "",
                                       label: isRtl ? "انتخاب نشده" : "None",
                                     },
-                                    ...availableVersions.map((version) => ({
+                                    ...selectableFixVersions(availableVersions, {
+                                      includeId: issue.selectedRelease,
+                                    }).map((version) => ({
                                       value: version.id,
                                       label: version.name,
                                       sublabel: version.released

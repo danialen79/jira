@@ -70,9 +70,9 @@ CRITICAL RULES FOR LANGUAGE & FORMATTING:
 
      دامنه و خروجی‌های کلیدی:
      - [مورد 1]
-4. Suggest Agile labels/tags without spaces.
-5. Suggest priority from: 'Highest', 'High', 'Medium', 'Low', 'Lowest'.
-6. Suggest a concise system component name (e.g. 'Frontend', 'Backend', 'Database', 'Auth', 'API').`;
+4. Suggest priority from: 'Highest', 'High', 'Medium', 'Low', 'Lowest'.
+5. Suggest a concise system component name (e.g. 'Frontend', 'Backend', 'Database', 'Auth', 'API').
+6. Do NOT suggest free-form labels/tags. Labels are applied by the system (agent + lens only).`;
 }
 
 /** Slightly shorter system instruction used by Mattermost webhook (matches server.ts wording). */
@@ -118,9 +118,9 @@ CRITICAL RULES FOR LANGUAGE & FORMATTING:
 
      دامنه و خروجی‌های کلیدی:
      - [مورد 1]
-4. Suggest Agile labels/tags without spaces.
-5. Suggest priority from: 'Highest', 'High', 'Medium', 'Low', 'Lowest'.
-6. Suggest a concise system component name (e.g. 'Frontend', 'Backend', 'Database', 'Auth', 'API').`;
+4. Suggest priority from: 'Highest', 'High', 'Medium', 'Low', 'Lowest'.
+5. Suggest a concise system component name (e.g. 'Frontend', 'Backend', 'Database', 'Auth', 'API').
+6. Do NOT suggest free-form labels/tags. Labels are applied by the system (agent + lens only).`;
 }
 
 export function getRefineSingleSystemInstruction(issuetype: string): string {
@@ -191,11 +191,6 @@ export const refineIssuesResponseSchema = {
             description:
               "If this is a Story or Bug that belongs to an Epic in this same array, set this to that Epic's temporary 'id' (e.g., 'epic-1'). Otherwise leave null.",
           },
-          suggestedLabels: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING },
-            description: "Suggested labels/tags for this Jira ticket. No spaces allowed in tags.",
-          },
           suggestedPriority: {
             type: Type.STRING,
             description:
@@ -224,11 +219,6 @@ export const refineSingleResponseSchema = {
     description: {
       type: Type.STRING,
       description: "The complete revised formatted description.",
-    },
-    suggestedLabels: {
-      type: Type.ARRAY,
-      items: { type: Type.STRING },
-      description: "Revised labels/tags. No spaces allowed in tags.",
     },
     suggestedPriority: {
       type: Type.STRING,
@@ -316,7 +306,6 @@ export const mattermostRefineResponseSchema = {
           description: { type: Type.STRING },
           issuetype: { type: Type.STRING },
           epicReference: { type: Type.STRING },
-          suggestedLabels: { type: Type.ARRAY, items: { type: Type.STRING } },
           suggestedPriority: { type: Type.STRING },
           suggestedComponent: { type: Type.STRING },
         },

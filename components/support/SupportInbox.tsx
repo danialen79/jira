@@ -19,6 +19,7 @@ import {
   isStoryLens,
   type StoryLens,
 } from "@/lib/lens";
+import { selectableFixVersions } from "@/lib/fix-version-policy";
 import { cn } from "@/lib/utils";
 
 type InboxItem = {
@@ -144,11 +145,7 @@ export default function SupportInbox() {
   } | null>(null);
 
   const unreleasedVersions = useMemo(
-    () =>
-      (jiraVersions || []).filter(
-        (v: { released?: boolean; archived?: boolean }) =>
-          !v.released && !v.archived
-      ),
+    () => selectableFixVersions(jiraVersions || []),
     [jiraVersions]
   );
 

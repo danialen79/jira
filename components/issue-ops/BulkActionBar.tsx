@@ -23,6 +23,7 @@ import {
   type IssueLens,
 } from "@/lib/lens";
 import type { BulkActionId } from "@/lib/issue-ops/types";
+import { selectableFixVersions } from "@/lib/fix-version-policy";
 import type { JiraUser, JiraVersion, Language } from "@/lib/types";
 
 const copy = {
@@ -111,9 +112,10 @@ export default function BulkActionBar({
 
   const versionOptions = useMemo(
     () =>
-      versions
-        .filter((v) => !v.archived)
-        .map((v) => ({ value: v.id, label: v.name })),
+      selectableFixVersions(versions).map((v) => ({
+        value: v.id,
+        label: v.name,
+      })),
     [versions]
   );
 

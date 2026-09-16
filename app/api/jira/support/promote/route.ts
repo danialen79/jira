@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import {
   applyLensToLabels,
   isIssueLens,
-  isLensLabel,
   isStoryLens,
 } from "@/lib/lens";
 import {
@@ -67,20 +66,13 @@ export async function POST(req: Request) {
     const epicNameField = config.epicNameField;
     const epicLinkField = config.epicLinkField;
 
-    const suggested = Array.isArray(issue.suggestedLabels)
-      ? (issue.suggestedLabels as string[]).filter(
-          (l: unknown) => typeof l === "string" && String(l).trim() && !isLensLabel(String(l))
-        )
-      : [];
-
-    const baseLabels = ["agent", "from-ps", ...suggested];
     const fields: Record<string, unknown> = {
       project: { key: projectKey },
       summary: issue.summary,
       description: convertToJiraWikiMarkup(issue.description || ""),
       issuetype: { name: issue.issuetype },
       labels: applyLensToLabels(
-        baseLabels,
+        ["agent", "from-ps"],
         issue.issuetype === "Story" || issue.issuetype === "Epic"
           ? isIssueLens(issue.selectedLens)
             ? issue.selectedLens

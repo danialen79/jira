@@ -3,6 +3,20 @@
  * Issues linked to an Epic inherit release via the Epic — they must not carry FV.
  */
 
+import type { JiraVersion } from "@/lib/types";
+
+/** Versions usable when assigning Fix Version (unreleased, not archived). */
+export function selectableFixVersions<
+  T extends Pick<JiraVersion, "id" | "released" | "archived">,
+>(versions: readonly T[], opts?: { includeId?: string | null }): T[] {
+  const includeId = (opts?.includeId || "").trim();
+  return versions.filter(
+    (v) =>
+      (!v.released && !v.archived) ||
+      (includeId !== "" && String(v.id) === includeId)
+  );
+}
+
 export function isEpicIssueType(issuetype: string): boolean {
   return issuetype.toLowerCase() === "epic";
 }

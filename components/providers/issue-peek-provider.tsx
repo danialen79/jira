@@ -14,11 +14,17 @@ import {
   type PeekIssue,
   isValidIssueKey,
   normalizeIssueKey,
+  pushNavStack,
   pushRecentKey,
   readCollapsedPref,
   readRecentKeys,
   writeCollapsedPref,
 } from "@/lib/issue-peek";
+
+export type OpenIssueOptions = {
+  /** Reset stack to this key only (search / URL / clear). Default: push or truncate. */
+  replace?: boolean;
+};
 
 type IssuePeekContextValue = {
   issueKey: string | null;
@@ -27,7 +33,8 @@ type IssuePeekContextValue = {
   error: string | null;
   collapsed: boolean;
   recentKeys: string[];
-  openIssue: (key: string) => void;
+  navStack: string[];
+  openIssue: (key: string, opts?: OpenIssueOptions) => void;
   clearIssue: () => void;
   setCollapsed: (collapsed: boolean) => void;
   expandAndFocusSearch: () => void;
@@ -73,6 +80,7 @@ export function IssuePeekProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [collapsed, setCollapsedState] = useState(false);
   const [recentKeys, setRecentKeys] = useState<string[]>([]);
+  const [navStack, setNavStack] = useState<string[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const loadGen = useRef(0);
   const urlSyncSkip = useRef(false);
@@ -128,7 +136,7 @@ export function IssuePeekProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const openIssue = useCallback(
-    (rawKey: string) => {
+    (rawKey: string, opts?: OpenIssueOptions) => {
       const key = normalizeIssueKey(rawKey);
       if (!isValidIssueKey(key)) {
         setError("Invalid issue key.");
@@ -136,6 +144,7 @@ export function IssuePeekProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       setCollapsed(false);
+      setNavStack((prev) => pushNavStack(prev, key, { replace: opts?.replace }));
       syncUrl(key);
       void loadIssue(key);
     },
@@ -148,6 +157,7 @@ export function IssuePeekProvider({ children }: { children: React.ReactNode }) {
     setIssue(null);
     setError(null);
     setLoading(false);
+    setNavStack([]);
     syncUrl(null);
   }, [syncUrl]);
 
@@ -181,6 +191,7 @@ export function IssuePeekProvider({ children }: { children: React.ReactNode }) {
     if (!fromUrl || !isValidIssueKey(fromUrl)) return;
     if (fromUrl === issueKey) return;
     setCollapsed(false);
+    setNavStack((prev) => pushNavStack(prev, fromUrl, { replace: true }));
     void loadIssue(fromUrl);
   }, [hydrated, searchParams, issueKey, loadIssue, setCollapsed]);
 
@@ -212,6 +223,30 @@ export function IssuePeekProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [expandAndFocusSearch]);
 
+  // Alt+← pops nav stack (browser-like), regardless of UI dir.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!e.altKey || e.ctrlKey || e.metaKey) return;
+      if (e.key !== "ArrowLeft") return;
+      const el = e.target as HTMLElement | null;
+      const tag = el?.tagName;
+      if (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        el?.isContentEditable
+      ) {
+        return;
+      }
+      if (navStack.length < 2) return;
+      e.preventDefault();
+      const prev = navStack[navStack.length - 2];
+      if (prev) openIssue(prev);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [navStack, openIssue]);
+
   const value = useMemo<IssuePeekContextValue>(
     () => ({
       issueKey,
@@ -220,6 +255,7 @@ export function IssuePeekProvider({ children }: { children: React.ReactNode }) {
       error,
       collapsed,
       recentKeys,
+      navStack,
       openIssue,
       clearIssue,
       setCollapsed,
@@ -234,6 +270,7 @@ export function IssuePeekProvider({ children }: { children: React.ReactNode }) {
       error,
       collapsed,
       recentKeys,
+      navStack,
       openIssue,
       clearIssue,
       setCollapsed,

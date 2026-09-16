@@ -27,6 +27,7 @@ import {
 import {
   fixVersionValidationError,
   issueOwnsFixVersion,
+  selectableFixVersions,
 } from "@/lib/fix-version-policy";
 import type { OpsIssue } from "@/lib/issue-ops/types";
 import type { JiraUser, JiraVersion, Language } from "@/lib/types";
@@ -175,13 +176,18 @@ export default function OpsIssueEditDialog({
 
   const versionOptions = useMemo(
     () =>
-      versions
-        .filter((v) => !v.archived)
-        .map((v) => ({
-          value: v.id,
-          label: v.name,
-        })),
-    [versions]
+      selectableFixVersions(versions, {
+        includeId: form?.selectedRelease,
+      }).map((v) => ({
+        value: v.id,
+        label: v.name,
+        sublabel: v.released
+          ? language === "fa"
+            ? "منتشرشده"
+            : "released"
+          : undefined,
+      })),
+    [versions, form?.selectedRelease, language]
   );
 
   const handleSave = async () => {

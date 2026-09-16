@@ -124,7 +124,6 @@ function getOpenAIJsonGuidance(kind: AIResponseKind): string {
       "description": "string",
       "issuetype": "Story" | "Epic" | "Bug",
       "epicReference": "string" | null,
-      "suggestedLabels": ["string"],
       "suggestedPriority": "Highest" | "High" | "Medium" | "Low" | "Lowest",
       "suggestedComponent": "string"
     }
@@ -135,7 +134,6 @@ function getOpenAIJsonGuidance(kind: AIResponseKind): string {
 {
   "summary": "string",
   "description": "string",
-  "suggestedLabels": ["string"],
   "suggestedPriority": "Highest" | "High" | "Medium" | "Low" | "Lowest",
   "suggestedComponent": "string"
 }`;
@@ -164,7 +162,6 @@ function getOpenAIJsonGuidance(kind: AIResponseKind): string {
       "description": "string",
       "issuetype": "Story" | "Epic" | "Bug",
       "epicReference": "string" | null,
-      "suggestedLabels": ["string"],
       "suggestedPriority": "Highest" | "High" | "Medium" | "Low" | "Lowest",
       "suggestedComponent": "string"
     }

@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertTriangleIcon } from "lucide-react";
-import { MarkdownPreview } from "@/components/MarkdownPreview";
+import { IssuePeekDescription } from "@/components/issue-peek/IssuePeekDescription";
 import { useIssuePeek } from "@/components/providers/issue-peek-provider";
 import { useJiraApp } from "@/components/providers/jira-app-provider";
 import type { PeekIssue } from "@/lib/issue-peek";
@@ -64,14 +64,7 @@ export function BugLayout({ issue }: Props) {
         </div>
       )}
 
-      {issue.description ? (
-        <div className="flex flex-col gap-1">
-          <p className="text-xs font-medium">{t.repro}</p>
-          <div className="max-h-48 overflow-y-auto overscroll-contain rounded-md border border-border/60 bg-muted/20 p-2 text-xs">
-            <MarkdownPreview text={issue.description} />
-          </div>
-        </div>
-      ) : null}
+      <IssuePeekDescription issue={issue} label={t.repro} />
     </div>
   );
 }

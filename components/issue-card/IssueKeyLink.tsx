@@ -41,7 +41,7 @@ export function IssueKeyLink({
             return;
           }
           if (peek) {
-            peek.openIssue(issueKey);
+            peek.openIssue(issueKey, { replace: true });
             return;
           }
           window.open(href, "_blank", "noopener,noreferrer");

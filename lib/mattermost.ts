@@ -100,7 +100,7 @@ ${draftText}
               summary: issue.summary,
               description: convertToJiraWikiMarkup(issue.description),
               issuetype: { name: "Epic" },
-              labels: ["agent", "mattermost"],
+              labels: ["agent"],
               [epicNameField]: issue.summary,
             };
             if (issue.suggestedPriority) fields.priority = { name: issue.suggestedPriority };
@@ -139,7 +139,7 @@ ${draftText}
               summary: issue.summary,
               description: convertToJiraWikiMarkup(issue.description),
               issuetype: { name: issue.issuetype },
-              labels: ["agent", "mattermost"],
+              labels: ["agent"],
             };
             if (issue.suggestedPriority) fields.priority = { name: issue.suggestedPriority };
             if (issue.suggestedComponent)
@@ -210,11 +210,6 @@ ${draftText}
         responseMarkdown += isFa
           ? `* **کامپوننت:** \`${issue.suggestedComponent}\`\n`
           : `* **Component:** \`${issue.suggestedComponent}\`\n`;
-      }
-      if (issue.suggestedLabels && issue.suggestedLabels.length > 0) {
-        responseMarkdown += isFa
-          ? `* **برچسب‌ها:** ${issue.suggestedLabels.map((l: string) => `\`${l}\``).join(", ")}\n`
-          : `* **Labels:** ${issue.suggestedLabels.map((l: string) => `\`${l}\``).join(", ")}\n`;
       }
 
       responseMarkdown += isFa
