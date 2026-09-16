@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { IssueStatusBadge } from "@/components/IssueStatusBadge";
 import { IssuePeekDescription } from "@/components/issue-peek/IssuePeekDescription";
 import { useIssuePeek } from "@/components/providers/issue-peek-provider";
-import { useJiraApp } from "@/components/providers/jira-app-provider";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -14,18 +13,21 @@ import type { PeekIssue } from "@/lib/issue-peek";
 import type { VersionIssue } from "@/lib/types";
 
 const t = {
-    children: "فرزندان",
-    empty: "فرزندی نیست.",
-    loadFail: "بارگذاری فرزندان نشد.",
-    progress: "پیشرفت",
-    description: "توضیحات",
-  } as const;
+  children: "فرزندان",
+  empty: "فرزندی نیست.",
+  loadFail: "بارگذاری فرزندان نشد.",
+  progress: "پیشرفت",
+  description: "توضیحات",
+  todo: "انجام‌نشده",
+  inProgress: "در حال انجام",
+  done: "انجام‌شده",
+} as const;
 
 type Props = { issue: PeekIssue };
 
 export function EpicLayout({ issue }: Props) {
   const epicKey = issue.key;
-  const { openIssue } = useIssuePeek();
+  const { openIssue } = useIssuePeek();
   const [children, setChildren] = useState<VersionIssue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,7 +57,7 @@ export function EpicLayout({ issue }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [epicKey, t.loadFail]);
+  }, [epicKey]);
 
   const stats = useMemo(() => {
     let todo = 0;
@@ -83,7 +85,9 @@ export function EpicLayout({ issue }: Props) {
           <Skeleton className="h-8 w-full" />
         </div>
       ) : error ? (
-        <p className="text-xs text-destructive">{error}</p>
+        <p className="text-xs text-destructive" role="alert">
+          {error}
+        </p>
       ) : (
         <>
           <div className="flex flex-col gap-1.5">
@@ -95,7 +99,8 @@ export function EpicLayout({ issue }: Props) {
             </div>
             <Progress value={stats.percent} className="w-full shrink-0" />
             <p className="text-[11px] text-muted-foreground tabular-nums">
-              Todo {stats.todo} · IP {stats.inProgress} · Done {stats.done}
+              {t.todo} {stats.todo} · {t.inProgress} {stats.inProgress} ·{" "}
+              {t.done} {stats.done}
             </p>
           </div>
 
@@ -104,12 +109,12 @@ export function EpicLayout({ issue }: Props) {
             {children.length === 0 ? (
               <p className="text-xs text-muted-foreground">{t.empty}</p>
             ) : (
-              <ul className="flex max-h-56 flex-col gap-1 overflow-y-auto overscroll-contain">
+              <ul className="flex flex-col gap-1">
                 {children.map((c) => (
                   <li key={c.key}>
                     <button
                       type="button"
-                      className="flex w-full cursor-pointer items-start gap-2 rounded-md border border-transparent px-1.5 py-1 text-start hover:border-border hover:bg-muted/50"
+                      className="flex w-full cursor-pointer items-start gap-2 rounded-md border border-transparent px-1.5 py-1.5 text-start hover:border-border hover:bg-muted/50"
                       onClick={() => openIssue(c.key)}
                     >
                       <span

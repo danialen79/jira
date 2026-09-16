@@ -1,35 +1,17 @@
 "use client";
 
 import { IssuePeekDescription } from "@/components/issue-peek/IssuePeekDescription";
-import { useJiraApp } from "@/components/providers/jira-app-provider";
-import { formatJiraSeconds, type PeekIssue } from "@/lib/issue-peek";
+import type { PeekIssue } from "@/lib/issue-peek";
 
 const t = {
-    spent: "صرف‌شده",
-    remaining: "باقیمانده",
-    description: "توضیحات",
-  } as const;
+  description: "توضیحات",
+} as const;
 
 type Props = { issue: PeekIssue };
 
 export function SubtaskLayout({ issue }: Props) {
-  return (
+  return (
     <div className="flex flex-col gap-3">
-      <div className="flex gap-4 text-xs">
-        <div>
-          <p className="text-muted-foreground">{t.spent}</p>
-          <p className="font-medium tabular-nums">
-            {formatJiraSeconds(issue.timespent)}
-          </p>
-        </div>
-        <div>
-          <p className="text-muted-foreground">{t.remaining}</p>
-          <p className="font-medium tabular-nums">
-            {formatJiraSeconds(issue.timeestimate)}
-          </p>
-        </div>
-      </div>
-
       <IssuePeekDescription issue={issue} label={t.description} />
     </div>
   );

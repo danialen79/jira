@@ -7,7 +7,9 @@ import {
   ExternalLinkIcon,
   FlagIcon,
   LinkIcon,
+  MoreHorizontalIcon,
   RefreshCwIcon,
+  SparklesIcon,
   TimerIcon,
   UserIcon,
 } from "lucide-react";
@@ -15,14 +17,28 @@ import { toast } from "sonner";
 import SearchableSelect from "@/components/SearchableSelect";
 import { useIssuePeek } from "@/components/providers/issue-peek-provider";
 import { useJiraApp } from "@/components/providers/jira-app-provider";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { jiraBrowseUrl } from "@/lib/jira-browse";
@@ -36,33 +52,36 @@ import {
 import { cn } from "@/lib/utils";
 
 const t = {
-    assign: "اختصاص",
-    unassign: "بدون مسئول",
-    log: "ثبت کار",
-    timePh: "۱h ۳۰m",
-    notePh: "توضیح…",
-    submitLog: "ثبت",
-    open: "باز کردن در جیرا",
-    copyKey: "کپی کلید",
-    refresh: "تازه‌سازی",
-    version: "ورژن",
-    sprint: "اسپرینت",
-    epic: "اپیک",
-    backlog: "بک‌لاگ",
-    pickVersion: "Fix version",
-    pickSprint: "اسپرینت",
-    pickEpic: "اپیک",
-    noneVersion: "بدون ورژن",
-    noEpic: "بدون اپیک",
-    transitionOk: "وضعیت به‌روز شد.",
-    assignOk: "مسئول به‌روز شد.",
-    logOk: "کار ثبت شد.",
-    versionOk: "ورژن به‌روز شد.",
-    sprintOk: "اسپرینت به‌روز شد.",
-    epicOk: "لینک اپیک به‌روز شد.",
-    copied: "کپی شد.",
-    failed: "عملیات ناموفق.",
-  } as const;
+  assign: "اختصاص",
+  unassign: "بدون مسئول",
+  log: "ثبت کار",
+  timePh: "۱h ۳۰m",
+  notePh: "توضیح…",
+  submitLog: "ثبت",
+  open: "باز کردن در جیرا",
+  copyKey: "کپی کلید",
+  refresh: "تازه‌سازی",
+  rewrite: "بازنویسی با AI",
+  more: "بیشتر",
+  version: "ورژن",
+  sprint: "اسپرینت",
+  epic: "اپیک",
+  status: "وضعیت",
+  backlog: "بک‌لاگ",
+  pickVersion: "ورژن",
+  pickSprint: "اسپرینت",
+  pickEpic: "اپیک",
+  noneVersion: "بدون ورژن",
+  noEpic: "بدون اپیک",
+  transitionOk: "وضعیت به‌روز شد.",
+  assignOk: "مسئول به‌روز شد.",
+  logOk: "کار ثبت شد.",
+  versionOk: "ورژن به‌روز شد.",
+  sprintOk: "اسپرینت به‌روز شد.",
+  epicOk: "لینک اپیک به‌روز شد.",
+  copied: "کپی شد.",
+  failed: "عملیات ناموفق.",
+} as const;
 
 type Props = {
   issue: PeekIssue;
@@ -70,7 +89,8 @@ type Props = {
 };
 
 export function IssuePeekActions({ issue, className }: Props) {
-  const { jiraUrl,
+  const {
+    jiraUrl,
     jiraUsers,
     fetchJiraUsers,
     fetchingUsers,
@@ -81,7 +101,8 @@ export function IssuePeekActions({ issue, className }: Props) {
     existingEpics,
     fetchExistingEpics,
     fetchingEpics,
-  } = useJiraApp();  const { refresh, patchIssue } = useIssuePeek();
+  } = useJiraApp();
+  const { refresh, patchIssue, setRewriteOpen } = useIssuePeek();
 
   const canVersion = peekCanSetFixVersion(issue);
   const canSprint = peekCanSetSprint(issue.issuetype);
@@ -152,7 +173,7 @@ export function IssuePeekActions({ issue, className }: Props) {
         avatar: u.avatarUrls?.["24x24"] || u.avatarUrls?.["16x16"],
       })),
     ],
-    [jiraUsers, t.unassign]
+    [jiraUsers]
   );
 
   const versionOptions = useMemo(() => {
@@ -180,7 +201,7 @@ export function IssuePeekActions({ issue, className }: Props) {
         sublabel: s.state,
       })),
     ];
-  }, [jiraSprints, t.backlog]);
+  }, [jiraSprints]);
 
   const epicOptions = useMemo(
     () => [
@@ -191,8 +212,14 @@ export function IssuePeekActions({ issue, className }: Props) {
         sublabel: e.summary,
       })),
     ],
-    [existingEpics, t.noEpic]
+    [existingEpics]
   );
+
+  const statusItems = useMemo(() => {
+    const names = new Set(statuses);
+    if (issue.status) names.add(issue.status);
+    return Array.from(names).map((s) => ({ value: s, label: s }));
+  }, [statuses, issue.status]);
 
   const versionLabel =
     issue.fixVersionNames?.[0] ||
@@ -205,9 +232,11 @@ export function IssuePeekActions({ issue, className }: Props) {
     (issue.selectedSprint ? issue.selectedSprint : t.backlog);
 
   const epicLabel = issue.epicKey || t.noEpic;
+  const assigneeLabel =
+    issue.assigneeDisplayName || issue.assignee || t.unassign;
 
   const transitionTo = async (statusName: string) => {
-    if (busyStatus) return;
+    if (busyStatus || statusName === issue.status) return;
     setBusyStatus(statusName);
     try {
       const res = await fetch("/api/jira/issues/transitions", {
@@ -298,9 +327,7 @@ export function IssuePeekActions({ issue, className }: Props) {
     setSettingSprint(true);
     try {
       const toBacklog = sprintIdOrBacklog === "backlog" || !sprintIdOrBacklog;
-      const sprintId = toBacklog
-        ? "backlog"
-        : sprintIdOrBacklog;
+      const sprintId = toBacklog ? "backlog" : sprintIdOrBacklog;
       const res = await fetch(
         `/api/jira/sprints/${encodeURIComponent(sprintId)}/move`,
         {
@@ -400,37 +427,133 @@ export function IssuePeekActions({ issue, className }: Props) {
     }
   };
 
-  return (
-    <div
-      className={cn("flex flex-col gap-2", className)}
-      dir="rtl"
-    >
-      {statuses.length > 0 ? (
-        <div className="flex flex-wrap gap-1">
-          {statuses.map((s) => {
-            const active = s.toLowerCase() === issue.status.toLowerCase();
-            return (
-              <button
-                key={s}
-                type="button"
-                disabled={!!busyStatus || active}
-                onClick={() => void transitionTo(s)}
-                className={cn(
-                  "cursor-pointer rounded-md border px-2 py-0.5 text-[11px] transition-colors",
-                  active
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border hover:bg-muted",
-                  busyStatus === s && "opacity-60"
-                )}
-              >
-                {busyStatus === s ? <Spinner className="size-3" /> : s}
-              </button>
-            );
-          })}
+  const propertyRows = (
+    <div className="flex flex-col gap-1.5 text-xs">
+      {canEpic ? (
+        <div className="grid grid-cols-[4.5rem_1fr] items-center gap-2">
+          <span className="text-muted-foreground">{t.epic}</span>
+          <Popover open={epicOpen} onOpenChange={setEpicOpen}>
+            <PopoverTrigger
+              render={
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 justify-start px-1.5 font-normal"
+                />
+              }
+            >
+              <LinkIcon data-icon="inline-start" className="size-3.5" />
+              <span className="truncate font-mono">{epicLabel}</span>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-64 p-2">
+              {fetchingEpics && epicOptions.length <= 1 ? (
+                <div className="flex justify-center py-3">
+                  <Spinner />
+                </div>
+              ) : (
+                <SearchableSelect
+                  options={epicOptions}
+                  value={issue.epicKey || ""}
+                  onChange={(v) => void setEpic(v)}
+                  disabled={settingEpic}
+                  placeholder={t.pickEpic}
+                />
+              )}
+            </PopoverContent>
+          </Popover>
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-1">
+      {canVersion ? (
+        <div className="grid grid-cols-[4.5rem_1fr] items-center gap-2">
+          <span className="text-muted-foreground">{t.version}</span>
+          <Popover open={versionOpen} onOpenChange={setVersionOpen}>
+            <PopoverTrigger
+              render={
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 justify-start px-1.5 font-normal"
+                />
+              }
+            >
+              <FlagIcon data-icon="inline-start" className="size-3.5" />
+              <span className="truncate">{versionLabel}</span>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-64 p-2">
+              <SearchableSelect
+                options={versionOptions}
+                value={issue.selectedRelease || issue.fixVersionIds?.[0] || ""}
+                onChange={(v) => void setVersion(v)}
+                disabled={settingVersion}
+                placeholder={t.pickVersion}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+      ) : null}
+
+      {canSprint ? (
+        <div className="grid grid-cols-[4.5rem_1fr] items-center gap-2">
+          <span className="text-muted-foreground">{t.sprint}</span>
+          <Popover open={sprintOpen} onOpenChange={setSprintOpen}>
+            <PopoverTrigger
+              render={
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 justify-start px-1.5 font-normal"
+                />
+              }
+            >
+              <CalendarIcon data-icon="inline-start" className="size-3.5" />
+              <span className="truncate">{sprintLabel}</span>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-64 p-2">
+              <SearchableSelect
+                options={sprintOptions}
+                value={issue.selectedSprint || "backlog"}
+                onChange={(v) => void setSprint(v)}
+                disabled={settingSprint}
+                placeholder={t.pickSprint}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+      ) : null}
+    </div>
+  );
+
+  return (
+    <div className={cn("flex flex-col gap-2", className)} dir="rtl">
+      <div className="flex flex-wrap items-center gap-1.5">
+        {statusItems.length > 0 ? (
+          <Select
+            items={statusItems}
+            value={issue.status || null}
+            onValueChange={(v) => {
+              if (v != null) void transitionTo(String(v));
+            }}
+            disabled={!!busyStatus}
+          >
+            <SelectTrigger size="sm" className="max-w-40" aria-label={t.status}>
+              <SelectValue placeholder={t.status} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {statusItems.map((s) => (
+                  <SelectItem key={s.value} value={s.value}>
+                    {s.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        ) : null}
+
         <Popover open={assignOpen} onOpenChange={setAssignOpen}>
           <PopoverTrigger
             render={
@@ -438,7 +561,7 @@ export function IssuePeekActions({ issue, className }: Props) {
             }
           >
             <UserIcon data-icon="inline-start" />
-            {t.assign}
+            <span className="max-w-28 truncate">{assigneeLabel}</span>
           </PopoverTrigger>
           <PopoverContent align="start" className="w-64 p-2">
             {fetchingUsers && userOptions.length <= 1 ? (
@@ -457,78 +580,6 @@ export function IssuePeekActions({ issue, className }: Props) {
           </PopoverContent>
         </Popover>
 
-        {canEpic ? (
-          <Popover open={epicOpen} onOpenChange={setEpicOpen}>
-            <PopoverTrigger
-              render={
-                <Button type="button" size="sm" variant="outline" />
-              }
-            >
-              <LinkIcon data-icon="inline-start" />
-              <span className="max-w-24 truncate font-mono">{epicLabel}</span>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-64 p-2">
-              {fetchingEpics && epicOptions.length <= 1 ? (
-                <div className="flex justify-center py-3">
-                  <Spinner />
-                </div>
-              ) : (
-                <SearchableSelect
-                  options={epicOptions}
-                  value={issue.epicKey || ""}
-                  onChange={(v) => void setEpic(v)}
-                  disabled={settingEpic}
-                  placeholder={t.pickEpic}
-                />
-              )}
-            </PopoverContent>
-          </Popover>
-        ) : null}
-
-        {canVersion ? (
-          <Popover open={versionOpen} onOpenChange={setVersionOpen}>
-            <PopoverTrigger
-              render={
-                <Button type="button" size="sm" variant="outline" />
-              }
-            >
-              <FlagIcon data-icon="inline-start" />
-              <span className="max-w-24 truncate">{versionLabel}</span>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-64 p-2">
-              <SearchableSelect
-                options={versionOptions}
-                value={issue.selectedRelease || issue.fixVersionIds?.[0] || ""}
-                onChange={(v) => void setVersion(v)}
-                disabled={settingVersion}
-                placeholder={t.pickVersion}
-              />
-            </PopoverContent>
-          </Popover>
-        ) : null}
-
-        {canSprint ? (
-          <Popover open={sprintOpen} onOpenChange={setSprintOpen}>
-            <PopoverTrigger
-              render={
-                <Button type="button" size="sm" variant="outline" />
-              }
-            >
-              <CalendarIcon data-icon="inline-start" />
-              <span className="max-w-24 truncate">{sprintLabel}</span>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-64 p-2">
-              <SearchableSelect
-                options={sprintOptions}
-                value={issue.selectedSprint || "backlog"}
-                onChange={(v) => void setSprint(v)}
-                disabled={settingSprint}
-                placeholder={t.pickSprint}
-              />
-            </PopoverContent>
-          </Popover>
-        ) : null}
-
         <Popover open={logOpen} onOpenChange={setLogOpen}>
           <PopoverTrigger
             render={
@@ -544,7 +595,7 @@ export function IssuePeekActions({ issue, className }: Props) {
               onChange={(e) => setTimeSpent(e.target.value)}
               placeholder={t.timePh}
               spellCheck={false}
-              aria-label={t.timePh}
+              aria-label={t.log}
             />
             <Textarea
               value={note}
@@ -582,47 +633,59 @@ export function IssuePeekActions({ issue, className }: Props) {
           <ExternalLinkIcon />
         </Button>
 
-        <Button
-          type="button"
-          size="icon-sm"
-          variant="ghost"
-          aria-label={t.copyKey}
-          title={t.copyKey}
-          onClick={async () => {
-            try {
-              await navigator.clipboard.writeText(issue.key);
-              toast.success(t.copied);
-            } catch {
-              toast.error(t.failed);
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="ghost"
+                aria-label={t.more}
+                title={t.more}
+              />
             }
-          }}
-        >
-          <CopyIcon />
-        </Button>
-
-        <Button
-          type="button"
-          size="icon-sm"
-          variant="ghost"
-          aria-label={t.refresh}
-          title={t.refresh}
-          disabled={refreshing}
-          onClick={async () => {
-            setRefreshing(true);
-            try {
-              await refresh();
-            } finally {
-              setRefreshing(false);
-            }
-          }}
-        >
-          {refreshing ? <Spinner /> : <RefreshCwIcon />}
-        </Button>
-
-        <Badge variant="secondary" className="ms-auto font-normal">
-          {issue.assigneeDisplayName || issue.assignee || t.unassign}
-        </Badge>
+          >
+            <MoreHorizontalIcon />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-40">
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(issue.key);
+                    toast.success(t.copied);
+                  } catch {
+                    toast.error(t.failed);
+                  }
+                }}
+              >
+                <CopyIcon />
+                {t.copyKey}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={refreshing}
+                onClick={async () => {
+                  setRefreshing(true);
+                  try {
+                    await refresh();
+                  } finally {
+                    setRefreshing(false);
+                  }
+                }}
+              >
+                {refreshing ? <Spinner /> : <RefreshCwIcon />}
+                {t.refresh}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setRewriteOpen(true)}>
+                <SparklesIcon />
+                {t.rewrite}
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
+
+      {canEpic || canVersion || canSprint ? propertyRows : null}
     </div>
   );
 }

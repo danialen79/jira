@@ -5,10 +5,16 @@ import { normalizeIssueTypeName } from "@/lib/issue-type-badge";
 export const ISSUE_KEY_RE = /^[A-Z][A-Z0-9]+-\d+$/i;
 export const RECENT_KEYS_STORAGE = "issue-peek-recent";
 export const COLLAPSED_STORAGE = "issue-peek-collapsed";
+export const DOCK_WIDTH_STORAGE = "issue-peek-dock-width";
 export const MAX_RECENT_KEYS = 12;
 export const MAX_NAV_STACK = 8;
-export const DOCK_WIDTH_PX = 560;
+export const DEFAULT_DOCK_WIDTH_PX = 400;
+/** @deprecated Use DEFAULT_DOCK_WIDTH_PX */
+export const DOCK_WIDTH_PX = DEFAULT_DOCK_WIDTH_PX;
+export const MIN_DOCK_WIDTH_PX = 320;
+export const MAX_DOCK_WIDTH_PX = 640;
 export const DOCK_RAIL_PX = 44;
+export const OVERLAY_BREAKPOINT_PX = 1100;
 
 /** Peek can set Fix Version on Epic or orphan Story/Bug. */
 export function peekCanSetFixVersion(issue: {
@@ -72,6 +78,11 @@ export type PeekIssue = {
   timeoriginalestimate?: number;
 };
 
+export type RecentIssue = {
+  key: string;
+  summary: string;
+};
+
 export function normalizeIssueKey(raw: string): string {
   return String(raw || "")
     .trim()
@@ -83,43 +94,135 @@ export function isValidIssueKey(raw: string): boolean {
   return ISSUE_KEY_RE.test(normalizeIssueKey(raw));
 }
 
-export function readRecentKeys(): string[] {
+/**
+ * Accept bare keys, pasted browse URLs, or selectedIssue= query params.
+ */
+export function parseIssueKeyInput(raw: string): string {
+  const text = String(raw || "").trim();
+  if (!text) return "";
+
+  const browse = text.match(/\/browse\/([A-Za-z][A-Za-z0-9]+-\d+)/i);
+  if (browse?.[1]) return normalizeIssueKey(browse[1]);
+
+  const selected = text.match(/[?&#]selectedIssue=([A-Za-z][A-Za-z0-9]+-\d+)/i);
+  if (selected?.[1]) return normalizeIssueKey(selected[1]);
+
+  const embedded = text.match(/\b([A-Za-z][A-Za-z0-9]+-\d+)\b/);
+  if (embedded?.[1] && /https?:\/\//i.test(text)) {
+    return normalizeIssueKey(embedded[1]);
+  }
+
+  return normalizeIssueKey(text);
+}
+
+export function clampDockWidth(width: number): number {
+  if (!Number.isFinite(width)) return DEFAULT_DOCK_WIDTH_PX;
+  return Math.min(
+    MAX_DOCK_WIDTH_PX,
+    Math.max(MIN_DOCK_WIDTH_PX, Math.round(width))
+  );
+}
+
+export function readDockWidth(): number {
+  if (typeof window === "undefined") return DEFAULT_DOCK_WIDTH_PX;
+  try {
+    const raw = localStorage.getItem(DOCK_WIDTH_STORAGE);
+    if (!raw) return DEFAULT_DOCK_WIDTH_PX;
+    return clampDockWidth(Number(raw));
+  } catch {
+    return DEFAULT_DOCK_WIDTH_PX;
+  }
+}
+
+export function writeDockWidth(width: number): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(DOCK_WIDTH_STORAGE, String(clampDockWidth(width)));
+  } catch {
+    /* ignore */
+  }
+}
+
+function normalizeRecentEntry(item: unknown): RecentIssue | null {
+  if (typeof item === "string") {
+    const key = normalizeIssueKey(item);
+    if (!isValidIssueKey(key)) return null;
+    return { key, summary: "" };
+  }
+  if (!item || typeof item !== "object") return null;
+  const rec = item as { key?: unknown; summary?: unknown };
+  const key = normalizeIssueKey(String(rec.key || ""));
+  if (!isValidIssueKey(key)) return null;
+  return {
+    key,
+    summary: String(rec.summary || "").trim(),
+  };
+}
+
+export function readRecentIssues(): RecentIssue[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = localStorage.getItem(RECENT_KEYS_STORAGE);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed
-      .map((k) => normalizeIssueKey(String(k || "")))
-      .filter(isValidIssueKey)
-      .slice(0, MAX_RECENT_KEYS);
+    const out: RecentIssue[] = [];
+    const seen = new Set<string>();
+    for (const item of parsed) {
+      const entry = normalizeRecentEntry(item);
+      if (!entry || seen.has(entry.key)) continue;
+      seen.add(entry.key);
+      out.push(entry);
+      if (out.length >= MAX_RECENT_KEYS) break;
+    }
+    return out;
   } catch {
     return [];
   }
 }
 
-export function writeRecentKeys(keys: string[]): void {
+/** @deprecated Prefer readRecentIssues */
+export function readRecentKeys(): string[] {
+  return readRecentIssues().map((r) => r.key);
+}
+
+export function writeRecentIssues(items: RecentIssue[]): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(
-      RECENT_KEYS_STORAGE,
-      JSON.stringify(keys.slice(0, MAX_RECENT_KEYS))
-    );
+    const cleaned = items
+      .map((item) => normalizeRecentEntry(item))
+      .filter((x): x is RecentIssue => Boolean(x))
+      .slice(0, MAX_RECENT_KEYS);
+    localStorage.setItem(RECENT_KEYS_STORAGE, JSON.stringify(cleaned));
   } catch {
     /* ignore */
   }
 }
 
-export function pushRecentKey(key: string, existing: string[]): string[] {
-  const k = normalizeIssueKey(key);
-  if (!isValidIssueKey(k)) return existing;
-  const next = [k, ...existing.filter((x) => x !== k)].slice(
-    0,
-    MAX_RECENT_KEYS
-  );
-  writeRecentKeys(next);
+export function pushRecentIssue(
+  entry: { key: string; summary?: string },
+  existing: RecentIssue[]
+): RecentIssue[] {
+  const key = normalizeIssueKey(entry.key);
+  if (!isValidIssueKey(key)) return existing;
+  const summary = String(entry.summary || "").trim();
+  const prev = existing.find((x) => x.key === key);
+  const next: RecentIssue[] = [
+    { key, summary: summary || prev?.summary || "" },
+    ...existing.filter((x) => x.key !== key),
+  ].slice(0, MAX_RECENT_KEYS);
+  writeRecentIssues(next);
   return next;
+}
+
+/** @deprecated Prefer pushRecentIssue */
+export function pushRecentKey(key: string, existing: string[]): string[] {
+  const asRecent = existing.map((k) => ({ key: k, summary: "" }));
+  return pushRecentIssue({ key }, asRecent).map((r) => r.key);
+}
+
+export function writeRecentKeys(keys: string[]): void {
+  writeRecentIssues(keys.map((key) => ({ key, summary: "" })));
 }
 
 export function readCollapsedPref(): boolean {

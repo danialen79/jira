@@ -12,12 +12,13 @@ import React, {
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   type PeekIssue,
+  type RecentIssue,
   isValidIssueKey,
-  normalizeIssueKey,
+  parseIssueKeyInput,
   pushNavStack,
-  pushRecentKey,
+  pushRecentIssue,
   readCollapsedPref,
-  readRecentKeys,
+  readRecentIssues,
   writeCollapsedPref,
 } from "@/lib/issue-peek";
 
@@ -32,6 +33,8 @@ type IssuePeekContextValue = {
   loading: boolean;
   error: string | null;
   collapsed: boolean;
+  recentIssues: RecentIssue[];
+  /** @deprecated Prefer recentIssues */
   recentKeys: string[];
   navStack: string[];
   openIssue: (key: string, opts?: OpenIssueOptions) => void;
@@ -40,9 +43,16 @@ type IssuePeekContextValue = {
   expandAndFocusSearch: () => void;
   refresh: () => Promise<void>;
   patchIssue: (patch: Partial<PeekIssue>) => void;
+  rewriteOpen: boolean;
+  setRewriteOpen: (open: boolean) => void;
 };
 
 const IssuePeekContext = createContext<IssuePeekContextValue | null>(null);
+
+const ERR = {
+  invalid: "کلید ایشو نامعتبر است.",
+  loadFail: "بارگذاری ایشو نشد.",
+} as const;
 
 export function useIssuePeek() {
   const ctx = useContext(IssuePeekContext);
@@ -65,9 +75,29 @@ async function fetchPeekIssue(key: string): Promise<PeekIssue> {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || !data.success || !data.issue) {
-    throw new Error(data.error || `Failed to load ${key}`);
+    throw new Error(data.error || ERR.loadFail);
   }
   return data.issue as PeekIssue;
+}
+
+function isTypingTarget(el: EventTarget | null): boolean {
+  const node = el as HTMLElement | null;
+  const tag = node?.tagName;
+  return (
+    tag === "INPUT" ||
+    tag === "TEXTAREA" ||
+    tag === "SELECT" ||
+    Boolean(node?.isContentEditable)
+  );
+}
+
+function isEscBlocked(): boolean {
+  if (typeof document === "undefined") return false;
+  return Boolean(
+    document.querySelector(
+      "[data-slot='dialog-content'][data-open], [data-slot='sheet-content'][data-open], [data-slot='alert-dialog-content'][data-open], [data-slot='popover-content'][data-open], [data-slot='dropdown-menu-content'][data-open], [data-slot='select-content'][data-open]"
+    )
+  );
 }
 
 export function IssuePeekProvider({ children }: { children: React.ReactNode }) {
@@ -79,15 +109,16 @@ export function IssuePeekProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [collapsed, setCollapsedState] = useState(false);
-  const [recentKeys, setRecentKeys] = useState<string[]>([]);
+  const [recentIssues, setRecentIssues] = useState<RecentIssue[]>([]);
   const [navStack, setNavStack] = useState<string[]>([]);
   const [hydrated, setHydrated] = useState(false);
+  const [rewriteOpen, setRewriteOpen] = useState(false);
   const loadGen = useRef(0);
   const urlSyncSkip = useRef(false);
 
   useEffect(() => {
     setCollapsedState(readCollapsedPref());
-    setRecentKeys(readRecentKeys());
+    setRecentIssues(readRecentIssues());
     setHydrated(true);
   }, []);
 
@@ -112,9 +143,9 @@ export function IssuePeekProvider({ children }: { children: React.ReactNode }) {
   );
 
   const loadIssue = useCallback(async (rawKey: string) => {
-    const key = normalizeIssueKey(rawKey);
+    const key = parseIssueKeyInput(rawKey);
     if (!isValidIssueKey(key)) {
-      setError("Invalid issue key.");
+      setError(ERR.invalid);
       return;
     }
     const gen = ++loadGen.current;
@@ -125,11 +156,13 @@ export function IssuePeekProvider({ children }: { children: React.ReactNode }) {
       const loaded = await fetchPeekIssue(key);
       if (gen !== loadGen.current) return;
       setIssue(loaded);
-      setRecentKeys((prev) => pushRecentKey(key, prev));
+      setRecentIssues((prev) =>
+        pushRecentIssue({ key, summary: loaded.summary }, prev)
+      );
     } catch (e) {
       if (gen !== loadGen.current) return;
       setIssue(null);
-      setError(e instanceof Error ? e.message : "Failed to load issue.");
+      setError(e instanceof Error ? e.message : ERR.loadFail);
     } finally {
       if (gen === loadGen.current) setLoading(false);
     }
@@ -137,9 +170,9 @@ export function IssuePeekProvider({ children }: { children: React.ReactNode }) {
 
   const openIssue = useCallback(
     (rawKey: string, opts?: OpenIssueOptions) => {
-      const key = normalizeIssueKey(rawKey);
+      const key = parseIssueKeyInput(rawKey);
       if (!isValidIssueKey(key)) {
-        setError("Invalid issue key.");
+        setError(ERR.invalid);
         setCollapsed(false);
         return;
       }
@@ -158,6 +191,7 @@ export function IssuePeekProvider({ children }: { children: React.ReactNode }) {
     setError(null);
     setLoading(false);
     setNavStack([]);
+    setRewriteOpen(false);
     syncUrl(null);
   }, [syncUrl]);
 
@@ -187,7 +221,7 @@ export function IssuePeekProvider({ children }: { children: React.ReactNode }) {
       urlSyncSkip.current = false;
       return;
     }
-    const fromUrl = normalizeIssueKey(searchParams.get("issue") || "");
+    const fromUrl = parseIssueKeyInput(searchParams.get("issue") || "");
     if (!fromUrl || !isValidIssueKey(fromUrl)) return;
     if (fromUrl === issueKey) return;
     setCollapsed(false);
@@ -206,16 +240,7 @@ export function IssuePeekProvider({ children }: { children: React.ReactNode }) {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey) || !e.shiftKey) return;
       if (e.key.toLowerCase() !== "j") return;
-      const el = e.target as HTMLElement | null;
-      const tag = el?.tagName;
-      if (
-        tag === "INPUT" ||
-        tag === "TEXTAREA" ||
-        tag === "SELECT" ||
-        el?.isContentEditable
-      ) {
-        return;
-      }
+      if (isTypingTarget(e.target)) return;
       e.preventDefault();
       expandAndFocusSearch();
     };
@@ -223,21 +248,27 @@ export function IssuePeekProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [expandAndFocusSearch]);
 
+  // Esc collapses the panel (issue stays loaded).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (collapsed) return;
+      if (rewriteOpen) return;
+      if (isTypingTarget(e.target)) return;
+      if (isEscBlocked()) return;
+      e.preventDefault();
+      setCollapsed(true);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [collapsed, rewriteOpen, setCollapsed]);
+
   // Alt+← pops nav stack (browser-like), regardless of UI dir.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!e.altKey || e.ctrlKey || e.metaKey) return;
       if (e.key !== "ArrowLeft") return;
-      const el = e.target as HTMLElement | null;
-      const tag = el?.tagName;
-      if (
-        tag === "INPUT" ||
-        tag === "TEXTAREA" ||
-        tag === "SELECT" ||
-        el?.isContentEditable
-      ) {
-        return;
-      }
+      if (isTypingTarget(e.target)) return;
       if (navStack.length < 2) return;
       e.preventDefault();
       const prev = navStack[navStack.length - 2];
@@ -247,6 +278,11 @@ export function IssuePeekProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [navStack, openIssue]);
 
+  const recentKeys = useMemo(
+    () => recentIssues.map((r) => r.key),
+    [recentIssues]
+  );
+
   const value = useMemo<IssuePeekContextValue>(
     () => ({
       issueKey,
@@ -254,6 +290,7 @@ export function IssuePeekProvider({ children }: { children: React.ReactNode }) {
       loading,
       error,
       collapsed,
+      recentIssues,
       recentKeys,
       navStack,
       openIssue,
@@ -262,6 +299,8 @@ export function IssuePeekProvider({ children }: { children: React.ReactNode }) {
       expandAndFocusSearch,
       refresh,
       patchIssue,
+      rewriteOpen,
+      setRewriteOpen,
     }),
     [
       issueKey,
@@ -269,6 +308,7 @@ export function IssuePeekProvider({ children }: { children: React.ReactNode }) {
       loading,
       error,
       collapsed,
+      recentIssues,
       recentKeys,
       navStack,
       openIssue,
@@ -277,6 +317,7 @@ export function IssuePeekProvider({ children }: { children: React.ReactNode }) {
       expandAndFocusSearch,
       refresh,
       patchIssue,
+      rewriteOpen,
     ]
   );
 

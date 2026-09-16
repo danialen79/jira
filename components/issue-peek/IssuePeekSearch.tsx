@@ -7,15 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   isValidIssueKey,
-  normalizeIssueKey,
+  parseIssueKeyInput,
 } from "@/lib/issue-peek";
 import { cn } from "@/lib/utils";
 
 const t = {
-  placeholder: "PROJ-123…",
+  placeholder: "SIP-123 یا لینک جیرا…",
   fetch: "بارگذاری",
   invalid: "فرمت KEY-123",
   recent: "اخیر",
+  ariaLabel: "کلید ایشو",
 } as const;
 
 type Props = {
@@ -23,7 +24,7 @@ type Props = {
 };
 
 export function IssuePeekSearch({ className }: Props) {
-  const { issueKey, openIssue, recentKeys, loading } = useIssuePeek();
+  const { issueKey, openIssue, recentIssues, loading } = useIssuePeek();
   const [value, setValue] = useState(issueKey || "");
   const [showRecent, setShowRecent] = useState(false);
 
@@ -31,10 +32,12 @@ export function IssuePeekSearch({ className }: Props) {
     setValue(issueKey || "");
   }, [issueKey]);
 
+  const parsed = parseIssueKeyInput(value);
+  const canSubmit = isValidIssueKey(parsed);
+
   const submit = () => {
-    const key = normalizeIssueKey(value);
-    if (!isValidIssueKey(key)) return;
-    openIssue(key, { replace: true });
+    if (!canSubmit) return;
+    openIssue(parsed, { replace: true });
     setShowRecent(false);
   };
 
@@ -62,43 +65,51 @@ export function IssuePeekSearch({ className }: Props) {
             autoComplete="off"
             name="issue-peek-key"
             translate="no"
-            className="ps-8 font-mono text-xs uppercase"
-            aria-label={t.placeholder}
+            className="ps-8 font-mono text-xs"
+            aria-label={t.ariaLabel}
           />
         </div>
         <Button
           type="button"
           size="sm"
           onClick={submit}
-          disabled={loading || !isValidIssueKey(value)}
+          disabled={loading || !canSubmit}
         >
           {t.fetch}
         </Button>
       </div>
-      {value && !isValidIssueKey(value) ? (
-        <p className="text-[11px] text-destructive">{t.invalid}</p>
+      {value && !canSubmit ? (
+        <p className="text-[11px] text-destructive" role="alert">
+          {t.invalid}
+        </p>
       ) : null}
-      {showRecent && recentKeys.length > 0 ? (
+      {showRecent && recentIssues.length > 0 ? (
         <div className="absolute start-0 end-0 top-full z-20 mt-1 rounded-md border bg-popover p-1 shadow-md">
           <p className="flex items-center gap-1 px-2 py-1 text-[10px] text-muted-foreground">
             <HistoryIcon className="size-3" aria-hidden />
             {t.recent}
           </p>
-          <ul className="max-h-40 overflow-y-auto">
-            {recentKeys.map((k) => (
-              <li key={k}>
+          <ul className="max-h-48 overflow-y-auto">
+            {recentIssues.map((item) => (
+              <li key={item.key}>
                 <button
                   type="button"
-                  className="w-full cursor-pointer rounded-sm px-2 py-1.5 text-start font-mono text-xs hover:bg-muted"
-                  translate="no"
+                  className="flex w-full cursor-pointer flex-col gap-0.5 rounded-sm px-2 py-1.5 text-start hover:bg-muted"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
-                    setValue(k);
-                    openIssue(k, { replace: true });
+                    setValue(item.key);
+                    openIssue(item.key, { replace: true });
                     setShowRecent(false);
                   }}
                 >
-                  {k}
+                  <span className="font-mono text-xs" translate="no">
+                    {item.key}
+                  </span>
+                  {item.summary ? (
+                    <span className="line-clamp-1 text-[11px] text-muted-foreground">
+                      {item.summary}
+                    </span>
+                  ) : null}
                 </button>
               </li>
             ))}

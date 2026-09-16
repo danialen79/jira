@@ -1,32 +1,26 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useJiraApp } from "@/components/providers/jira-app-provider";
 import type { PeekIssue } from "@/lib/issue-peek";
 import { formatJiraSeconds } from "@/lib/issue-peek";
 import { lensDisplayLabel } from "@/lib/lens";
 import { cn } from "@/lib/utils";
 
 const t = {
-    assignee: "مسئول",
-    priority: "اولویت",
-    component: "کامپوننت",
-    sprint: "اسپرینت",
-    fixVersion: "ورژن",
-    epic: "اپیک",
-    parent: "والد",
-    lens: "لنز",
-    created: "ایجاد",
-    updated: "به‌روزرسانی",
-    spent: "صرف‌شده",
-    remaining: "باقیمانده",
-    original: "برآورد اولیه",
-    unassigned: "بدون مسئول",
-    none: "—",
-  } as const;
+  priority: "اولویت",
+  component: "کامپوننت",
+  parent: "والد",
+  lens: "لنز",
+  created: "ایجاد",
+  updated: "به‌روزرسانی",
+  spent: "صرف‌شده",
+  remaining: "باقیمانده",
+  original: "برآورد اولیه",
+  none: "نیست",
+} as const;
 
 function formatDate(iso: string | undefined, locale: string): string {
-  if (!iso) return "—";
+  if (!iso) return t.none;
   try {
     return new Intl.DateTimeFormat(locale, {
       dateStyle: "medium",
@@ -37,24 +31,36 @@ function formatDate(iso: string | undefined, locale: string): string {
   }
 }
 
-type Row = { label: string; value: ReactNode };
+export type KvOmit =
+  | "priority"
+  | "component"
+  | "parent"
+  | "lens"
+  | "created"
+  | "updated"
+  | "spent"
+  | "remaining"
+  | "original";
+
+type Row = { label: string; value: ReactNode; id: KvOmit };
 
 type Props = {
   issue: PeekIssue;
-  extra?: Row[];
+  omit?: KvOmit[];
+  extra?: { label: string; value: ReactNode }[];
   className?: string;
   onOpenKey?: (key: string) => void;
 };
 
-export function IssuePeekKv({ issue, extra, className, onOpenKey }: Props) {
-  const { jiraSprints } = useJiraApp();
+export function IssuePeekKv({
+  issue,
+  omit = [],
+  extra,
+  className,
+  onOpenKey,
+}: Props) {
   const locale = "fa-IR";
-
-  const sprintLabel =
-    issue.sprintName ||
-    jiraSprints.find((s) => String(s.id) === issue.selectedSprint)?.name ||
-    issue.selectedSprint ||
-    t.none;
+  const skip = new Set(omit);
 
   const keyLink = (key: string) =>
     onOpenKey ? (
@@ -72,33 +78,28 @@ export function IssuePeekKv({ issue, extra, className, onOpenKey }: Props) {
       </span>
     );
 
-  const rows: Row[] = [
-    {
-      label: t.assignee,
-      value: issue.assigneeDisplayName || issue.assignee || t.unassigned,
-    },
-    { label: t.priority, value: issue.priority || t.none },
-    {
+  const rows: Row[] = [];
+
+  if (!skip.has("priority")) {
+    rows.push({
+      id: "priority",
+      label: t.priority,
+      value: issue.priority || t.none,
+    });
+  }
+  if (!skip.has("component")) {
+    rows.push({
+      id: "component",
       label: t.component,
       value:
         issue.components?.filter(Boolean).join(", ") ||
         issue.component ||
         t.none,
-    },
-    { label: t.sprint, value: sprintLabel },
-    {
-      label: t.fixVersion,
-      value: issue.fixVersionNames?.length
-        ? issue.fixVersionNames.join(", ")
-        : t.none,
-    },
-  ];
-
-  if (issue.epicKey) {
-    rows.push({ label: t.epic, value: keyLink(issue.epicKey) });
+    });
   }
-  if (issue.parentKey) {
+  if (!skip.has("parent") && issue.parentKey) {
     rows.push({
+      id: "parent",
       label: t.parent,
       value: (
         <span className="inline-flex flex-col gap-0.5">
@@ -112,32 +113,64 @@ export function IssuePeekKv({ issue, extra, className, onOpenKey }: Props) {
       ),
     });
   }
-  if (issue.selectedLens) {
+  if (!skip.has("lens") && issue.selectedLens) {
     rows.push({
+      id: "lens",
       label: t.lens,
       value: lensDisplayLabel(issue.selectedLens),
     });
   }
-
-  rows.push(
-    { label: t.created, value: formatDate(issue.created, locale) },
-    { label: t.updated, value: formatDate(issue.updated, locale) },
-    { label: t.spent, value: formatJiraSeconds(issue.timespent) },
-    { label: t.remaining, value: formatJiraSeconds(issue.timeestimate) },
-    {
+  if (!skip.has("created")) {
+    rows.push({
+      id: "created",
+      label: t.created,
+      value: formatDate(issue.created, locale),
+    });
+  }
+  if (!skip.has("updated")) {
+    rows.push({
+      id: "updated",
+      label: t.updated,
+      value: formatDate(issue.updated, locale),
+    });
+  }
+  if (!skip.has("spent")) {
+    rows.push({
+      id: "spent",
+      label: t.spent,
+      value: formatJiraSeconds(issue.timespent),
+    });
+  }
+  if (!skip.has("remaining")) {
+    rows.push({
+      id: "remaining",
+      label: t.remaining,
+      value: formatJiraSeconds(issue.timeestimate),
+    });
+  }
+  if (!skip.has("original")) {
+    rows.push({
+      id: "original",
       label: t.original,
       value: formatJiraSeconds(issue.timeoriginalestimate),
-    }
-  );
-
-  if (extra?.length) rows.push(...extra);
+    });
+  }
 
   return (
     <dl
-      className={cn("grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs", className)}
+      className={cn(
+        "grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs",
+        className
+      )}
       dir="rtl"
     >
       {rows.map((row) => (
+        <div key={row.id} className="contents">
+          <dt className="text-muted-foreground whitespace-nowrap">{row.label}</dt>
+          <dd className="min-w-0 break-words text-foreground">{row.value}</dd>
+        </div>
+      ))}
+      {extra?.map((row) => (
         <div key={row.label} className="contents">
           <dt className="text-muted-foreground whitespace-nowrap">{row.label}</dt>
           <dd className="min-w-0 break-words text-foreground">{row.value}</dd>

@@ -62,12 +62,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </header>
-        <div className="flex min-h-0 flex-1 flex-row" dir="ltr">
+        <div className="relative flex min-h-0 flex-1 flex-row" dir="ltr">
           <IssuePeekDock />
           <div
             id="main-content"
             tabIndex={-1}
-            className="flex min-w-0 flex-1 flex-col gap-5 overflow-auto p-4 md:p-5"
+            className="relative z-0 flex min-w-0 flex-1 flex-col gap-5 overflow-auto p-4 md:p-5"
             dir="rtl"
           >
             {children}
