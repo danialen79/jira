@@ -36,6 +36,8 @@ export type OpsFilterValues = {
   missLens: string;
   /** "1" = require no component */
   missComponent: string;
+  /** Jira username; empty = any assignee */
+  assignee: string;
   type: string;
   status: string;
   q: string;

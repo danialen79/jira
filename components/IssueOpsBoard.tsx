@@ -75,6 +75,7 @@ export default function IssueOpsBoard() {
       asn: chipUrlValue(filters.missAssign),
       lens: chipUrlValue(filters.missLens),
       cmp: chipUrlValue(filters.missComponent),
+      asg: filters.assignee.trim() || null,
       type: filters.type === "ALL" ? null : filters.type,
       status: filters.status === "ALL" ? null : filters.status,
       q: filters.q.trim() || null,
@@ -84,6 +85,7 @@ export default function IssueOpsBoard() {
       asn: null,
       lens: null,
       cmp: null,
+      asg: null,
       type: null,
       status: null,
       q: null,
@@ -147,6 +149,7 @@ export default function IssueOpsBoard() {
             isRtl={isRtl}
             values={filters}
             statusOptions={statusOptions}
+            users={jiraUsers}
             onChange={patchFilters}
           />
         </div>

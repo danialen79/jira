@@ -19,6 +19,26 @@ function escapeJqlString(raw: string): string {
   return raw.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
+/** Comma-separated Jira usernames in filter state / URL. */
+export function parseAssigneeList(raw: string): string[] {
+  return [
+    ...new Set(
+      raw
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    ),
+  ];
+}
+
+export function serializeAssigneeList(names: string[]): string {
+  return parseAssigneeList(names.join(",")).join(",");
+}
+
+export function hasAssigneeFilter(raw: string): boolean {
+  return parseAssigneeList(raw).length > 0;
+}
+
 export const OPS_FILTER_DEFS: FilterDef[] = [
   {
     id: "missRelease",
@@ -43,6 +63,22 @@ export const OPS_FILTER_DEFS: FilterDef[] = [
     urlKey: "cmp",
     defaultValue: "1",
     toJql: () => null,
+  },
+  {
+    id: "assignee",
+    urlKey: "asg",
+    defaultValue: "",
+    toJql: (value) => {
+      const names = parseAssigneeList(value);
+      if (names.length === 0) return null;
+      if (names.length === 1) {
+        return `assignee = "${escapeJqlString(names[0]!)}"`;
+      }
+      const quoted = names
+        .map((n) => `"${escapeJqlString(n)}"`)
+        .join(", ");
+      return `assignee in (${quoted})`;
+    },
   },
   {
     id: "type",
@@ -82,6 +118,7 @@ export const OPS_FILTER_DEFAULTS: OpsFilterValues = {
   missAssign: "1",
   missLens: "1",
   missComponent: "1",
+  assignee: "",
   type: "ALL",
   status: "ALL",
   q: "",
@@ -102,6 +139,11 @@ export function parseOpsFilters(
     if (raw != null && raw !== "") {
       out[def.id] = raw;
     }
+  }
+  // Specific assignees and "missing assign" cannot both apply.
+  if (hasAssigneeFilter(out.assignee)) {
+    out.missAssign = "0";
+    out.assignee = serializeAssigneeList(parseAssigneeList(out.assignee));
   }
   return out;
 }
@@ -138,6 +180,10 @@ export function buildOpsSearchJql(
     opts?.epicLinkField || "customfield_10014"
   );
   const incompleteness = incompletenessFromFilters(values);
+  // Specific assignees override the "missing assign" incompleteness gate.
+  if (hasAssigneeFilter(values.assignee)) {
+    incompleteness.assign = false;
+  }
   const clauses = [
     `project = '${projectKey}'`,
     // List is parents only; sub-tasks / epic children load on demand

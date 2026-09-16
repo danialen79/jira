@@ -6,6 +6,7 @@ import {
   CopyIcon,
   ExternalLinkIcon,
   FlagIcon,
+  LinkIcon,
   RefreshCwIcon,
   TimerIcon,
   UserIcon,
@@ -25,7 +26,9 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { jiraBrowseUrl } from "@/lib/jira-browse";
+import { selectableFixVersions } from "@/lib/fix-version-policy";
 import {
+  peekCanSetEpicLink,
   peekCanSetFixVersion,
   peekCanSetSprint,
   type PeekIssue,
@@ -45,15 +48,19 @@ const copy = {
     refresh: "Refresh",
     version: "Version",
     sprint: "Sprint",
+    epic: "Epic",
     backlog: "Backlog",
     pickVersion: "Fix version",
     pickSprint: "Sprint",
+    pickEpic: "Epic",
     noneVersion: "No version",
+    noEpic: "No epic",
     transitionOk: "Status updated.",
     assignOk: "Assignee updated.",
     logOk: "Work logged.",
     versionOk: "Version updated.",
     sprintOk: "Sprint updated.",
+    epicOk: "Epic link updated.",
     copied: "Copied.",
     failed: "Action failed.",
   },
@@ -69,15 +76,19 @@ const copy = {
     refresh: "تازه‌سازی",
     version: "ورژن",
     sprint: "اسپرینت",
+    epic: "اپیک",
     backlog: "بک‌لاگ",
     pickVersion: "Fix version",
     pickSprint: "اسپرینت",
+    pickEpic: "اپیک",
     noneVersion: "بدون ورژن",
+    noEpic: "بدون اپیک",
     transitionOk: "وضعیت به‌روز شد.",
     assignOk: "مسئول به‌روز شد.",
     logOk: "کار ثبت شد.",
     versionOk: "ورژن به‌روز شد.",
     sprintOk: "اسپرینت به‌روز شد.",
+    epicOk: "لینک اپیک به‌روز شد.",
     copied: "کپی شد.",
     failed: "عملیات ناموفق.",
   },
@@ -100,12 +111,16 @@ export function IssuePeekActions({ issue, className }: Props) {
     fetchJiraVersions,
     jiraSprints,
     fetchJiraSprints,
+    existingEpics,
+    fetchExistingEpics,
+    fetchingEpics,
   } = useJiraApp();
   const t = copy[language];
   const { refresh, patchIssue } = useIssuePeek();
 
   const canVersion = peekCanSetFixVersion(issue);
   const canSprint = peekCanSetSprint(issue.issuetype);
+  const canEpic = peekCanSetEpicLink(issue.issuetype);
 
   const [statuses, setStatuses] = useState<string[]>([]);
   const [busyStatus, setBusyStatus] = useState<string | null>(null);
@@ -113,12 +128,14 @@ export function IssuePeekActions({ issue, className }: Props) {
   const [logOpen, setLogOpen] = useState(false);
   const [versionOpen, setVersionOpen] = useState(false);
   const [sprintOpen, setSprintOpen] = useState(false);
+  const [epicOpen, setEpicOpen] = useState(false);
   const [timeSpent, setTimeSpent] = useState("");
   const [note, setNote] = useState("");
   const [logging, setLogging] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [settingVersion, setSettingVersion] = useState(false);
   const [settingSprint, setSettingSprint] = useState(false);
+  const [settingEpic, setSettingEpic] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -156,6 +173,10 @@ export function IssuePeekActions({ issue, className }: Props) {
     if (sprintOpen && jiraSprints.length === 0) void fetchJiraSprints();
   }, [sprintOpen, jiraSprints.length, fetchJiraSprints]);
 
+  useEffect(() => {
+    if (epicOpen && existingEpics.length === 0) void fetchExistingEpics();
+  }, [epicOpen, existingEpics.length, fetchExistingEpics]);
+
   const userOptions = useMemo(
     () => [
       { value: "", label: t.unassign },
@@ -169,17 +190,16 @@ export function IssuePeekActions({ issue, className }: Props) {
     [jiraUsers, t.unassign]
   );
 
-  const versionOptions = useMemo(
-    () =>
-      jiraVersions
-        .filter((v) => !v.archived)
-        .map((v) => ({
-          value: v.id,
-          label: v.name,
-          sublabel: v.released ? "released" : undefined,
-        })),
-    [jiraVersions]
-  );
+  const versionOptions = useMemo(() => {
+    const currentId =
+      issue.selectedRelease || issue.fixVersionIds?.[0] || null;
+    return selectableFixVersions(jiraVersions, { includeId: currentId }).map(
+      (v) => ({
+        value: v.id,
+        label: v.name,
+      })
+    );
+  }, [jiraVersions, issue.selectedRelease, issue.fixVersionIds]);
 
   const sprintOptions = useMemo(() => {
     const open = jiraSprints.filter((s) => s.state !== "closed");
@@ -197,6 +217,18 @@ export function IssuePeekActions({ issue, className }: Props) {
     ];
   }, [jiraSprints, t.backlog]);
 
+  const epicOptions = useMemo(
+    () => [
+      { value: "", label: t.noEpic },
+      ...existingEpics.map((e) => ({
+        value: e.key,
+        label: e.key,
+        sublabel: e.summary,
+      })),
+    ],
+    [existingEpics, t.noEpic]
+  );
+
   const versionLabel =
     issue.fixVersionNames?.[0] ||
     versionOptions.find((v) => v.value === issue.selectedRelease)?.label ||
@@ -206,6 +238,8 @@ export function IssuePeekActions({ issue, className }: Props) {
     issue.sprintName ||
     jiraSprints.find((s) => String(s.id) === issue.selectedSprint)?.name ||
     (issue.selectedSprint ? issue.selectedSprint : t.backlog);
+
+  const epicLabel = issue.epicKey || t.noEpic;
 
   const transitionTo = async (statusName: string) => {
     if (busyStatus) return;
@@ -336,6 +370,43 @@ export function IssuePeekActions({ issue, className }: Props) {
     }
   };
 
+  const setEpic = async (epicKey: string) => {
+    setSettingEpic(true);
+    try {
+      const next = epicKey.trim() ? epicKey.trim().toUpperCase() : null;
+      const res = await fetch("/api/jira/issues/epic-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          issueKey: issue.key,
+          epicKey: next,
+          language,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) {
+        throw new Error(data.error || t.failed);
+      }
+      if (next) {
+        patchIssue({
+          epicKey: next,
+          selectedRelease: undefined,
+          fixVersionIds: [],
+          fixVersionNames: [],
+        });
+      } else {
+        patchIssue({ epicKey: undefined });
+      }
+      toast.success(t.epicOk);
+      setEpicOpen(false);
+      void refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t.failed);
+    } finally {
+      setSettingEpic(false);
+    }
+  };
+
   const submitLog = async () => {
     if (!timeSpent.trim()) return;
     setLogging(true);
@@ -422,6 +493,35 @@ export function IssuePeekActions({ issue, className }: Props) {
             )}
           </PopoverContent>
         </Popover>
+
+        {canEpic ? (
+          <Popover open={epicOpen} onOpenChange={setEpicOpen}>
+            <PopoverTrigger
+              render={
+                <Button type="button" size="sm" variant="outline" />
+              }
+            >
+              <LinkIcon data-icon="inline-start" />
+              <span className="max-w-24 truncate font-mono">{epicLabel}</span>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-64 p-2">
+              {fetchingEpics && epicOptions.length <= 1 ? (
+                <div className="flex justify-center py-3">
+                  <Spinner />
+                </div>
+              ) : (
+                <SearchableSelect
+                  options={epicOptions}
+                  value={issue.epicKey || ""}
+                  onChange={(v) => void setEpic(v)}
+                  isRtl={isRtl}
+                  disabled={settingEpic}
+                  placeholder={t.pickEpic}
+                />
+              )}
+            </PopoverContent>
+          </Popover>
+        ) : null}
 
         {canVersion ? (
           <Popover open={versionOpen} onOpenChange={setVersionOpen}>

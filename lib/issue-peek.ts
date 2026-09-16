@@ -24,6 +24,12 @@ export function peekCanSetSprint(issuetype: string): boolean {
   return t === "story" || t === "bug" || t === "task";
 }
 
+/** Peek can set Epic Link on Story / Bug. */
+export function peekCanSetEpicLink(issuetype: string): boolean {
+  const t = normalizeIssueTypeName(issuetype);
+  return t === "story" || t === "bug";
+}
+
 export function pushNavStack(
   stack: string[],
   key: string,

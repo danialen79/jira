@@ -53,6 +53,7 @@ export function useIssueOpsQuery(
         params.set("asn", chipParam(filters.missAssign));
         params.set("lens", chipParam(filters.missLens));
         params.set("cmp", chipParam(filters.missComponent));
+        if (filters.assignee.trim()) params.set("asg", filters.assignee.trim());
         if (filters.type && filters.type !== "ALL")
           params.set("type", filters.type);
         if (filters.status && filters.status !== "ALL")

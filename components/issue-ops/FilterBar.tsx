@@ -1,12 +1,17 @@
 "use client";
 
+import SearchableMultiSelect from "@/components/SearchableMultiSelect";
 import { Input } from "@/components/ui/input";
+import {
+  parseAssigneeList,
+  serializeAssigneeList,
+} from "@/lib/issue-ops/filters";
 import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@/components/ui/toggle-group";
 import type { OpsFilterValues } from "@/lib/issue-ops/types";
-import type { Language } from "@/lib/types";
+import type { JiraUser, Language } from "@/lib/types";
 
 const CHIP_KEYS = ["rel", "asn", "lens", "cmp"] as const;
 type ChipKey = (typeof CHIP_KEYS)[number];
@@ -21,6 +26,9 @@ const copy = {
     component: "Component",
     all: "All",
     status: "Status",
+    assignee: "Assignee",
+    anyAssignee: "Any assignee",
+    assigneePlaceholder: "Pick people…",
     search: "Search…",
     story: "Story",
     bug: "Bug",
@@ -36,6 +44,9 @@ const copy = {
     component: "کامپوننت",
     all: "همه",
     status: "وضعیت",
+    assignee: "اساین‌شده به",
+    anyAssignee: "هر کسی",
+    assigneePlaceholder: "انتخاب افراد…",
     search: "جستجو…",
     story: "استوری",
     bug: "باگ",
@@ -49,6 +60,7 @@ type Props = {
   isRtl: boolean;
   values: OpsFilterValues;
   statusOptions: string[];
+  users: JiraUser[];
   onChange: (patch: Partial<OpsFilterValues>) => void;
 };
 
@@ -63,11 +75,14 @@ function chipsFromValues(values: OpsFilterValues): ChipKey[] {
 
 function patchFromChips(chips: string[]): Partial<OpsFilterValues> {
   const set = new Set(chips);
+  const missAssign = set.has("asn") ? "1" : "0";
   return {
     missRelease: set.has("rel") ? "1" : "0",
-    missAssign: set.has("asn") ? "1" : "0",
+    missAssign,
     missLens: set.has("lens") ? "1" : "0",
     missComponent: set.has("cmp") ? "1" : "0",
+    // "Missing assign" conflicts with filtering to a specific person.
+    ...(missAssign === "1" ? { assignee: "" } : {}),
   };
 }
 
@@ -76,10 +91,19 @@ export default function FilterBar({
   isRtl,
   values,
   statusOptions,
+  users,
   onChange,
 }: Props) {
   const t = copy[language];
   const chipValue = chipsFromValues(values);
+
+  const assigneeOptions = users.map((u) => ({
+    value: u.name,
+    label: u.displayName,
+    sublabel: u.name,
+    avatar: u.avatarUrls?.["24x24"] || u.avatarUrls?.["16x16"],
+  }));
+  const selectedAssignees = parseAssigneeList(values.assignee);
 
   return (
     <div
@@ -120,6 +144,26 @@ export default function FilterBar({
           <ToggleGroupItem value="Task">{t.task}</ToggleGroupItem>
           <ToggleGroupItem value="Epic">{t.epic}</ToggleGroupItem>
         </ToggleGroup>
+
+        <div className="flex min-w-[240px] max-w-md flex-1 items-start gap-2">
+          <span className="shrink-0 pt-2 text-xs text-muted-foreground">
+            {t.assignee}
+          </span>
+          <SearchableMultiSelect
+            className="min-w-0 flex-1"
+            options={assigneeOptions}
+            value={selectedAssignees}
+            onChange={(names) => {
+              const assignee = serializeAssigneeList(names);
+              onChange({
+                assignee,
+                ...(assignee ? { missAssign: "0" } : {}),
+              });
+            }}
+            isRtl={isRtl}
+            placeholder={t.assigneePlaceholder}
+          />
+        </div>
 
         <Input
           className="max-w-xs"

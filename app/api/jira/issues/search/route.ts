@@ -4,7 +4,11 @@ import {
   isBacklogExcludedStatus,
   matchesIncompleteness,
 } from "@/lib/issue-ops/backlog";
-import { buildOpsSearchJql, parseOpsFilters } from "@/lib/issue-ops/filters";
+import {
+  buildOpsSearchJql,
+  hasAssigneeFilter,
+  parseOpsFilters,
+} from "@/lib/issue-ops/filters";
 import { mapRawToOpsIssue } from "@/lib/issue-ops/map";
 import { getJiraClient, JiraEnvError } from "@/lib/jira";
 
@@ -138,6 +142,10 @@ export async function GET(req: Request) {
     });
 
     const incompleteness = incompletenessFromFilters(filters);
+    // Specific assignees override the "missing assign" incompleteness gate.
+    if (hasAssigneeFilter(filters.assignee)) {
+      incompleteness.assign = false;
+    }
 
     let issues = rawIssues
       .map((raw) => mapRawToOpsIssue(raw, epicLinkField))

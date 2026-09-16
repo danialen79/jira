@@ -9,6 +9,7 @@ import { useIssuePeek } from "@/components/providers/issue-peek-provider";
 import { useJiraApp } from "@/components/providers/jira-app-provider";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { Textarea } from "@/components/ui/textarea";
 import {
   ToggleGroup,
   ToggleGroupItem,
@@ -35,6 +36,11 @@ const PRESETS = {
     prompt:
       "Tighten the description. Remove fluff. Keep all concrete requirements and acceptance signals. Prefer bullets over long prose.",
   },
+  custom: {
+    en: "Custom",
+    fa: "سفارشی",
+    prompt: "",
+  },
 } as const;
 
 type PresetId = keyof typeof PRESETS;
@@ -52,6 +58,8 @@ const copy = {
     ok: "Description updated.",
     failed: "Rewrite failed.",
     saveFailed: "Could not save description.",
+    customPh: "Your rewrite instruction…",
+    needPrompt: "Enter a custom prompt first.",
   },
   fa: {
     description: "توضیحات",
@@ -65,6 +73,8 @@ const copy = {
     ok: "توضیحات به‌روز شد.",
     failed: "بازنویسی ناموفق.",
     saveFailed: "ذخیره توضیحات نشد.",
+    customPh: "دستور بازنویسی خودت را بنویس…",
+    needPrompt: "اول پرامپت سفارشی را بنویس.",
   },
 } as const;
 
@@ -81,12 +91,26 @@ export function IssuePeekDescription({ issue, label, className }: Props) {
   const { patchIssue, refresh } = useIssuePeek();
 
   const [preset, setPreset] = useState<PresetId>("clarify");
+  const [customPrompt, setCustomPrompt] = useState("");
   const [busy, setBusy] = useState<"rewrite" | "apply" | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
   const title = label || t.description;
 
+  const resolvePrompt = (): string | null => {
+    if (preset === "custom") {
+      const trimmed = customPrompt.trim();
+      return trimmed || null;
+    }
+    return PRESETS[preset].prompt;
+  };
+
   const runRewrite = async () => {
+    const prompt = resolvePrompt();
+    if (!prompt) {
+      toast.error(t.needPrompt);
+      return;
+    }
     setBusy("rewrite");
     try {
       const res = await fetch("/api/refine-single", {
@@ -96,7 +120,7 @@ export function IssuePeekDescription({ issue, label, className }: Props) {
           summary: issue.summary,
           description: issue.description || "",
           issuetype: issue.issuetype,
-          customPrompt: PRESETS[preset].prompt,
+          customPrompt: prompt,
           draftText: "",
           model: selectedModel,
           provider: aiProvider,
@@ -152,7 +176,10 @@ export function IssuePeekDescription({ issue, label, className }: Props) {
           type="button"
           size="sm"
           variant="outline"
-          disabled={busy !== null}
+          disabled={
+            busy !== null ||
+            (preset === "custom" && !customPrompt.trim())
+          }
           onClick={() => void runRewrite()}
         >
           {busy === "rewrite" ? (
@@ -172,15 +199,26 @@ export function IssuePeekDescription({ issue, label, className }: Props) {
         }}
         variant="outline"
         size="sm"
-        className="justify-start"
+        className="flex-wrap justify-start"
         aria-label={t.rewrite}
       >
         {(Object.keys(PRESETS) as PresetId[]).map((id) => (
-          <ToggleGroupItem key={id} value={id} className="text-[11px] px-2">
+          <ToggleGroupItem key={id} value={id} className="px-2 text-[11px]">
             {PRESETS[id][language]}
           </ToggleGroupItem>
         ))}
       </ToggleGroup>
+
+      {preset === "custom" ? (
+        <Textarea
+          value={customPrompt}
+          onChange={(e) => setCustomPrompt(e.target.value)}
+          placeholder={t.customPh}
+          rows={3}
+          className="min-h-16 text-xs"
+          aria-label={t.customPh}
+        />
+      ) : null}
 
       {preview ? (
         <div className="flex flex-col gap-1.5">

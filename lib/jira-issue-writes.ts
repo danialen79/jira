@@ -214,6 +214,53 @@ export async function writeIssueFixVersion(
   return { ok: true };
 }
 
+/**
+ * Set or clear Epic Link on Story/Bug. Linking clears Fix Version (inherited from epic).
+ */
+export async function writeIssueEpicLink(
+  client: JiraWriteClient,
+  issueKey: string,
+  epicKey: string | null,
+  epicLinkField: string,
+  language: "en" | "fa" = "en"
+): Promise<
+  | { ok: true }
+  | { ok: false; skipped?: boolean; error: string }
+> {
+  const loaded = await getIssueFields(client, issueKey, [
+    "issuetype",
+    epicLinkField,
+    "fixVersions",
+  ]);
+  if (!loaded.ok) {
+    return { ok: false, error: loaded.error };
+  }
+
+  const issuetype = (loaded.fields.issuetype?.name || "").toLowerCase();
+  if (issuetype !== "story" && issuetype !== "bug") {
+    return {
+      ok: false,
+      skipped: true,
+      error:
+        language === "fa"
+          ? "لینک اپیک فقط برای استوری و باگ است."
+          : "Epic link applies to Story and Bug only.",
+    };
+  }
+
+  const nextEpic = (epicKey || "").trim() || null;
+  const fields: Record<string, unknown> = {
+    [epicLinkField]: nextEpic,
+  };
+  if (nextEpic) {
+    fields.fixVersions = [];
+  }
+
+  const put = await putIssueFields(client, issueKey, fields);
+  if (!put.ok) return { ok: false, error: put.error };
+  return { ok: true };
+}
+
 type JiraTransition = {
   id: string;
   name: string;
