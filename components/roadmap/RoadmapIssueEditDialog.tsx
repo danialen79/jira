@@ -8,10 +8,12 @@ import type {
   JiraUser,
   JiraVersion,
   Language,
-  StoryLens,
+  IssueLens,
   VersionIssue,
 } from "@/lib/types";
 import {
+  EPIC_LENS_OPTIONS,
+  isIssueLens,
   isStoryLens,
   LENS_OPTIONS,
   lensDisplayLabel,
@@ -43,7 +45,7 @@ type FormState = {
   selectedComponent: string;
   selectedAssignee: string;
   selectedPriority: string;
-  selectedLens: StoryLens | "";
+  selectedLens: IssueLens | "";
   selectedRelease: string;
   selectedSprint: string;
   epicKey: string;
@@ -167,7 +169,7 @@ export default function RoadmapIssueEditDialog({
           selectedComponent: loaded.component || "",
           selectedAssignee: loaded.assignee || "",
           selectedPriority: loaded.priority || "Medium",
-          selectedLens: isStoryLens(loaded.selectedLens)
+          selectedLens: isIssueLens(loaded.selectedLens)
             ? loaded.selectedLens
             : "",
           selectedRelease: loaded.selectedRelease || "",
@@ -266,7 +268,10 @@ export default function RoadmapIssueEditDialog({
             selectedComponent: form.selectedComponent || "",
             selectedAssignee: form.selectedAssignee || "",
             selectedPriority: form.selectedPriority,
-            selectedLens: form.selectedLens || undefined,
+            selectedLens:
+              isEpic || form.issuetype === "Story"
+                ? form.selectedLens || ""
+                : undefined,
             selectedRelease: showRelease ? form.selectedRelease : "",
             selectedSprint: isEpic ? undefined : form.selectedSprint || "",
             epicKey: isEpic ? undefined : form.epicKey || "",
@@ -354,13 +359,13 @@ export default function RoadmapIssueEditDialog({
               />
             </Field>
 
-            {form.issuetype === "Story" && (
+            {(form.issuetype === "Story" || isEpic) && (
               <Field>
                 <FieldLabel>{t.lens}</FieldLabel>
                 <SearchableSelect
                   options={[
                     { value: "", label: t.none },
-                    ...LENS_OPTIONS.map((o) => ({
+                    ...(isEpic ? EPIC_LENS_OPTIONS : LENS_OPTIONS).map((o) => ({
                       value: o.value,
                       label: lensDisplayLabel(o.value, language),
                     })),
@@ -369,7 +374,7 @@ export default function RoadmapIssueEditDialog({
                   onChange={(val) =>
                     setForm({
                       ...form,
-                      selectedLens: (val || "") as StoryLens | "",
+                      selectedLens: (val || "") as IssueLens | "",
                     })
                   }
                   isRtl={isRtl}

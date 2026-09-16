@@ -17,10 +17,10 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import {
-  LENS_OPTIONS,
-  isStoryLens,
+  EPIC_LENS_OPTIONS,
+  isIssueLens,
   lensDisplayLabel,
-  type StoryLens,
+  type IssueLens,
 } from "@/lib/lens";
 import type { BulkActionId } from "@/lib/issue-ops/types";
 import type { JiraUser, JiraVersion, Language } from "@/lib/types";
@@ -151,7 +151,7 @@ export default function BulkActionBar({
   if (count === 0) return null;
 
   const openConfirm = (action: BulkActionId, params: Record<string, unknown>) => {
-    if (action === "setLens" && !isStoryLens(params.lens)) {
+    if (action === "setLens" && !isIssueLens(params.lens)) {
       toast.error(language === "fa" ? "لنز را انتخاب کنید." : "Pick a lens.");
       return;
     }
@@ -213,7 +213,7 @@ export default function BulkActionBar({
   return (
     <>
       <div
-        className="sticky bottom-2 z-20 flex flex-col gap-3 rounded-xl border border-border bg-background/95 p-3 shadow-sm backdrop-blur supports-backdrop-filter:bg-background/80"
+        className="fixed bottom-3 left-1/2 z-40 flex w-[min(64rem,calc(100vw-1.5rem))] -translate-x-1/2 flex-col gap-3 rounded-xl border border-border bg-background/95 p-3 shadow-lg backdrop-blur supports-backdrop-filter:bg-background/80"
         dir={isRtl ? "rtl" : "ltr"}
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -231,7 +231,7 @@ export default function BulkActionBar({
             <div className="flex gap-2">
               <SearchableSelect
                 className="min-w-0 flex-1"
-                options={LENS_OPTIONS.map((o) => ({
+                options={EPIC_LENS_OPTIONS.map((o) => ({
                   value: o.value,
                   label: lensDisplayLabel(o.value, language),
                 }))}
@@ -245,7 +245,7 @@ export default function BulkActionBar({
                 size="sm"
                 variant="secondary"
                 onClick={() =>
-                  openConfirm("setLens", { lens: lens as StoryLens })
+                  openConfirm("setLens", { lens: lens as IssueLens })
                 }
               >
                 {t.setLens}
@@ -357,6 +357,7 @@ export default function BulkActionBar({
               disabled={submitting}
               onClick={(e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 void runBulk();
               }}
             >

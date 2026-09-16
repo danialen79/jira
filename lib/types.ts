@@ -1,6 +1,6 @@
-import type { StoryLens } from "@/lib/lens";
+import type { IssueLens, StoryLens } from "@/lib/lens";
 
-export type { StoryLens };
+export type { IssueLens, StoryLens };
 
 export interface JiraCredentials {
   url: string;
@@ -28,8 +28,8 @@ export interface RefinedIssue {
   selectedSprint?: string;
   selectedRelease?: string;
   selectedPriority?: string;
-  /** Story origin lens; stored in Jira as lens-* label. */
-  selectedLens?: StoryLens;
+  /** Origin lens; stored in Jira as lens-* label. Stories: 4 lenses; Epics may use mixed. */
+  selectedLens?: IssueLens;
 }
 
 export interface JiraSprint {
@@ -94,8 +94,8 @@ export interface VersionIssue {
   assignee?: string;
   assigneeDisplayName?: string;
   components: string[];
-  /** Parsed from lens-* Jira labels. */
-  lens?: StoryLens;
+  /** Parsed from lens-* Jira labels (includes epic mixed). */
+  lens?: IssueLens;
   /** Epic this issue belongs to (Epic Link / parent epic). */
   epicKey?: string;
   /** Immediate parent issue key (sub-task parent). */

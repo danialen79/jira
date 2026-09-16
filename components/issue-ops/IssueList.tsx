@@ -28,28 +28,33 @@ import { IssueStatusBadge } from "@/components/IssueStatusBadge";
 import { getIssueTypeBadgeClass } from "@/lib/issue-type-badge";
 import { jiraBrowseUrl, normalizeJiraBase } from "@/lib/jira-browse";
 import { lensDisplayLabel } from "@/lib/lens";
-import type { Language } from "@/lib/types";
+import { isEpicIssueType } from "@/lib/fix-version-policy";
+import type { Language, VersionIssue } from "@/lib/types";
 
 const copy = {
   en: {
-    empty: "No issues match",
-    emptyHint: "Relax filters or clear search.",
+    empty: "No backlog issues",
+    emptyHint: "Turn off a missing chip or clear search.",
     viaEpic: "via",
     unassigned: "Unassigned",
     selectAll: "Select page",
     edit: "Edit",
     noSubtasks: "No sub-tasks",
+    noChildren: "No child issues",
     loadSubtasksFailed: "Could not load sub-tasks.",
+    loadChildrenFailed: "Could not load epic children.",
   },
   fa: {
-    empty: "ایشویی نیست",
-    emptyHint: "فیلتر را کم کنید یا جستجو را پاک کنید.",
+    empty: "بک‌لاگی نیست",
+    emptyHint: "یک چیپ ناقص را خاموش کنید یا جستجو را پاک کنید.",
     viaEpic: "از",
     unassigned: "بدون مسئول",
     selectAll: "انتخاب صفحه",
     edit: "ویرایش",
     noSubtasks: "ساب‌تسکی نیست",
+    noChildren: "فرزندی نیست",
     loadSubtasksFailed: "بارگذاری ساب‌تسک‌ها نشد.",
+    loadChildrenFailed: "بارگذاری فرزندان اپیک نشد.",
   },
 } as const;
 
@@ -63,6 +68,32 @@ type Props = {
   onTogglePage: () => void;
   onEdit: (issue: OpsIssue) => void;
 };
+
+function versionIssueToOpsIssue(raw: VersionIssue): OpsIssue {
+  return {
+    key: raw.key,
+    id: raw.id,
+    summary: raw.summary,
+    issuetype: raw.issuetype,
+    status: raw.status,
+    statusCategoryKey: raw.statusCategoryKey,
+    priority: raw.priority,
+    assignee: raw.assignee,
+    assigneeDisplayName: raw.assigneeDisplayName,
+    components: raw.components || [],
+    lens: raw.lens,
+    epicKey: raw.epicKey,
+    parentKey: raw.parentKey,
+    isSubtask: false,
+    fixVersionIds: [],
+    fixVersionNames: [],
+    ownsFixVersion: false,
+  };
+}
+
+function canExpand(issuetype: string): boolean {
+  return isEpicIssueType(issuetype) || canHaveSubtasks(issuetype);
+}
 
 function OpsIssueBadges({
   issue,
@@ -183,7 +214,7 @@ export default function IssueList({
   const { jiraUrl } = useJiraApp();
   const jiraBase = normalizeJiraBase(jiraUrl);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [subtasksByParent, setSubtasksByParent] = useState<
+  const [childrenByParent, setChildrenByParent] = useState<
     Record<string, OpsIssue[]>
   >({});
   const [loadingParents, setLoadingParents] = useState<Set<string>>(new Set());
@@ -192,17 +223,23 @@ export default function IssueList({
   const allSelected =
     pageKeys.length > 0 && pageKeys.every((k) => selectedKeys.has(k));
 
-  const loadSubtasks = async (parent: OpsIssue) => {
+  const loadChildren = async (parent: OpsIssue) => {
     const key = parent.key;
-    if (subtasksByParent[key]) return;
+    if (childrenByParent[key]) return;
     setLoadingParents((prev) => new Set(prev).add(key));
+    const isEpic = isEpicIssueType(parent.issuetype);
     try {
       const res = await fetch(
-        `/api/jira/issues/subtasks?parentKey=${encodeURIComponent(key)}`
+        isEpic
+          ? `/api/jira/issues/epic-children?epicKey=${encodeURIComponent(key)}`
+          : `/api/jira/issues/subtasks?parentKey=${encodeURIComponent(key)}`
       );
       const data = await res.json();
       if (!res.ok || !data.success) {
-        toast.error(data.error || t.loadSubtasksFailed);
+        toast.error(
+          data.error ||
+            (isEpic ? t.loadChildrenFailed : t.loadSubtasksFailed)
+        );
         setExpanded((prev) => {
           const next = new Set(prev);
           next.delete(key);
@@ -210,12 +247,21 @@ export default function IssueList({
         });
         return;
       }
-      setSubtasksByParent((prev) => ({
+      const kids: OpsIssue[] = isEpic
+        ? ((data.issues || []) as VersionIssue[]).map(versionIssueToOpsIssue)
+        : (data.issues as OpsIssue[]) || [];
+      setChildrenByParent((prev) => ({
         ...prev,
-        [key]: data.issues || [],
+        [key]: kids,
       }));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : t.loadSubtasksFailed);
+      toast.error(
+        e instanceof Error
+          ? e.message
+          : isEpic
+            ? t.loadChildrenFailed
+            : t.loadSubtasksFailed
+      );
       setExpanded((prev) => {
         const next = new Set(prev);
         next.delete(key);
@@ -241,7 +287,7 @@ export default function IssueList({
       return;
     }
     setExpanded((prev) => new Set(prev).add(key));
-    void loadSubtasks(issue);
+    void loadChildren(issue);
   };
 
   if (loading && issues.length === 0) {
@@ -278,21 +324,23 @@ export default function IssueList({
 
       <ul className="flex flex-col gap-2">
         {issues.map((issue) => {
-          const showSubs = canHaveSubtasks(issue.issuetype);
+          const expandable = canExpand(issue.issuetype);
+          const isEpic = isEpicIssueType(issue.issuetype);
           const isOpen = expanded.has(issue.key);
-          const kids = subtasksByParent[issue.key];
+          const kids = childrenByParent[issue.key];
           const kidsLoading = loadingParents.has(issue.key);
           const versionLabel = issue.effectiveFixVersionName
             ? issue.effectiveFixVersionFromEpic && issue.epicKey
               ? `${issue.effectiveFixVersionName} (${t.viaEpic} ${issue.epicKey})`
               : issue.effectiveFixVersionName
             : null;
+          const emptyLabel = isEpic ? t.noChildren : t.noSubtasks;
 
           return (
             <li key={issue.key}>
               <IssueCard
-                collapsible={showSubs}
-                expandable={showSubs}
+                collapsible={expandable}
+                expandable={expandable}
                 open={isOpen}
                 onOpenChange={(open) => handleOpenChange(issue, open)}
               >
@@ -346,7 +394,7 @@ export default function IssueList({
                     </Button>
                   }
                 />
-                {showSubs ? (
+                {expandable ? (
                   <IssueCardChildren>
                     {kidsLoading && !kids ? (
                       <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
@@ -355,7 +403,7 @@ export default function IssueList({
                     ) : null}
                     {!kidsLoading && kids && kids.length === 0 ? (
                       <p className="px-3 py-2 text-xs text-muted-foreground">
-                        {t.noSubtasks}
+                        {emptyLabel}
                       </p>
                     ) : null}
                     {(kids || []).map((child) => (

@@ -1,30 +1,84 @@
+import { EPIC_LENS_OPTIONS } from "@/lib/lens";
 import { isCanceledStatus } from "@/lib/roadmap";
+import type { OpsIssue } from "@/lib/issue-ops/types";
+
+export type BacklogIncompleteness = {
+  release: boolean;
+  assign: boolean;
+  lens: boolean;
+  component: boolean;
+};
+
+export const DEFAULT_BACKLOG_INCOMPLETENESS: BacklogIncompleteness = {
+  release: true,
+  assign: true,
+  lens: true,
+  component: true,
+};
 
 /**
- * Backlog preset (OR), excluding Done / Canceled:
- * - unassigned
- * - not started (To Do category)
- * - no Fix Version on issues that own it (Epic or orphan Story/Bug)
+ * Backlog = independent Epic / Story / Bug / Task, excluding Done,
+ * AND missing every active incompleteness field.
  *
- * Stories/Bugs under an Epic keep fixVersion EMPTY by product rule —
- * those must NOT count as no-version via fixVersion alone.
+ * Independent: Epic always; Story/Bug/Task only when Epic Link is empty.
  *
  * @param epicLinkJql — JQL field ref for Epic Link, e.g. `"Epic Link"` or `cf[10108]`
  */
 export function backlogJqlFragment(
-  epicLinkJql: string = '"Epic Link"'
+  epicLinkJql: string = '"Epic Link"',
+  incompleteness: BacklogIncompleteness = DEFAULT_BACKLOG_INCOMPLETENESS
 ): string {
-  const include = [
-    "assignee is EMPTY",
-    'statusCategory = "To Do"',
-    `(fixVersion is EMPTY AND ${epicLinkJql} is EMPTY)`,
-  ].join(" OR ");
+  const typeGate = `(issuetype = Epic OR (issuetype in (Story, Bug, Task) AND ${epicLinkJql} is EMPTY))`;
+
+  const missing: string[] = [];
+  if (incompleteness.release) {
+    missing.push("fixVersion is EMPTY");
+  }
+  if (incompleteness.assign) {
+    missing.push("assignee is EMPTY");
+  }
+  if (incompleteness.component) {
+    missing.push("component is EMPTY");
+  }
+  if (incompleteness.lens) {
+    const labels = EPIC_LENS_OPTIONS.map((o) => `"${o.jiraLabel}"`).join(", ");
+    // Empty labels do not match `labels not in (...)` on Jira Server.
+    missing.push(`(labels is EMPTY OR labels not in (${labels}))`);
+  }
 
   // Done category covers Done + most Canceled workflows.
-  // Do not list status names in JQL — they vary per project and 400 if missing.
   const exclude = "statusCategory != Done";
 
-  return `((${include}) AND ${exclude})`;
+  return `(${[typeGate, ...missing, exclude].join(" AND ")})`;
+}
+
+export function incompletenessFromFilters(values: {
+  missRelease: string;
+  missAssign: string;
+  missLens: string;
+  missComponent: string;
+}): BacklogIncompleteness {
+  return {
+    release: values.missRelease === "1",
+    assign: values.missAssign === "1",
+    lens: values.missLens === "1",
+    component: values.missComponent === "1",
+  };
+}
+
+/** Client/server post-filter for active incompleteness chips. */
+export function matchesIncompleteness(
+  issue: Pick<
+    OpsIssue,
+    "fixVersionIds" | "assignee" | "components" | "lens"
+  >,
+  incompleteness: BacklogIncompleteness
+): boolean {
+  if (incompleteness.release && issue.fixVersionIds.length > 0) return false;
+  if (incompleteness.assign && issue.assignee) return false;
+  if (incompleteness.component && issue.components.length > 0) return false;
+  if (incompleteness.lens && issue.lens) return false;
+  return true;
 }
 
 /** True when an issue should never appear under the Backlog scope. */

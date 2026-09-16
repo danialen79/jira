@@ -17,10 +17,12 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import {
-  LENS_OPTIONS,
+  EPIC_LENS_OPTIONS,
+  isIssueLens,
   isStoryLens,
+  LENS_OPTIONS,
   lensDisplayLabel,
-  type StoryLens,
+  type IssueLens,
 } from "@/lib/lens";
 import {
   fixVersionValidationError,
@@ -34,7 +36,7 @@ type FormState = {
   description: string;
   issuetype: string;
   selectedAssignee: string;
-  selectedLens: StoryLens | "";
+  selectedLens: IssueLens | "";
   selectedRelease: string;
   epicKey: string;
 };
@@ -135,7 +137,7 @@ export default function OpsIssueEditDialog({
           description: loaded.description || "",
           issuetype: loaded.issuetype || issue.issuetype,
           selectedAssignee: loaded.assignee || "",
-          selectedLens: isStoryLens(loaded.selectedLens)
+          selectedLens: isIssueLens(loaded.selectedLens)
             ? loaded.selectedLens
             : "",
           selectedRelease: loaded.selectedRelease || "",
@@ -218,7 +220,11 @@ export default function OpsIssueEditDialog({
             description: form.description,
             issuetype: form.issuetype,
             selectedAssignee: form.selectedAssignee || "",
-            selectedLens: form.selectedLens || undefined,
+            selectedLens:
+              form.issuetype === "Story" ||
+              form.issuetype.toLowerCase() === "epic"
+                ? form.selectedLens || ""
+                : undefined,
             selectedRelease: showRelease ? form.selectedRelease : "",
             epicKey: form.issuetype.toLowerCase() === "epic" ? undefined : form.epicKey || "",
           },
@@ -282,11 +288,15 @@ export default function OpsIssueEditDialog({
               />
             </Field>
 
-            {form.issuetype === "Story" && (
+            {(form.issuetype === "Story" ||
+              form.issuetype.toLowerCase() === "epic") && (
               <Field>
                 <FieldLabel>{t.lens}</FieldLabel>
                 <SearchableSelect
-                  options={LENS_OPTIONS.map((o) => ({
+                  options={(form.issuetype.toLowerCase() === "epic"
+                    ? EPIC_LENS_OPTIONS
+                    : LENS_OPTIONS
+                  ).map((o) => ({
                     value: o.value,
                     label: lensDisplayLabel(o.value, language),
                   }))}
@@ -294,7 +304,7 @@ export default function OpsIssueEditDialog({
                   onChange={(val) =>
                     setForm({
                       ...form,
-                      selectedLens: (val || "") as StoryLens | "",
+                      selectedLens: (val || "") as IssueLens | "",
                     })
                   }
                   isRtl={isRtl}

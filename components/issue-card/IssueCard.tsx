@@ -139,48 +139,41 @@ function IssueCardHeader({
       ? "min-w-0 flex-1 truncate text-xs font-medium leading-snug text-pretty"
       : "min-w-0 flex-1 text-sm font-medium leading-snug text-pretty";
 
-  const row = (
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation();
+
+  return (
     <div className={cn("flex min-w-0 items-start gap-2", className)}>
       {leading ? (
-        <div
-          className="mt-0.5 shrink-0"
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => e.stopPropagation()}
-        >
+        <div className="mt-0.5 shrink-0" onClick={stop} onKeyDown={stop}>
           {leading}
         </div>
       ) : null}
 
       {ctx.expandable ? (
-        <ChevronDownIcon
-          className={cn(
-            "mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform",
-            ctx.open && "rotate-180"
-          )}
-          aria-hidden
-        />
-      ) : null}
-
-      <div className={titleClass}>{title}</div>
+        <CollapsibleTrigger className="group flex min-w-0 flex-1 cursor-pointer items-start gap-2 text-start outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
+          <ChevronDownIcon
+            className={cn(
+              "mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform",
+              ctx.open && "rotate-180"
+            )}
+            aria-hidden
+          />
+          <div className={titleClass}>{title}</div>
+        </CollapsibleTrigger>
+      ) : (
+        <div className={titleClass}>{title}</div>
+      )}
 
       {badges ? (
         <div
           className="flex max-w-[55%] shrink-0 flex-wrap items-center justify-end gap-1"
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => e.stopPropagation()}
+          onClick={stop}
+          onKeyDown={stop}
         >
           {badges}
         </div>
       ) : null}
     </div>
-  );
-
-  if (!ctx.expandable) return row;
-
-  return (
-    <CollapsibleTrigger className="group w-full cursor-pointer text-start outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
-      {row}
-    </CollapsibleTrigger>
   );
 }
 

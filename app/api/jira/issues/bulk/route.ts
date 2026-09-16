@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getBulkActionDef } from "@/lib/issue-ops/actions";
 import type { BulkActionId, BulkActionResult } from "@/lib/issue-ops/types";
-import { isStoryLens } from "@/lib/lens";
+import { isIssueLens } from "@/lib/lens";
 import { getJiraClient, JiraEnvError } from "@/lib/jira";
 import {
   writeIssueAssignee,
@@ -48,7 +48,7 @@ export async function POST(req: Request) {
     for (const issueKey of keys) {
       try {
         if (action === "setLens") {
-          if (!isStoryLens(params.lens)) {
+          if (!isIssueLens(params.lens)) {
             results.push({
               issueKey,
               success: false,

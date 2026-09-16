@@ -1,4 +1,6 @@
 export type StoryLens = "strategy" | "vision" | "customer" | "business";
+/** Story lenses plus epic-only `mixed` (no shared child lens). */
+export type IssueLens = StoryLens | "mixed";
 
 export const LENS_PREFIX = "lens-";
 
@@ -34,11 +36,28 @@ export const LENS_OPTIONS: ReadonlyArray<{
   },
 ] as const;
 
+export const MIXED_LENS_OPTION = {
+  value: "mixed" as const,
+  labelEn: "Mixed",
+  labelFa: "مختلط",
+  jiraLabel: "lens-mixed",
+};
+
+/** Epic may use any story lens or mixed. */
+export const EPIC_LENS_OPTIONS: ReadonlyArray<{
+  value: IssueLens;
+  labelEn: string;
+  labelFa: string;
+  jiraLabel: string;
+}> = [...LENS_OPTIONS, MIXED_LENS_OPTION];
+
+const ALL_LENS_OPTIONS = EPIC_LENS_OPTIONS;
+
 const LENS_BY_VALUE = new Map(
-  LENS_OPTIONS.map((o) => [o.value, o] as const)
+  ALL_LENS_OPTIONS.map((o) => [o.value, o] as const)
 );
 const LENS_BY_JIRA = new Map(
-  LENS_OPTIONS.map((o) => [o.jiraLabel, o] as const)
+  ALL_LENS_OPTIONS.map((o) => [o.jiraLabel, o] as const)
 );
 
 export function isStoryLens(value: unknown): value is StoryLens {
@@ -50,12 +69,16 @@ export function isStoryLens(value: unknown): value is StoryLens {
   );
 }
 
-export function lensToLabel(lens: StoryLens): string {
+export function isIssueLens(value: unknown): value is IssueLens {
+  return isStoryLens(value) || value === "mixed";
+}
+
+export function lensToLabel(lens: IssueLens): string {
   return LENS_BY_VALUE.get(lens)!.jiraLabel;
 }
 
 export function lensDisplayLabel(
-  lens: StoryLens,
+  lens: IssueLens,
   language: "en" | "fa"
 ): string {
   const opt = LENS_BY_VALUE.get(lens)!;
@@ -65,7 +88,7 @@ export function lensDisplayLabel(
 /** First valid lens-* label wins when multiple are present. */
 export function parseLensFromLabels(
   labels: string[] | null | undefined
-): StoryLens | undefined {
+): IssueLens | undefined {
   if (!labels?.length) return undefined;
   for (const raw of labels) {
     const label = String(raw || "").trim().toLowerCase();
@@ -85,7 +108,7 @@ export function isLensLabel(label: string): boolean {
 /** Strip all lens-* labels, then optionally add the selected lens. */
 export function applyLensToLabels(
   existing: string[] | null | undefined,
-  lens: StoryLens | null | undefined
+  lens: IssueLens | null | undefined
 ): string[] {
   const base = (existing || [])
     .map((l) => String(l || "").trim())
@@ -100,7 +123,7 @@ export function applyLensToLabels(
     out.push(l);
   }
 
-  if (lens && isStoryLens(lens)) {
+  if (lens && isIssueLens(lens)) {
     const jira = lensToLabel(lens);
     if (!seen.has(jira.toLowerCase())) {
       out.push(jira);

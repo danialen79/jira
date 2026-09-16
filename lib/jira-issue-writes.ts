@@ -1,4 +1,4 @@
-import { applyLensToLabels, isStoryLens, type StoryLens } from "@/lib/lens";
+import { applyLensToLabels, isIssueLens, isStoryLens, type IssueLens } from "@/lib/lens";
 import {
   fixVersionValidationError,
   resolveFixVersionForWrite,
@@ -96,9 +96,9 @@ function resolveEpicKeyFromFields(
 export async function writeIssueLens(
   client: JiraWriteClient,
   issueKey: string,
-  lens: StoryLens
+  lens: IssueLens
 ): Promise<{ ok: true } | { ok: false; skipped?: boolean; error: string }> {
-  if (!isStoryLens(lens)) {
+  if (!isIssueLens(lens)) {
     return { ok: false, error: "Invalid lens." };
   }
 
@@ -110,12 +110,19 @@ export async function writeIssueLens(
     return { ok: false, error: loaded.error };
   }
 
-  const issuetype = loaded.fields.issuetype?.name || "";
-  if (issuetype.toLowerCase() !== "story") {
+  const issuetype = (loaded.fields.issuetype?.name || "").toLowerCase();
+  if (issuetype === "sub-task" || issuetype === "subtask") {
     return {
       ok: false,
       skipped: true,
-      error: "Lens applies to Story only.",
+      error: "Lens does not apply to sub-tasks.",
+    };
+  }
+  // Epic may use mixed; Story / Bug / Task use story lenses only.
+  if (issuetype !== "epic" && !isStoryLens(lens)) {
+    return {
+      ok: false,
+      error: "Mixed lens applies to Epic only.",
     };
   }
 

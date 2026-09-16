@@ -1,5 +1,5 @@
 import type { BulkActionId } from "@/lib/issue-ops/types";
-import type { StoryLens } from "@/lib/lens";
+import type { IssueLens } from "@/lib/lens";
 
 export type BulkActionDef = {
   id: BulkActionId;
@@ -11,7 +11,7 @@ export type BulkActionDef = {
 export const OPS_BULK_ACTIONS: BulkActionDef[] = [
   {
     id: "setLens",
-    issuetypes: ["Story"],
+    issuetypes: ["Story", "Bug", "Task", "Epic"],
     requiresConfirm: true,
   },
   {
@@ -35,7 +35,7 @@ export function getBulkActionDef(id: BulkActionId): BulkActionDef | undefined {
   return OPS_BULK_ACTIONS.find((a) => a.id === id);
 }
 
-export type SetLensParams = { lens: StoryLens };
+export type SetLensParams = { lens: IssueLens };
 export type SetAssigneeParams = { assignee: string | null };
 export type SetFixVersionParams = { fixVersionId: string };
 export type SetStatusParams = { statusName: string };

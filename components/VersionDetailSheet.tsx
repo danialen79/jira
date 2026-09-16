@@ -21,6 +21,7 @@ import {
   parseProductVersionParts,
 } from "@/lib/roadmap";
 import type { StoryLens } from "@/lib/lens";
+import { isStoryLens } from "@/lib/lens";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -150,7 +151,9 @@ function countLenses(nodes: VersionIssue[]): {
   const byLens: Partial<Record<StoryLens, number>> = {};
   let none = 0;
   for (const issue of flattenVersionIssues(nodes)) {
-    if (issue.lens) {
+    // Reports count Stories only — never Epics (including mixed).
+    if (issue.issuetype.toLowerCase() !== "story") continue;
+    if (isStoryLens(issue.lens)) {
       byLens[issue.lens] = (byLens[issue.lens] || 0) + 1;
     } else {
       none += 1;

@@ -8,9 +8,11 @@ import {
   JiraUser,
   JiraVersion,
   JiraSprint,
-  StoryLens,
+  IssueLens,
 } from "@/lib/types";
 import {
+  EPIC_LENS_OPTIONS,
+  isIssueLens,
   isLensLabel,
   isStoryLens,
   LENS_OPTIONS,
@@ -339,7 +341,7 @@ export default function RefinedList({
     selectedSprint?: string;
     selectedRelease?: string;
     selectedPriority?: string;
-    selectedLens?: StoryLens | "";
+    selectedLens?: IssueLens | "";
     issuetype: "Epic" | "Story" | "Bug";
   }>({
     summary: "",
@@ -546,7 +548,7 @@ export default function RefinedList({
           selectedPriority: data.issue.priority || "Medium",
           selectedComponent: data.issue.component || undefined,
           selectedAssignee: data.issue.assignee || undefined,
-          selectedLens: isStoryLens(data.issue.selectedLens)
+          selectedLens: isIssueLens(data.issue.selectedLens)
             ? data.issue.selectedLens
             : undefined,
         };
@@ -660,7 +662,10 @@ export default function RefinedList({
               ? ""
               : targetIssue.selectedRelease,
             selectedPriority: targetIssue.selectedPriority,
-            selectedLens: targetIssue.selectedLens,
+            selectedLens:
+              targetIssue.issuetype === "Epic"
+                ? targetIssue.selectedLens ?? ""
+                : targetIssue.selectedLens,
           },
         }),
       });
@@ -783,7 +788,10 @@ export default function RefinedList({
           selectedLens:
             editForm.issuetype === "Story" && isStoryLens(editForm.selectedLens)
               ? editForm.selectedLens
-              : undefined,
+              : editForm.issuetype === "Epic" &&
+                  isIssueLens(editForm.selectedLens)
+                ? editForm.selectedLens
+                : undefined,
         };
       }
       return issue;
@@ -1470,7 +1478,9 @@ export default function RefinedList({
                         issue.selectedPriority ||
                         "Medium"}
                     </Badge>
-                    {issue.issuetype === "Story" && issue.selectedLens ? (
+                    {(issue.issuetype === "Story" ||
+                      issue.issuetype === "Epic") &&
+                    issue.selectedLens ? (
                       <Badge variant="outline">
                         {lensDisplayLabel(issue.selectedLens, language)}
                       </Badge>
@@ -1608,20 +1618,29 @@ export default function RefinedList({
                             ...editForm,
                             issuetype: val as "Epic" | "Story" | "Bug",
                             selectedLens:
-                              val === "Story" ? editForm.selectedLens : "",
+                              val === "Story" || val === "Epic"
+                                ? val === "Story" &&
+                                  editForm.selectedLens === "mixed"
+                                  ? ""
+                                  : editForm.selectedLens
+                                : "",
                           })
                         }
                         isRtl={isRtl}
                       />
                     </Field>
 
-                    {editForm.issuetype === "Story" && (
+                    {(editForm.issuetype === "Story" ||
+                      editForm.issuetype === "Epic") && (
                       <Field>
                         <FieldLabel>{t.lens}</FieldLabel>
                         <SearchableSelect
                           options={[
                             { value: "", label: t.lensNone },
-                            ...LENS_OPTIONS.map((o) => ({
+                            ...(editForm.issuetype === "Epic"
+                              ? EPIC_LENS_OPTIONS
+                              : LENS_OPTIONS
+                            ).map((o) => ({
                               value: o.value,
                               label: language === "fa" ? o.labelFa : o.labelEn,
                               sublabel: o.jiraLabel,
@@ -1631,7 +1650,7 @@ export default function RefinedList({
                           onChange={(val) =>
                             setEditForm({
                               ...editForm,
-                              selectedLens: (val || "") as StoryLens | "",
+                              selectedLens: (val || "") as IssueLens | "",
                             })
                           }
                           isRtl={isRtl}
@@ -2013,7 +2032,8 @@ export default function RefinedList({
                       </div>
                     )}
 
-                    {issue.issuetype === "Story" && (
+                    {(issue.issuetype === "Story" ||
+                      issue.issuetype === "Epic") && (
                       <div className="flex flex-col justify-between gap-3 rounded-lg border bg-muted/40 p-3 text-xs sm:flex-row sm:items-center">
                         <div className="flex items-center gap-1.5 font-medium text-muted-foreground">
                           <span className="inline-block size-2 rounded-full bg-primary" />
@@ -2040,7 +2060,10 @@ export default function RefinedList({
                               <SearchableSelect
                                 options={[
                                   { value: "", label: t.lensNone },
-                                  ...LENS_OPTIONS.map((o) => ({
+                                  ...(issue.issuetype === "Epic"
+                                    ? EPIC_LENS_OPTIONS
+                                    : LENS_OPTIONS
+                                  ).map((o) => ({
                                     value: o.value,
                                     label:
                                       language === "fa" ? o.labelFa : o.labelEn,
@@ -2053,7 +2076,7 @@ export default function RefinedList({
                                     iss.id === issue.id
                                       ? {
                                           ...iss,
-                                          selectedLens: isStoryLens(val)
+                                          selectedLens: isIssueLens(val)
                                             ? val
                                             : undefined,
                                         }

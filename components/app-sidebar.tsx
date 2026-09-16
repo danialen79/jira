@@ -54,9 +54,9 @@ const navItems = [
     labelKey: "tabSupport" as const,
   },
   {
-    href: "/ops",
+    href: "/backlog",
     icon: ListTodo,
-    labelKey: "tabOps" as const,
+    labelKey: "tabBacklog" as const,
   },
   {
     href: "/sprint",

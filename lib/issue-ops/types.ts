@@ -1,4 +1,4 @@
-import type { StoryLens } from "@/lib/lens";
+import type { IssueLens } from "@/lib/lens";
 
 export interface OpsIssue {
   key: string;
@@ -11,7 +11,7 @@ export interface OpsIssue {
   assignee?: string;
   assigneeDisplayName?: string;
   components: string[];
-  lens?: StoryLens;
+  lens?: IssueLens;
   epicKey?: string;
   /** Immediate parent when this is a sub-task. */
   parentKey?: string;
@@ -28,14 +28,18 @@ export interface OpsIssue {
 }
 
 export type OpsFilterValues = {
-  backlog: string;
+  /** "1" = require empty Fix Version */
+  missRelease: string;
+  /** "1" = require unassigned */
+  missAssign: string;
+  /** "1" = require no lens label */
+  missLens: string;
+  /** "1" = require no component */
+  missComponent: string;
   type: string;
   status: string;
-  /** Fix Version id, ALL, or NONE (no owned release). */
-  version: string;
   q: string;
 };
-
 
 export type BulkActionId =
   | "setLens"

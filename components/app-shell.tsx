@@ -1,8 +1,10 @@
 "use client";
 
-import { Languages } from "lucide-react";
+import { Languages, TicketIcon } from "lucide-react";
 import { AppSidebar } from "@/components/app-sidebar";
+import { IssuePeekDock } from "@/components/issue-peek/IssuePeekDock";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useIssuePeek } from "@/components/providers/issue-peek-provider";
 import { useJiraApp } from "@/components/providers/jira-app-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,6 +18,7 @@ import { cn } from "@/lib/utils";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { language, setLanguage, t, jiraConnected, isRtl } = useJiraApp();
+  const { expandAndFocusSearch, issueKey } = useIssuePeek();
 
   return (
     <SidebarProvider className="mx-auto max-w-[1920px]">
@@ -32,6 +35,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </p>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={expandAndFocusSearch}
+                aria-label={isRtl ? "پنل ایشو" : "Issue panel"}
+                title={isRtl ? "پنل ایشو (Ctrl+Shift+J)" : "Issue panel (Ctrl+Shift+J)"}
+              >
+                <TicketIcon data-icon="inline-start" />
+                <span className="hidden sm:inline">
+                  {issueKey || (isRtl ? "ایشو" : "Issue")}
+                </span>
+              </Button>
               <Badge
                 variant={jiraConnected ? "success" : "secondary"}
                 className="hidden sm:inline-flex"
@@ -57,12 +73,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </header>
-        <div
-          id="main-content"
-          tabIndex={-1}
-          className="flex flex-1 flex-col gap-5 p-4 md:p-5"
-        >
-          {children}
+        <div className="flex min-h-0 flex-1 flex-row" dir="ltr">
+          <IssuePeekDock />
+          <div
+            id="main-content"
+            tabIndex={-1}
+            className="flex min-w-0 flex-1 flex-col gap-5 overflow-auto p-4 md:p-5"
+            dir={isRtl ? "rtl" : "ltr"}
+          >
+            {children}
+          </div>
         </div>
       </SidebarInset>
     </SidebarProvider>

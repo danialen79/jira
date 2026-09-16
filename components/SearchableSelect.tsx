@@ -1,10 +1,10 @@
 "use client";
 
+import * as React from "react";
 import {
   Combobox,
   ComboboxContent,
   ComboboxEmpty,
-  ComboboxGroup,
   ComboboxInput,
   ComboboxItem,
   ComboboxList,
@@ -29,6 +29,28 @@ interface SearchableSelectProps {
   disabled?: boolean;
 }
 
+function OptionRow({ opt }: { opt: SearchableSelectOption }) {
+  return (
+    <span className="flex min-w-0 items-center gap-2 truncate">
+      {opt.avatar ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={opt.avatar}
+          alt=""
+          className="size-4 rounded-full object-cover"
+          referrerPolicy="no-referrer"
+        />
+      ) : null}
+      <span className="truncate font-medium">{opt.label}</span>
+      {opt.sublabel ? (
+        <span className="truncate text-xs text-muted-foreground">
+          ({opt.sublabel})
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 export default function SearchableSelect({
   options,
   value,
@@ -40,7 +62,38 @@ export default function SearchableSelect({
   disabled = false,
 }: SearchableSelectProps) {
   const selected = options.find((opt) => opt.value === value);
-  const items = options.map((opt) => opt.value);
+  const items = React.useMemo(
+    () => options.map((opt) => opt.value),
+    [options],
+  );
+  const byValue = React.useMemo(() => {
+    const map = new Map<string, SearchableSelectOption>();
+    for (const opt of options) map.set(opt.value, opt);
+    return map;
+  }, [options]);
+
+  const itemToStringLabel = React.useCallback(
+    (item: string) => byValue.get(item)?.label ?? String(item ?? ""),
+    [byValue],
+  );
+
+  const filter = React.useCallback(
+    (
+      item: string,
+      query: string,
+      toString?: (item: string) => string,
+    ) => {
+      if (!showSearch) return true;
+      const q = query.trim().toLowerCase();
+      if (!q) return true;
+      const opt = byValue.get(item);
+      const label = (toString?.(item) ?? opt?.label ?? item).toLowerCase();
+      const sub = (opt?.sublabel ?? "").toLowerCase();
+      const val = String(item).toLowerCase();
+      return label.includes(q) || sub.includes(q) || val.includes(q);
+    },
+    [byValue, showSearch],
+  );
 
   return (
     <div className={cn("w-full", className)} dir={isRtl ? "rtl" : "ltr"}>
@@ -48,23 +101,15 @@ export default function SearchableSelect({
         items={items}
         value={value || null}
         onValueChange={(next) => {
-          // Ignore clear/blur nulls when clear is disabled — prevents wiping filters
-          if (next == null || next === "") return;
+          // Ignore clear/blur nulls when clear is disabled — prevents wiping filters.
+          // Still allow intentional empty-string options (e.g. Unassign).
+          if (next == null) return;
+          if (next === "" && !byValue.has("")) return;
           onChange(next as string);
         }}
         disabled={disabled}
-        itemToStringLabel={(item) => {
-          const opt = options.find((o) => o.value === item);
-          return opt?.label ?? String(item ?? "");
-        }}
-        {...(showSearch
-          ? {}
-          : {
-              filter: (
-                _item: string,
-                _query: string,
-              ) => true,
-            })}
+        itemToStringLabel={itemToStringLabel}
+        filter={filter}
       >
         <ComboboxInput
           className="w-full"
@@ -77,29 +122,18 @@ export default function SearchableSelect({
             {isRtl ? "یافت نشد" : "No matches found"}
           </ComboboxEmpty>
           <ComboboxList>
-            <ComboboxGroup>
-              {options.map((opt) => (
-                <ComboboxItem key={opt.value} value={opt.value}>
-                  <span className="flex min-w-0 items-center gap-2 truncate">
-                    {opt.avatar ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={opt.avatar}
-                        alt=""
-                        className="size-4 rounded-full object-cover"
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : null}
-                    <span className="truncate font-medium">{opt.label}</span>
-                    {opt.sublabel ? (
-                      <span className="truncate text-xs text-muted-foreground">
-                        ({opt.sublabel})
-                      </span>
-                    ) : null}
-                  </span>
+            {(item) => {
+              const opt = byValue.get(item);
+              if (!opt) return null;
+              return (
+                <ComboboxItem
+                  key={opt.value === "" ? "__empty__" : opt.value}
+                  value={opt.value}
+                >
+                  <OptionRow opt={opt} />
                 </ComboboxItem>
-              ))}
-            </ComboboxGroup>
+              );
+            }}
           </ComboboxList>
         </ComboboxContent>
       </Combobox>

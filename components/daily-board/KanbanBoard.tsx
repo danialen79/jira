@@ -24,6 +24,7 @@ import type { Language } from "@/lib/types";
 import { IssueStatusBadge } from "@/components/IssueStatusBadge";
 import { getIssueTypeBadgeClass } from "@/lib/issue-type-badge";
 import { jiraBrowseUrl } from "@/lib/jira-browse";
+import { IssueKeyLink } from "@/components/issue-card";
 import type { DailyBoardIssue, KanbanColumn } from "@/lib/daily-board/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -60,17 +61,15 @@ function CardBody({
       {...dragHandleProps}
     >
       <div className="flex items-start justify-between gap-2">
-        <a
-          href={jiraBrowseUrl(jiraUrl, issue.key)}
-          target="_blank"
-          rel="noreferrer"
-          referrerPolicy="no-referrer"
-          className="font-mono text-xs font-semibold text-primary hover:underline"
+        <div
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
-          {issue.key}
-        </a>
+          <IssueKeyLink
+            href={jiraBrowseUrl(jiraUrl, issue.key)}
+            issueKey={issue.key}
+          />
+        </div>
         {onAddToLog ? (
           <Button
             type="button"

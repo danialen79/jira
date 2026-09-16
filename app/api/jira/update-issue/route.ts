@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { applyLensToLabels, isStoryLens } from "@/lib/lens";
+import { applyLensToLabels, isIssueLens, isStoryLens } from "@/lib/lens";
 import { convertToJiraWikiMarkup, getJiraClient, JiraEnvError } from "@/lib/jira";
 import {
   fixVersionValidationError,
@@ -22,6 +22,17 @@ export async function POST(req: Request) {
           error:
             "Story requires a Lens (strategy, vision, customer, or business).",
         },
+        { status: 400 }
+      );
+    }
+    if (
+      issue.issuetype === "Epic" &&
+      issue.selectedLens != null &&
+      issue.selectedLens !== "" &&
+      !isIssueLens(issue.selectedLens)
+    ) {
+      return NextResponse.json(
+        { error: "Invalid epic lens." },
         { status: 400 }
       );
     }
@@ -110,7 +121,11 @@ export async function POST(req: Request) {
       fields[epicLinkField] = epicKeyRaw ? epicKeyRaw : null;
     }
 
-    if (issue.issuetype === "Story" && isStoryLens(issue.selectedLens)) {
+    const shouldWriteLens =
+      (issue.issuetype === "Story" && isStoryLens(issue.selectedLens)) ||
+      (issue.issuetype === "Epic" && issue.selectedLens !== undefined);
+
+    if (shouldWriteLens) {
       const getUrl = `${jiraUrl}/rest/api/2/issue/${issueKey}?fields=labels`;
       const getRes = await fetch(getUrl, { method: "GET", headers });
       if (!getRes.ok) {
@@ -126,7 +141,10 @@ export async function POST(req: Request) {
       const existingLabels: string[] = Array.isArray(current.fields?.labels)
         ? current.fields.labels
         : [];
-      fields.labels = applyLensToLabels(existingLabels, issue.selectedLens);
+      const lensValue = isIssueLens(issue.selectedLens)
+        ? issue.selectedLens
+        : null;
+      fields.labels = applyLensToLabels(existingLabels, lensValue);
     }
 
     const updateUrl = `${jiraUrl}/rest/api/2/issue/${issueKey}`;

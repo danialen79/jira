@@ -34,17 +34,17 @@ const copy = {
     lenses: "Lenses",
     done: "Done",
     remaining: "Remaining",
-    noLensData: "No lens-tagged issues yet",
+    noLensData: "No lens-tagged stories yet",
     withoutLens: (n: number) =>
-      n === 1 ? "1 without a lens" : `${n} without a lens`,
+      n === 1 ? "1 story without a lens" : `${n} stories without a lens`,
   },
   fa: {
     progress: "پیشرفت",
     lenses: "لنزها",
     done: "انجام‌شده",
     remaining: "باقی‌مانده",
-    noLensData: "ایشوی دارای لنز نیست",
-    withoutLens: (n: number) => `${n} بدون لنز`,
+    noLensData: "استوری دارای لنز نیست",
+    withoutLens: (n: number) => `${n} استوری بدون لنز`,
   },
 } as const;
 

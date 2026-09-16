@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   applyLensToLabels,
+  isIssueLens,
   isLensLabel,
   isStoryLens,
 } from "@/lib/lens";
@@ -80,7 +81,11 @@ export async function POST(req: Request) {
       issuetype: { name: issue.issuetype },
       labels: applyLensToLabels(
         baseLabels,
-        issue.issuetype === "Story" ? issue.selectedLens : null
+        issue.issuetype === "Story" || issue.issuetype === "Epic"
+          ? isIssueLens(issue.selectedLens)
+            ? issue.selectedLens
+            : null
+          : null
       ),
     };
 

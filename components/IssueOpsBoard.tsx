@@ -45,6 +45,11 @@ const copy = {
   },
 } as const;
 
+function chipUrlValue(value: string): string | null {
+  // Default is on ("1"); only persist when off so URL stays short.
+  return value === "0" ? "0" : null;
+}
+
 export default function IssueOpsBoard() {
   const {
     language,
@@ -66,24 +71,24 @@ export default function IssueOpsBoard() {
 
   useUrlQueryState(
     {
-      // Always persist so toggling off is visible and survives remounts
-      backlog: filters.backlog === "0" ? "0" : "1",
+      rel: chipUrlValue(filters.missRelease),
+      asn: chipUrlValue(filters.missAssign),
+      lens: chipUrlValue(filters.missLens),
+      cmp: chipUrlValue(filters.missComponent),
       type: filters.type === "ALL" ? null : filters.type,
       status: filters.status === "ALL" ? null : filters.status,
-      version: filters.version === "ALL" ? null : filters.version,
       q: filters.q.trim() || null,
     },
     {
-      backlog: null,
+      rel: null,
+      asn: null,
+      lens: null,
+      cmp: null,
       type: null,
       status: null,
-      version: null,
       q: null,
     }
   );
-
-  // Do NOT sync URL → state on every searchParams change: a stale
-  // router.replace can briefly omit `version` and wipe the filter.
 
   const { issues, total, loading, error, refresh } = useIssueOpsQuery(
     filters,
@@ -108,12 +113,10 @@ export default function IssueOpsBoard() {
   const statusOptions = useMemo(() => {
     const set = new Set(issues.map((i) => i.status).filter(Boolean));
     if (filters.status !== "ALL") set.add(filters.status);
-    let list = Array.from(set).sort();
-    if (filters.backlog === "1") {
-      list = list.filter((s) => !isBacklogExcludedStatus(s));
-    }
-    return list;
-  }, [issues, filters.status, filters.backlog]);
+    return Array.from(set)
+      .filter((s) => !isBacklogExcludedStatus(s))
+      .sort();
+  }, [issues, filters.status]);
 
   const patchFilters = (patch: Partial<OpsFilterValues>) => {
     setFilters((prev) => ({ ...prev, ...patch }));
@@ -144,7 +147,6 @@ export default function IssueOpsBoard() {
             isRtl={isRtl}
             values={filters}
             statusOptions={statusOptions}
-            versions={jiraVersions}
             onChange={patchFilters}
           />
         </div>
@@ -204,6 +206,9 @@ export default function IssueOpsBoard() {
           </div>
         </div>
       )}
+
+      {/* Keep list clear of the fixed bulk bar */}
+      {selection.count > 0 ? <div className="h-40 shrink-0" aria-hidden /> : null}
 
       <BulkActionBar
         language={language}

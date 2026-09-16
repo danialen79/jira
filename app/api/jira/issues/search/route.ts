@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { isBacklogExcludedStatus } from "@/lib/issue-ops/backlog";
+import {
+  incompletenessFromFilters,
+  isBacklogExcludedStatus,
+  matchesIncompleteness,
+} from "@/lib/issue-ops/backlog";
 import { buildOpsSearchJql, parseOpsFilters } from "@/lib/issue-ops/filters";
 import { mapRawToOpsIssue } from "@/lib/issue-ops/map";
 import { getJiraClient, JiraEnvError } from "@/lib/jira";
@@ -87,76 +91,6 @@ async function fetchEpicFixVersions(opts: {
   return map;
 }
 
-async function resolveVersionName(opts: {
-  jiraUrl: string;
-  headers: HeadersInit;
-  projectKey: string;
-  versionValue: string;
-}): Promise<string | null> {
-  const { versionValue } = opts;
-  if (!versionValue || versionValue === "ALL" || versionValue === "NONE") {
-    return null;
-  }
-  if (!/^\d+$/.test(versionValue)) return versionValue;
-  try {
-    const response = await fetch(
-      `${opts.jiraUrl}/rest/api/2/project/${opts.projectKey}/versions`,
-      { method: "GET", headers: opts.headers }
-    );
-    if (!response.ok) return null;
-    const data = await response.json();
-    const hit = (data || []).find(
-      (v: { id?: string | number }) => String(v.id) === versionValue
-    );
-    return hit?.name ? String(hit.name) : null;
-  } catch {
-    return null;
-  }
-}
-
-async function fetchEpicKeysWithFixVersion(opts: {
-  jiraUrl: string;
-  headers: HeadersInit;
-  projectKey: string;
-  versionValue: string;
-  versionName?: string | null;
-}): Promise<string[]> {
-  const { versionValue, versionName } = opts;
-  if (!versionValue || versionValue === "ALL" || versionValue === "NONE") {
-    return [];
-  }
-  const isId = /^\d+$/.test(versionValue);
-  const fvParts: string[] = [];
-  if (isId) fvParts.push(`fixVersion = ${versionValue}`);
-  if (versionName) {
-    fvParts.push(
-      `fixVersion = "${versionName.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`
-    );
-  } else if (!isId) {
-    fvParts.push(
-      `fixVersion = "${versionValue.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`
-    );
-  }
-  const fv =
-    fvParts.length <= 1 ? fvParts[0] : `(${fvParts.join(" OR ")})`;
-  if (!fv) return [];
-  const jql = `project = '${opts.projectKey}' AND issuetype = Epic AND ${fv}`;
-  try {
-    const { issues } = await jiraSearch({
-      jiraUrl: opts.jiraUrl,
-      headers: opts.headers,
-      jql,
-      fields: ["summary"],
-      startAt: 0,
-      maxResults: 200,
-    });
-    return issues.map((i: { key: string }) => i.key as string);
-  } catch (e) {
-    console.warn("Failed to fetch epics for version filter", versionValue, e);
-    return [];
-  }
-}
-
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
@@ -177,25 +111,8 @@ export async function GET(req: Request) {
     const { jiraUrl, headers, projectKey, config } = getJiraClient();
     const epicLinkField = config.epicLinkField || "customfield_10014";
 
-    const versionName = await resolveVersionName({
-      jiraUrl,
-      headers,
-      projectKey,
-      versionValue: filters.version,
-    });
-
-    const epicKeysWithVersion = await fetchEpicKeysWithFixVersion({
-      jiraUrl,
-      headers,
-      projectKey,
-      versionValue: filters.version,
-      versionName,
-    });
-
     const jql = buildOpsSearchJql(projectKey, filters, {
       epicLinkField,
-      epicKeysWithVersion,
-      versionName,
     });
 
     const fields = [
@@ -220,16 +137,13 @@ export async function GET(req: Request) {
       maxResults,
     });
 
+    const incompleteness = incompletenessFromFilters(filters);
+
     let issues = rawIssues
       .map((raw) => mapRawToOpsIssue(raw, epicLinkField))
-      .filter((i) => !i.isSubtask);
-
-    // Belt-and-suspenders: never show Done/Canceled in backlog scope
-    if (filters.backlog === "1") {
-      issues = issues.filter(
-        (i) => !isBacklogExcludedStatus(i.status, i.statusCategoryKey)
-      );
-    }
+      .filter((i) => !i.isSubtask)
+      .filter((i) => !isBacklogExcludedStatus(i.status, i.statusCategoryKey))
+      .filter((i) => matchesIncompleteness(i, incompleteness));
 
     const childEpicKeys = issues
       .filter((i) => !i.ownsFixVersion && i.epicKey)

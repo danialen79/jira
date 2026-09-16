@@ -1,10 +1,15 @@
-import { backlogJqlFragment, epicLinkJqlToken } from "@/lib/issue-ops/backlog";
+import {
+  backlogJqlFragment,
+  epicLinkJqlToken,
+  incompletenessFromFilters,
+} from "@/lib/issue-ops/backlog";
 import type { OpsFilterValues } from "@/lib/issue-ops/types";
 
 export type FilterDef = {
   id: keyof OpsFilterValues;
   urlKey: string;
   defaultValue: string;
+  /** When false, value is only used by backlogJqlFragment / post-filters. */
   toJql: (value: string, ctx?: { epicLinkJql?: string }) => string | null;
 };
 
@@ -16,13 +21,28 @@ function escapeJqlString(raw: string): string {
 
 export const OPS_FILTER_DEFS: FilterDef[] = [
   {
-    id: "backlog",
-    urlKey: "backlog",
+    id: "missRelease",
+    urlKey: "rel",
     defaultValue: "1",
-    toJql: (value, ctx) =>
-      value === "1"
-        ? backlogJqlFragment(ctx?.epicLinkJql || '"Epic Link"')
-        : null,
+    toJql: () => null,
+  },
+  {
+    id: "missAssign",
+    urlKey: "asn",
+    defaultValue: "1",
+    toJql: () => null,
+  },
+  {
+    id: "missLens",
+    urlKey: "lens",
+    defaultValue: "1",
+    toJql: () => null,
+  },
+  {
+    id: "missComponent",
+    urlKey: "cmp",
+    defaultValue: "1",
+    toJql: () => null,
   },
   {
     id: "type",
@@ -43,25 +63,6 @@ export const OPS_FILTER_DEFS: FilterDef[] = [
     },
   },
   {
-    id: "version",
-    urlKey: "version",
-    defaultValue: "ALL",
-    /**
-     * NONE → owners without Fix Version.
-     * Numeric id → handled in buildOpsSearchJql (may expand via epic children).
-     * Name fallback → fixVersion = "name"
-     */
-    toJql: (value, ctx) => {
-      if (!value || value === "ALL") return null;
-      if (value === "NONE") {
-        const epic = ctx?.epicLinkJql || '"Epic Link"';
-        return `(fixVersion is EMPTY AND (${epic} is EMPTY OR issuetype = Epic))`;
-      }
-      // Specific version: clause built in buildOpsSearchJql with epic expansion
-      return null;
-    },
-  },
-  {
     id: "q",
     urlKey: "q",
     defaultValue: "",
@@ -77,10 +78,12 @@ export const OPS_FILTER_DEFS: FilterDef[] = [
 ];
 
 export const OPS_FILTER_DEFAULTS: OpsFilterValues = {
-  backlog: "1",
+  missRelease: "1",
+  missAssign: "1",
+  missLens: "1",
+  missComponent: "1",
   type: "ALL",
   status: "ALL",
-  version: "ALL",
   q: "",
 };
 
@@ -103,53 +106,25 @@ export function parseOpsFilters(
   return out;
 }
 
-/** Build JQL clauses from active filters (AND). */
+/** Build JQL clauses from type/status/q filters (AND). */
 export function filtersToJqlClauses(
   values: OpsFilterValues,
   ctx?: { epicLinkJql?: string }
 ): string[] {
   const clauses: string[] = [];
   for (const def of OPS_FILTER_DEFS) {
+    if (
+      def.id === "missRelease" ||
+      def.id === "missAssign" ||
+      def.id === "missLens" ||
+      def.id === "missComponent"
+    ) {
+      continue;
+    }
     const fragment = def.toJql(values[def.id] ?? def.defaultValue, ctx);
     if (fragment) clauses.push(fragment);
   }
   return clauses;
-}
-
-/**
- * Fix Version match: issue owns the version, or is linked to an epic that owns it.
- * Prefer name when provided — some Jira Server setups resolve name more reliably than id.
- */
-export function versionFilterJql(
-  versionValue: string,
-  epicKeysWithVersion: string[],
-  epicLinkJql: string,
-  versionName?: string | null
-): string | null {
-  if (!versionValue || versionValue === "ALL" || versionValue === "NONE") {
-    return null;
-  }
-
-  const isId = /^\d+$/.test(versionValue);
-  const parts: string[] = [];
-  if (isId) {
-    parts.push(`fixVersion = ${versionValue}`);
-  }
-  const name = (versionName || (!isId ? versionValue : "")).trim();
-  if (name) {
-    parts.push(`fixVersion = "${escapeJqlString(name)}"`);
-  }
-  if (parts.length === 0) {
-    parts.push(`fixVersion = "${escapeJqlString(versionValue)}"`);
-  }
-  const fvClause = parts.length === 1 ? parts[0] : `(${parts.join(" OR ")})`;
-
-  if (epicKeysWithVersion.length === 0) {
-    return fvClause;
-  }
-
-  const keys = epicKeysWithVersion.map((k) => `"${k}"`).join(", ");
-  return `(${fvClause} OR ${epicLinkJql} in (${keys}))`;
 }
 
 export function buildOpsSearchJql(
@@ -157,28 +132,19 @@ export function buildOpsSearchJql(
   values: OpsFilterValues,
   opts?: {
     epicLinkField?: string;
-    /** Epic keys that already have the selected Fix Version (for inheritance). */
-    epicKeysWithVersion?: string[];
-    versionName?: string | null;
   }
 ): string {
   const epicLinkJql = epicLinkJqlToken(
     opts?.epicLinkField || "customfield_10014"
   );
+  const incompleteness = incompletenessFromFilters(values);
   const clauses = [
     `project = '${projectKey}'`,
-    // Ops list is parents only; sub-tasks load on demand per story
+    // List is parents only; sub-tasks / epic children load on demand
     "issuetype not in subTaskIssueTypes()",
+    backlogJqlFragment(epicLinkJql, incompleteness),
     ...filtersToJqlClauses(values, { epicLinkJql }),
   ];
-
-  const versionClause = versionFilterJql(
-    values.version,
-    opts?.epicKeysWithVersion || [],
-    epicLinkJql,
-    opts?.versionName
-  );
-  if (versionClause) clauses.push(versionClause);
 
   return `${clauses.join(" AND ")} ORDER BY updated DESC`;
 }

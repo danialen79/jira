@@ -13,6 +13,10 @@ type SearchResponse = {
   error?: string;
 };
 
+function chipParam(value: string): string {
+  return value === "0" ? "0" : "1";
+}
+
 export function useIssueOpsQuery(
   filters: OpsFilterValues,
   startAt: number,
@@ -45,14 +49,14 @@ export function useIssueOpsQuery(
       setError(null);
       try {
         const params = new URLSearchParams();
-        if (filters.backlog === "1") params.set("backlog", "1");
-        else params.set("backlog", "0");
+        params.set("rel", chipParam(filters.missRelease));
+        params.set("asn", chipParam(filters.missAssign));
+        params.set("lens", chipParam(filters.missLens));
+        params.set("cmp", chipParam(filters.missComponent));
         if (filters.type && filters.type !== "ALL")
           params.set("type", filters.type);
         if (filters.status && filters.status !== "ALL")
           params.set("status", filters.status);
-        if (filters.version && filters.version !== "ALL")
-          params.set("version", filters.version);
         if (filters.q.trim()) params.set("q", filters.q.trim());
         params.set("startAt", String(startAt));
         params.set("maxResults", String(maxResults));

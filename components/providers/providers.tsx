@@ -1,7 +1,9 @@
 "use client";
 
+import { Suspense } from "react";
 import { ThemeProvider } from "next-themes";
 import { AiSettingsProvider } from "@/components/providers/ai-settings-provider";
+import { IssuePeekProvider } from "@/components/providers/issue-peek-provider";
 import { JiraAppProvider } from "@/components/providers/jira-app-provider";
 import { LocalStorageMigrator } from "@/components/providers/local-storage-migrator";
 import { AppShell } from "@/components/app-shell";
@@ -20,7 +22,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <LocalStorageMigrator>
           <JiraAppProvider>
             <AiSettingsProvider>
-              <AppShell>{children}</AppShell>
+              <Suspense fallback={null}>
+                <IssuePeekProvider>
+                  <AppShell>{children}</AppShell>
+                </IssuePeekProvider>
+              </Suspense>
               <Toaster richColors position="top-center" />
             </AiSettingsProvider>
           </JiraAppProvider>
