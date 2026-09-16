@@ -13,7 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import type { Language } from "@/lib/types";
+
 import { useAiSettings } from "@/components/providers/ai-settings-provider";
 import type {
   AIWorklogPlanItem,
@@ -34,34 +34,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
-const copy = {
-  en: {
-    chipsEmpty: "Add tickets with +",
-    timePh: "2h 30m",
-    notePh: "Note…",
-    logBtn: "Log",
-    logging: "Logging…",
-    tabLog: "Log",
-    tabAi: "AI",
-    tabRecent: "Recent",
-    aiPlaceholder: "What you did today…",
-    aiAnalyze: "Analyze",
-    aiPlanning: "Analyzing…",
-    aiPublish: "Publish",
-    aiPublishing: "Publishing…",
-    needChips: "Add a ticket chip first.",
-    needFocus: "Select a ticket chip.",
-    needTime: "Enter time spent.",
-    logOk: "Work logged.",
-    planEmpty: "No plan items.",
-    publishOk: "Worklogs published.",
-    clearChips: "Clear",
-    removeChip: "Remove",
-    expand: "Expand",
-    collapse: "Collapse",
-    noRecent: "No recent logs.",
-  },
-  fa: {
+const t = {
     chipsEmpty: "با + ایشو اضافه کنید",
     timePh: "۲h ۳۰m",
     notePh: "توضیح…",
@@ -86,8 +59,7 @@ const copy = {
     expand: "باز",
     collapse: "بسته",
     noRecent: "لاگ اخیری نیست.",
-  },
-};
+  };;
 
 type DockTab = "log" | "ai" | "recent";
 
@@ -95,10 +67,7 @@ function getLocalDatetimeString() {
   return formatJiraWorklogStarted(new Date());
 }
 
-export default function WorklogDock({
-  language,
-  isRtl,
-  jiraUrl,
+export default function WorklogDock({  jiraUrl,
   chips,
   focusedKey,
   onFocusChip,
@@ -108,8 +77,6 @@ export default function WorklogDock({
   recentLogs,
   onLogged,
 }: {
-  language: Language;
-  isRtl: boolean;
   jiraUrl: string;
   chips: WorklogChip[];
   focusedKey: string | null;
@@ -120,7 +87,6 @@ export default function WorklogDock({
   recentLogs: RecentLogItem[];
   onLogged: () => void;
 }) {
-  const t = copy[language];
   const { aiProvider, selectedModel } = useAiSettings();
 
   const [tab, setTab] = useState<DockTab>("log");
@@ -213,9 +179,7 @@ export default function WorklogDock({
                 issuetype: "Story",
                 status: "",
                 assignee: "",
-              })),
-          language,
-          model: selectedModel,
+              })),          model: selectedModel,
           provider: aiProvider,
           constrainToIssues: true,
         }),
@@ -271,7 +235,7 @@ export default function WorklogDock({
         next[i] = {
           ...item,
           status: "failed",
-          error: language === "fa" ? "کلید ایشو نامعتبر" : "Invalid issue key",
+          error: "کلید ایشو نامعتبر",
         };
         setAiPlan([...next]);
         continue;
@@ -324,11 +288,7 @@ export default function WorklogDock({
       toast.success(t.publishOk);
       setAiPrompt("");
     } else {
-      toast.error(
-        language === "fa"
-          ? `${failed.length} مورد ناموفق`
-          : `${failed.length} failed`
-      );
+      toast.error(`${failed.length} مورد ناموفق`);
     }
     setPublishing(false);
     onLogged();
@@ -339,10 +299,10 @@ export default function WorklogDock({
   return (
     <div
       className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 shadow-[0_-4px_24px_rgba(0,0,0,0.06)] backdrop-blur supports-backdrop-filter:bg-background/90"
-      dir={isRtl ? "rtl" : "ltr"}
+      dir="rtl"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
-      <div className="mx-auto flex max-w-[1920px] flex-col gap-2 p-2.5 md:px-4">
+      <div className="mx-auto flex max-w-[2560px] flex-col gap-2 p-2.5 md:px-4">
         {/* Chips row */}
         <div className="flex min-h-8 items-center gap-2">
           <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto pe-1">

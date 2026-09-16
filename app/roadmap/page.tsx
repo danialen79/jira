@@ -6,10 +6,7 @@ import { useJiraApp } from "@/components/providers/jira-app-provider";
 import { Spinner } from "@/components/ui/spinner";
 
 function RoadmapBody() {
-  const {
-    language,
-    isRtl,
-    jiraUrl,
+  const { jiraUrl,
     jiraConnected,
     jiraVersions,
     fetchingVersions,
@@ -18,8 +15,6 @@ function RoadmapBody() {
 
   return (
     <VersionRoadmap
-      language={language}
-      isRtl={isRtl}
       jiraUrl={jiraUrl}
       jiraConnected={jiraConnected}
       versions={jiraVersions}

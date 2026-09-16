@@ -3,27 +3,17 @@
 import { AlertTriangleIcon } from "lucide-react";
 import { IssuePeekDescription } from "@/components/issue-peek/IssuePeekDescription";
 import { useIssuePeek } from "@/components/providers/issue-peek-provider";
-import { useJiraApp } from "@/components/providers/jira-app-provider";
 import type { PeekIssue } from "@/lib/issue-peek";
 
-const copy = {
-  en: {
-    priority: "Priority",
-    repro: "Repro / details",
-    related: "Related",
-  },
-  fa: {
+const t = {
     priority: "اولویت",
     repro: "بازتولید / جزئیات",
     related: "مرتبط",
-  },
-} as const;
+  } as const;
 
 type Props = { issue: PeekIssue };
 
 export function BugLayout({ issue }: Props) {
-  const { language } = useJiraApp();
-  const t = copy[language];
   const { openIssue } = useIssuePeek();
 
   return (

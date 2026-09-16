@@ -17,59 +17,34 @@ import type {
   JiraSprint,
   JiraUser,
   JiraVersion,
-  Language,
   RefinedIssue,
 } from "@/lib/types";
 import type { AIProvider } from "@/lib/ai-providers";
 
 const appTranslations = {
-  en: {
-    toastSuccess: "Stories refined.",
-    toastError: "Refinement failed. Check your inputs.",
-    jiraStatus: "Jira",
-    connected: "Connected",
-    disconnected: "Not configured",
-    tabHealth: "Health",
-    tabWorkspace: "Workspace",
-    tabDailyBoard: "Daily Board",
-    tabSupport: "Support",
-    tabBacklog: "Backlog",
-    tabSprint: "Sprint",
-    tabMattermost: "Mattermost",
-    tabEpicSync: "Epic Sync",
-    tabRoadmap: "Roadmap",
-    tabSettings: "AI Settings",
-    heroTitle: "Jira AI Workspace",
-    heroSubtitle: "Draft, refine, and publish to self-hosted Jira.",
-    supportSubtitle: "PS inbox → review, comment, create or link SIP.",
-    draftSection: "1. Draft & refine",
-    boardSection: "2. Review & publish",
-  },
-  fa: {
-    toastSuccess: "تیکت‌ها اصلاح شدند.",
-    toastError: "اصلاح ناموفق بود. ورودی‌ها را بررسی کنید.",
-    jiraStatus: "جیرا",
-    connected: "متصل",
-    disconnected: "پیکربندی نشده",
-    tabHealth: "سلامت",
-    tabWorkspace: "کارگاه",
-    tabDailyBoard: "بورد روزانه",
-    tabSupport: "ساپورت",
-    tabBacklog: "بک‌لاگ",
-    tabSprint: "اسپرینت",
-    tabMattermost: "مترموست",
-    tabEpicSync: "همگام‌سازی اپیک",
-    tabRoadmap: "رودمپ",
-    tabSettings: "تنظیمات AI",
-    heroTitle: "جیرا AI",
-    heroSubtitle: "پیش‌نویس، اصلاح و انتشار در جیرای سلف‌هاست.",
-    supportSubtitle: "صف PS → بررسی، کامنت، ساخت یا لینک SIP.",
-    draftSection: "۱. پیش‌نویس و اصلاح",
-    boardSection: "۲. بازبینی و انتشار",
-  },
+  toastSuccess: "تیکت‌ها اصلاح شدند.",
+  toastError: "اصلاح ناموفق بود. ورودی‌ها را بررسی کنید.",
+  jiraStatus: "جیرا",
+  connected: "متصل",
+  disconnected: "پیکربندی نشده",
+  tabHealth: "سلامت",
+  tabWorkspace: "کارگاه",
+  tabDailyBoard: "بورد روزانه",
+  tabSupport: "ساپورت",
+  tabBacklog: "بک‌لاگ",
+  tabSprint: "اسپرینت",
+  tabMattermost: "مترموست",
+  tabEpicSync: "همگام‌سازی اپیک",
+  tabRoadmap: "رودمپ",
+  tabSettings: "تنظیمات AI",
+  heroTitle: "جیرا AI",
+  heroSubtitle: "پیش‌نویس، اصلاح و انتشار در جیرای سلف‌هاست.",
+  supportSubtitle: "صف PS → بررسی، کامنت، ساخت یا لینک SIP.",
+  draftSection: "۱. پیش‌نویس و اصلاح",
+  boardSection: "۲. بازبینی و انتشار",
 } as const;
 
-type AppTranslations = (typeof appTranslations)[Language];
+type AppTranslations = typeof appTranslations;
 
 interface JiraSessionUser {
   name?: string;
@@ -78,9 +53,8 @@ interface JiraSessionUser {
 }
 
 interface JiraAppContextValue {
-  language: Language;
-  setLanguage: (lang: Language) => void;
   t: AppTranslations;
+  /** UI is Persian-only; layout is always RTL. */
   isRtl: boolean;
   jiraUrl: string;
   jiraUsername: string;
@@ -144,9 +118,7 @@ const defaultConfig: ConnectionConfig = {
 
 export function JiraAppProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const [language, setLanguage] = useState<Language>("fa");
-  const t = appTranslations[language];
-  const isRtl = language === "fa";
+  const t = appTranslations;
 
   const [importedDraftText, setImportedDraftText] = useState<string | undefined>();
   const [jiraUrl, setJiraUrl] = useState("");
@@ -173,11 +145,6 @@ export function JiraAppProvider({ children }: { children: React.ReactNode }) {
   const [issues, setIssues] = useState<RefinedIssue[]>([]);
   const [refining, setRefining] = useState(false);
   const [workspaceHydrated, setWorkspaceHydrated] = useState(false);
-
-  useEffect(() => {
-    document.documentElement.lang = language;
-    document.documentElement.dir = isRtl ? "rtl" : "ltr";
-  }, [language, isRtl]);
 
   useEffect(() => {
     let cancelled = false;
@@ -486,7 +453,7 @@ export function JiraAppProvider({ children }: { children: React.ReactNode }) {
         const message =
           err instanceof Error
             ? err.message
-            : "Failed to contact refinement endpoint.";
+            : "ارتباط با سرویس اصلاح برقرار نشد.";
         toast.error(message);
       } finally {
         setRefining(false);
@@ -519,10 +486,8 @@ export function JiraAppProvider({ children }: { children: React.ReactNode }) {
   }, [jiraConnected, fetchExistingEpics, fetchComponents, fetchJiraUsers]);
 
   const value: JiraAppContextValue = {
-    language,
-    setLanguage,
     t,
-    isRtl,
+    isRtl: true,
     jiraUrl,
     jiraUsername,
     projectKey,

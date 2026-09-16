@@ -36,14 +36,11 @@ import {
 } from "@/components/ui/toggle-group";
 import { useIssueSelection } from "@/hooks/use-issue-selection";
 import { nestSprintIssues, statusBucket } from "@/lib/sprint/map";
-import type { JiraSprint, Language, SprintIssue } from "@/lib/types";
+import type { JiraSprint, SprintIssue } from "@/lib/types";
 
 type StatusFilter = "ALL" | "todo" | "inProgress" | "done";
 
-type Props = {
-  language: Language;
-  isRtl: boolean;
-  jiraUrl: string;
+type Props = {  jiraUrl: string;
   issues: SprintIssue[];
   loading: boolean;
   futureSprints: JiraSprint[];
@@ -51,32 +48,7 @@ type Props = {
   onMoved: () => void;
 };
 
-const copy = {
-  en: {
-    all: "All",
-    todo: "To Do",
-    ip: "In progress",
-    done: "Done",
-    search: "Search key or summary",
-    selectAll: "Select visible",
-    selected: "selected",
-    clear: "Clear",
-    moveTo: "Move to",
-    backlog: "Backlog",
-    apply: "Move",
-    moving: "Moving…",
-    empty: "No issues",
-    emptyHint: "This sprint has no matching work.",
-    unassigned: "Unassigned",
-    moved: "Moved.",
-    fail: "Move failed.",
-    subDone: (done: number, total: number) => `${done}/${total} done`,
-    viewSubs: "Sub-tasks",
-    subsTitle: "Sub-tasks",
-    parentOutside: "Parent outside sprint",
-    noSubs: "No sub-tasks",
-  },
-  fa: {
+const t = {
     all: "همه",
     todo: "باز",
     ip: "در جریان",
@@ -99,8 +71,7 @@ const copy = {
     subsTitle: "ساب‌تسک‌ها",
     parentOutside: "والد خارج از اسپرینت",
     noSubs: "ساب‌تسکی نیست",
-  },
-} as const;
+  } as const;
 
 function issueMatches(
   issue: SprintIssue,
@@ -154,18 +125,13 @@ function filterRoots(
   return out;
 }
 
-export default function SprintWorkPanel({
-  language,
-  isRtl,
-  jiraUrl,
+export default function SprintWorkPanel({  jiraUrl,
   issues,
   loading,
   futureSprints,
   currentSprintId,
   onMoved,
-}: Props) {
-  const t = copy[language];
-  const [status, setStatus] = useState<StatusFilter>("ALL");
+}: Props) {  const [status, setStatus] = useState<StatusFilter>("ALL");
   const [q, setQ] = useState("");
   const [dest, setDest] = useState("");
   const [moving, setMoving] = useState(false);
@@ -219,7 +185,7 @@ export default function SprintWorkPanel({
   };
 
   return (
-    <div className="flex flex-col gap-3" dir={isRtl ? "rtl" : "ltr"}>
+    <div className="flex flex-col gap-3" dir="rtl">
       <div className="flex flex-wrap items-center gap-2">
         <ToggleGroup
           value={[status]}
@@ -258,8 +224,7 @@ export default function SprintWorkPanel({
             onChange={setDest}
             placeholder={t.moveTo}
             showSearch={false}
-            isRtl={isRtl}
-          />
+            />
           <Button
             size="sm"
             onClick={() => void handleMove()}

@@ -6,12 +6,11 @@ import { useJiraApp } from "@/components/providers/jira-app-provider";
 import { Spinner } from "@/components/ui/spinner";
 
 function DailyBoardBody() {
-  const { language, jiraUrl, jiraUsername, jiraConnected, jiraUsers } =
+  const { jiraUrl, jiraUsername, jiraConnected, jiraUsers } =
     useJiraApp();
 
   return (
     <MyDailyBoard
-      language={language}
       jiraUrl={jiraUrl}
       jiraUsername={jiraUsername}
       jiraConnected={jiraConnected}

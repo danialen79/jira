@@ -23,7 +23,6 @@ interface SearchableMultiSelectProps {
   placeholder?: string;
   showSearch?: boolean;
   className?: string;
-  isRtl?: boolean;
   disabled?: boolean;
 }
 
@@ -53,10 +52,9 @@ export default function SearchableMultiSelect({
   options,
   value,
   onChange,
-  placeholder = "Select…",
+  placeholder = "انتخاب…",
   showSearch = true,
   className,
-  isRtl = false,
   disabled = false,
 }: SearchableMultiSelectProps) {
   const anchor = useComboboxAnchor();
@@ -96,7 +94,7 @@ export default function SearchableMultiSelect({
   );
 
   return (
-    <div className={cn("w-full", className)} dir={isRtl ? "rtl" : "ltr"}>
+    <div className={cn("w-full", className)} dir="rtl">
       <Combobox
         multiple
         items={items}
@@ -136,7 +134,7 @@ export default function SearchableMultiSelect({
         </ComboboxChips>
         <ComboboxContent anchor={anchor} className="min-w-[280px] md:min-w-[340px]">
           <ComboboxEmpty>
-            {isRtl ? "یافت نشد" : "No matches found"}
+            یافت نشد
           </ComboboxEmpty>
           <ComboboxList>
             {(item) => {

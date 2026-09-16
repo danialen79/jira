@@ -7,25 +7,7 @@ import { formatJiraSeconds } from "@/lib/issue-peek";
 import { lensDisplayLabel } from "@/lib/lens";
 import { cn } from "@/lib/utils";
 
-const labels = {
-  en: {
-    assignee: "Assignee",
-    priority: "Priority",
-    component: "Component",
-    sprint: "Sprint",
-    fixVersion: "Fix version",
-    epic: "Epic",
-    parent: "Parent",
-    lens: "Lens",
-    created: "Created",
-    updated: "Updated",
-    spent: "Time spent",
-    remaining: "Remaining",
-    original: "Original est.",
-    unassigned: "Unassigned",
-    none: "—",
-  },
-  fa: {
+const t = {
     assignee: "مسئول",
     priority: "اولویت",
     component: "کامپوننت",
@@ -41,8 +23,7 @@ const labels = {
     original: "برآورد اولیه",
     unassigned: "بدون مسئول",
     none: "—",
-  },
-} as const;
+  } as const;
 
 function formatDate(iso: string | undefined, locale: string): string {
   if (!iso) return "—";
@@ -66,9 +47,8 @@ type Props = {
 };
 
 export function IssuePeekKv({ issue, extra, className, onOpenKey }: Props) {
-  const { language, isRtl, jiraSprints } = useJiraApp();
-  const t = labels[language];
-  const locale = language === "fa" ? "fa-IR" : "en-US";
+  const { jiraSprints } = useJiraApp();
+  const locale = "fa-IR";
 
   const sprintLabel =
     issue.sprintName ||
@@ -135,7 +115,7 @@ export function IssuePeekKv({ issue, extra, className, onOpenKey }: Props) {
   if (issue.selectedLens) {
     rows.push({
       label: t.lens,
-      value: lensDisplayLabel(issue.selectedLens, language),
+      value: lensDisplayLabel(issue.selectedLens),
     });
   }
 
@@ -155,7 +135,7 @@ export function IssuePeekKv({ issue, extra, className, onOpenKey }: Props) {
   return (
     <dl
       className={cn("grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs", className)}
-      dir={isRtl ? "rtl" : "ltr"}
+      dir="rtl"
     >
       {rows.map((row) => (
         <div key={row.label} className="contents">

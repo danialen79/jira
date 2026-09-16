@@ -24,32 +24,9 @@ import {
 } from "@/lib/lens";
 import type { BulkActionId } from "@/lib/issue-ops/types";
 import { selectableFixVersions } from "@/lib/fix-version-policy";
-import type { JiraUser, JiraVersion, Language } from "@/lib/types";
+import type { JiraUser, JiraVersion } from "@/lib/types";
 
-const copy = {
-  en: {
-    selected: "selected",
-    clear: "Clear",
-    setLens: "Set lens",
-    setAssignee: "Assign",
-    setVersion: "Set version",
-    setStatus: "Set status",
-    confirmTitle: "Apply to selected?",
-    confirmDesc: "Updates selected issues in Jira.",
-    apply: "Apply",
-    cancel: "Cancel",
-    applying: "Applying…",
-    pickLens: "Lens",
-    pickAssignee: "Assignee",
-    pickVersion: "Fix Version",
-    pickStatus: "Status",
-    unassign: "Unassign",
-    none: "None",
-    done: "Updated",
-    skipped: "skipped",
-    failed: "Bulk update failed.",
-  },
-  fa: {
+const t = {
     selected: "انتخاب‌شده",
     clear: "پاک کردن",
     setLens: "تنظیم لنز",
@@ -70,8 +47,7 @@ const copy = {
     done: "به‌روز شد",
     skipped: "رد شد",
     failed: "به‌روزرسانی گروهی ناموفق بود.",
-  },
-} as const;
+  } as const;
 
 type PendingAction = {
   action: BulkActionId;
@@ -79,8 +55,6 @@ type PendingAction = {
 };
 
 type Props = {
-  language: Language;
-  isRtl: boolean;
   count: number;
   selectedKeys: string[];
   users: JiraUser[];
@@ -90,10 +64,7 @@ type Props = {
   onDone: () => void;
 };
 
-export default function BulkActionBar({
-  language,
-  isRtl,
-  count,
+export default function BulkActionBar({  count,
   selectedKeys,
   users,
   versions,
@@ -101,7 +72,6 @@ export default function BulkActionBar({
   onClear,
   onDone,
 }: Props) {
-  const t = copy[language];
   const [lens, setLens] = useState<string>("");
   const [assignee, setAssignee] = useState<string>("");
   const [versionId, setVersionId] = useState<string>("");
@@ -154,19 +124,15 @@ export default function BulkActionBar({
 
   const openConfirm = (action: BulkActionId, params: Record<string, unknown>) => {
     if (action === "setLens" && !isIssueLens(params.lens)) {
-      toast.error(language === "fa" ? "لنز را انتخاب کنید." : "Pick a lens.");
+      toast.error("لنز را انتخاب کنید.");
       return;
     }
     if (action === "setFixVersion" && !String(params.fixVersionId || "").trim()) {
-      toast.error(
-        language === "fa" ? "ورژن را انتخاب کنید." : "Pick a version."
-      );
+      toast.error("ورژن را انتخاب کنید.");
       return;
     }
     if (action === "setStatus" && !String(params.statusName || "").trim()) {
-      toast.error(
-        language === "fa" ? "وضعیت را انتخاب کنید." : "Pick a status."
-      );
+      toast.error("وضعیت را انتخاب کنید.");
       return;
     }
     setPending({ action, params });
@@ -216,7 +182,7 @@ export default function BulkActionBar({
     <>
       <div
         className="fixed bottom-3 left-1/2 z-40 flex w-[min(64rem,calc(100vw-1.5rem))] -translate-x-1/2 flex-col gap-3 rounded-xl border border-border bg-background/95 p-3 shadow-lg backdrop-blur supports-backdrop-filter:bg-background/80"
-        dir={isRtl ? "rtl" : "ltr"}
+        dir="rtl"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="text-sm font-medium tabular-nums">
@@ -235,11 +201,10 @@ export default function BulkActionBar({
                 className="min-w-0 flex-1"
                 options={EPIC_LENS_OPTIONS.map((o) => ({
                   value: o.value,
-                  label: lensDisplayLabel(o.value, language),
+                  label: lensDisplayLabel(o.value),
                 }))}
                 value={lens}
                 onChange={setLens}
-                isRtl={isRtl}
                 placeholder={t.pickLens}
               />
               <Button
@@ -270,7 +235,6 @@ export default function BulkActionBar({
                 ]}
                 value={assignee}
                 onChange={setAssignee}
-                isRtl={isRtl}
                 placeholder={t.pickAssignee}
               />
               <Button
@@ -296,7 +260,6 @@ export default function BulkActionBar({
                 options={versionOptions}
                 value={versionId}
                 onChange={setVersionId}
-                isRtl={isRtl}
                 placeholder={t.pickVersion}
               />
               <Button
@@ -322,7 +285,6 @@ export default function BulkActionBar({
                 options={statusSelectOptions}
                 value={statusName}
                 onChange={setStatusName}
-                isRtl={isRtl}
                 placeholder={t.pickStatus}
               />
               <Button
@@ -346,7 +308,7 @@ export default function BulkActionBar({
           if (!open && !submitting) setPending(null);
         }}
       >
-        <AlertDialogContent dir={isRtl ? "rtl" : "ltr"}>
+        <AlertDialogContent dir="rtl">
           <AlertDialogHeader>
             <AlertDialogTitle>{t.confirmTitle}</AlertDialogTitle>
             <AlertDialogDescription>

@@ -9,10 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 
 export default function WorkspacePage() {
-  const {
-    language,
+  const { t,
     isRtl,
-    t,
     handleRefine,
     refining,
     importedDraftText,
@@ -55,7 +53,6 @@ export default function WorkspacePage() {
             {t.draftSection}
           </h3>
           <DraftInput
-            language={language}
             onRefine={handleRefine}
             loading={refining}
             draftText={importedDraftText}
@@ -76,7 +73,7 @@ export default function WorkspacePage() {
                 onClick={clearIssues}
                 className="text-muted-foreground hover:text-destructive"
               >
-                {isRtl ? "پاک کردن برد" : "Clear board"}
+                {"پاک کردن برد"}
               </Button>
             )}
           </div>
@@ -89,7 +86,6 @@ export default function WorkspacePage() {
             }
           >
             <RefinedList
-              language={language}
               issues={issues}
               onIssuesChange={setIssues}
               jiraUrl={jiraUrl}

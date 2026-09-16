@@ -18,6 +18,7 @@ import {
   addJiraComment,
   createJiraIssueLink,
   isSupportIssueKey,
+  supportQueuedComment,
 } from "@/lib/support";
 
 export async function POST(req: Request) {
@@ -171,7 +172,7 @@ export async function POST(req: Request) {
         jiraUrl,
         headers,
         issueKey: psKey,
-        body: `Linked ${sipKey}`,
+        body: supportQueuedComment(sipKey),
       });
       commentOk = comment.ok;
     }

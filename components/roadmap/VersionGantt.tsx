@@ -12,7 +12,7 @@ import {
 import { Locale } from "@svar-ui/react-core";
 import { en as enCore } from "@svar-ui/core-locales";
 import { en as enGantt } from "@svar-ui/gantt-locales";
-import type { Language, JiraVersion } from "@/lib/types";
+import type { JiraVersion } from "@/lib/types";
 import {
   cellWidthForMode,
   filterVersionsOverlappingView,
@@ -40,8 +40,6 @@ import "@svar-ui/react-gantt/all.css";
 
 type Props = {
   versions: JiraVersion[];
-  language: Language;
-  isRtl: boolean;
   jiraUrl: string;
   scaleMode: RoadmapScaleMode;
   viewStart: Date;
@@ -112,14 +110,13 @@ function createTaskBarTemplate(onBarClick: (id: string | number) => void) {
 
 export default function VersionGantt({
   versions,
-  language,
-  isRtl,
   jiraUrl,
   scaleMode,
   viewStart,
   viewEnd,
   onOpenVersion,
 }: Props) {
+  const isRtl = true;
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -145,28 +142,24 @@ export default function VersionGantt({
   tasksRef.current = tasks;
 
   const scales = useMemo(
-    () => getScalesForMode(scaleMode, language),
-    [scaleMode, language]
+    () => getScalesForMode(scaleMode),
+    [scaleMode]
   );
   const cellWidth = cellWidthForMode(scaleMode);
 
-  const localeWords = useMemo(
-    () =>
-      language === "fa" ? { ...svarLocaleFa } : { ...enCore, ...enGantt },
-    [language]
-  );
+  const localeWords = useMemo(() => ({ ...svarLocaleFa }), []);
 
   const columns = useMemo(
     () => [
       {
         id: "text",
-        header: language === "fa" ? "نام" : "Name",
+        header: "نام",
         flexgrow: 1,
         width: 220,
         sort: false,
       },
     ],
-    [language]
+    []
   );
 
   useEffect(() => {
@@ -183,7 +176,7 @@ export default function VersionGantt({
     mark();
     const timer = window.setTimeout(mark, 50);
     return () => window.clearTimeout(timer);
-  }, [mounted, scaleMode, language, viewStart, viewEnd, tasks.length]);
+  }, [mounted, scaleMode, viewStart, viewEnd, tasks.length]);
 
   const handleRequestData = useCallback(
     async ({ id }: { id: string | number }) => {
@@ -271,14 +264,10 @@ export default function VersionGantt({
       <Empty className="border py-12">
         <EmptyHeader>
           <EmptyTitle>
-            {language === "fa"
-              ? "ورژنی در این بازه نیست"
-              : "No versions in this period"}
+            ورژنی در این بازه نیست
           </EmptyTitle>
           <EmptyDescription>
-            {language === "fa"
-              ? "دوره را عوض کنید یا برای ورژن Start/Release Date بگذارید."
-              : "Change the period, or set Start/Release dates on Fix Versions."}
+            دوره را عوض کنید یا برای ورژن Start/Release Date بگذارید.
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -309,7 +298,7 @@ export default function VersionGantt({
         {dark ? <WillowDark fonts={false} /> : <Willow fonts={false} />}
         <div className="h-full min-w-0 w-full">
           <Gantt
-            key={`${scaleMode}-${language}-${rangeKey}-${tasks.length}`}
+            key={`${scaleMode}-${rangeKey}-${tasks.length}`}
             tasks={tasks}
             links={[]}
             scales={scales}

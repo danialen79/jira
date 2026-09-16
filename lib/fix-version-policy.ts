@@ -59,17 +59,11 @@ export function fixVersionValidationError(opts: {
   issuetype: string;
   hasEpicLink: boolean;
   selectedRelease?: string | null;
-  language?: "en" | "fa";
 }): string | null {
   const { owns, value } = resolveFixVersionForWrite(opts);
   if (!owns || value) return null;
-  const fa = opts.language === "fa";
   if (isEpicIssueType(opts.issuetype)) {
-    return fa
-      ? "اپیک باید ریلیز (Fix Version) داشته باشد."
-      : "Epic requires a Fix Version (release).";
+    return "اپیک باید ریلیز (Fix Version) داشته باشد.";
   }
-  return fa
-    ? "استوری/باگ بدون اپیک باید ریلیز داشته باشد."
-    : "Story/Bug without an Epic requires a Fix Version.";
+  return "استوری/باگ بدون اپیک باید ریلیز داشته باشد.";
 }

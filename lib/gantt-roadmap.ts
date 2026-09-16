@@ -1,7 +1,7 @@
 import { addMonths, endOfMonth, getYear, startOfMonth } from "date-fns";
 import type { IScaleConfig, ITask } from "@svar-ui/react-gantt";
 import { registerScaleUnit } from "@svar-ui/react-gantt";
-import type { Language, JiraVersion, VersionIssue } from "@/lib/types";
+import type { JiraVersion, VersionIssue } from "@/lib/types";
 import {
   addJalaliHalfYears,
   addJalaliMonths,
@@ -436,34 +436,26 @@ export function shiftAnchor(
 /** Toolbar title for the visible period. */
 export function formatViewPeriodTitle(
   mode: RoadmapScaleMode,
-  anchor: Date,
-  language: Language
+  anchor: Date
 ): string {
   if (mode === "year") {
     return formatJalaliYear(anchor);
   }
   if (mode === "month") {
-    return formatJalaliMonthYear(anchor, language);
+    return formatJalaliMonthYear(anchor);
   }
   const first = addJalaliMonths(anchor, -1);
   const last = addJalaliMonths(anchor, 2);
   const a = toJalaliParts(first);
   const b = toJalaliParts(last);
-  const firstLabel = formatJalaliMonthYear(first, language);
-  const lastLabel = formatJalaliMonthYear(last, language);
-  if (language === "fa") {
-    if (a.jy === b.jy) {
-      const firstMonthOnly = firstLabel.replace(/\s+\d+$/, "");
-      const lastMonthOnly = lastLabel.replace(/\s+\d+$/, "");
-      return `از ${firstMonthOnly} تا ${lastMonthOnly} ${a.jy}`;
-    }
-    return `از ${firstLabel} تا ${lastLabel}`;
-  }
+  const firstLabel = formatJalaliMonthYear(first);
+  const lastLabel = formatJalaliMonthYear(last);
   if (a.jy === b.jy) {
     const firstMonthOnly = firstLabel.replace(/\s+\d+$/, "");
-    return `${firstMonthOnly} – ${lastLabel}`;
+    const lastMonthOnly = lastLabel.replace(/\s+\d+$/, "");
+    return `از ${firstMonthOnly} تا ${lastMonthOnly} ${a.jy}`;
   }
-  return `${firstLabel} – ${lastLabel}`;
+  return `از ${firstLabel} تا ${lastLabel}`;
 }
 
 /**
@@ -494,10 +486,9 @@ const CURRENT_MONTH_MARK = "· ";
 
 export function formatScaleMonthLabel(
   date: Date,
-  language: Language,
   today: Date = new Date()
 ): string {
-  const label = formatJalaliMonthYear(date, language);
+  const label = formatJalaliMonthYear(date);
   if (isSameJalaliMonth(date, today)) {
     return `${CURRENT_MONTH_MARK}${label}`;
   }
@@ -508,16 +499,13 @@ export function isCurrentMonthScaleLabel(text: string): boolean {
   return text.trimStart().startsWith(CURRENT_MONTH_MARK);
 }
 
-export function getScalesForMode(
-  mode: RoadmapScaleMode,
-  language: Language
-): IScaleConfig[] {
+export function getScalesForMode(mode: RoadmapScaleMode): IScaleConfig[] {
   ensureRoadmapScaleUnits();
 
   const monthScale: IScaleConfig = {
     unit: "jmonth",
     step: 1,
-    format: (d) => formatScaleMonthLabel(d, language),
+    format: (d) => formatScaleMonthLabel(d),
   };
 
   if (mode === "fourMonth" || mode === "month") {

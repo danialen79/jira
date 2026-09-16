@@ -1,7 +1,7 @@
 "use client";
 
 import { Layers, User } from "lucide-react";
-import type { Language, VersionIssue } from "@/lib/types";
+import type { VersionIssue } from "@/lib/types";
 import { IssueStatusBadge } from "@/components/IssueStatusBadge";
 import { getIssueTypeBadgeClass } from "@/lib/issue-type-badge";
 import { jiraBrowseUrl, normalizeJiraBase } from "@/lib/jira-browse";
@@ -26,37 +26,23 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 type Props = {
   issues: VersionIssue[];
   total?: number;
-  jiraUrl: string;
-  language: Language;
-  compact?: boolean;
+  jiraUrl: string;  compact?: boolean;
   className?: string;
 };
 
-const copy = {
-  en: {
-    showing: (n: number, total: number) => `Showing ${n} of ${total}`,
-    empty: "No issues",
-    emptyHint: "Assign Fix Version on issues in Jira.",
-    unassigned: "Unassigned",
-  },
-  fa: {
+const t = {
     showing: (n: number, total: number) => `نمایش ${n} از ${total}`,
     empty: "ایشویی نیست",
     emptyHint: "Fix Version را روی ایشوها تنظیم کنید.",
     unassigned: "بدون مسئول",
-  },
-} as const;
+  } as const;
 
 export default function VersionIssueList({
   issues,
   total,
-  jiraUrl,
-  language,
-  compact = false,
+  jiraUrl,  compact = false,
   className,
-}: Props) {
-  const t = copy[language];
-  const base = normalizeJiraBase(jiraUrl);
+}: Props) {  const base = normalizeJiraBase(jiraUrl);
   const shownTotal = total ?? issues.length;
   const density = compact ? "compact" : "comfortable";
 
@@ -114,7 +100,7 @@ export default function VersionIssueList({
                       />
                       {issue.lens ? (
                         <Badge variant="outline">
-                          {lensDisplayLabel(issue.lens, language)}
+                          {lensDisplayLabel(issue.lens)}
                         </Badge>
                       ) : null}
                     </>

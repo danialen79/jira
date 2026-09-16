@@ -4,7 +4,12 @@ import {
   getJiraSupportProjectKey,
   JiraEnvError,
 } from "@/lib/jira";
-import { isSupportIssueKey, mapSupportIssue } from "@/lib/support";
+import {
+  isSupportIssueKey,
+  mapSupportComments,
+  mapSupportIssue,
+  type SupportComment,
+} from "@/lib/support";
 
 export async function GET(req: Request) {
   try {
@@ -34,6 +39,7 @@ export async function GET(req: Request) {
       "issuelinks",
       "assignee",
       "reporter",
+      "attachment",
     ].join(",");
 
     const response = await fetch(
@@ -52,7 +58,21 @@ export async function GET(req: Request) {
     }
 
     const data = await response.json();
-    const issue = mapSupportIssue(data, deliveryProjectKey);
+
+    const commentsRes = await fetch(
+      `${jiraUrl}/rest/api/2/issue/${encodeURIComponent(key)}/comment?maxResults=50&orderBy=-created`,
+      { method: "GET", headers }
+    );
+    let comments: SupportComment[] = [];
+    if (commentsRes.ok) {
+      const commentsData = await commentsRes.json();
+      const rawComments = Array.isArray(commentsData.comments)
+        ? commentsData.comments
+        : [];
+      comments = mapSupportComments(rawComments).reverse();
+    }
+
+    const issue = mapSupportIssue(data, deliveryProjectKey, { comments });
 
     return NextResponse.json({
       success: true,

@@ -6,10 +6,9 @@ import { useJiraApp } from "@/components/providers/jira-app-provider";
 import { Spinner } from "@/components/ui/spinner";
 
 function EpicSyncBody() {
-  const { language, jiraUrl, jiraConnected } = useJiraApp();
+  const { jiraUrl, jiraConnected } = useJiraApp();
   return (
     <EpicComponentSync
-      language={language}
       jiraUrl={jiraUrl}
       jiraConnected={jiraConnected}
     />

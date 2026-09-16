@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-export function ThemeToggle({ isRtl }: { isRtl?: boolean }) {
+export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -22,16 +22,10 @@ export function ThemeToggle({ isRtl }: { isRtl?: boolean }) {
 
   const label =
     theme === "dark"
-      ? isRtl
-        ? "تیره"
-        : "Dark"
+      ? "تیره"
       : theme === "light"
-        ? isRtl
-          ? "روشن"
-          : "Light"
-        : isRtl
-          ? "سیستم"
-          : "System";
+        ? "روشن"
+        : "سیستم";
 
   return (
     <DropdownMenu>
@@ -53,15 +47,15 @@ export function ThemeToggle({ isRtl }: { isRtl?: boolean }) {
         <DropdownMenuGroup>
           <DropdownMenuItem onClick={() => setTheme("light")}>
             <Sun data-icon="inline-start" />
-            {isRtl ? "روشن" : "Light"}
+            روشن
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setTheme("dark")}>
             <Moon data-icon="inline-start" />
-            {isRtl ? "تیره" : "Dark"}
+            تیره
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setTheme("system")}>
             <Monitor data-icon="inline-start" />
-            {isRtl ? "سیستم" : "System"}
+            سیستم
           </DropdownMenuItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>

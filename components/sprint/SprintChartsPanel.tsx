@@ -19,31 +19,17 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import type { Language } from "@/lib/types";
+
 import type { BurndownPoint, VelocityBar } from "@/lib/sprint/metrics";
 
-type Props = {
-  language: Language;
-  burndown: BurndownPoint[];
+type Props = {  burndown: BurndownPoint[];
   burndownLimited: boolean;
   velocity: VelocityBar[];
   avgVelocity: number | null;
   currentCommitted: number;
 };
 
-const copy = {
-  en: {
-    burndown: "Burndown",
-    velocity: "Velocity",
-    remaining: "Remaining",
-    ideal: "Ideal",
-    completed: "Completed",
-    committed: "Committed",
-    avg: "Avg completed",
-    vs: "vs current commit",
-    limited: "Limited history",
-  },
-  fa: {
+const t = {
     burndown: "برن‌داون",
     velocity: "ولوسیتی",
     remaining: "مانده",
@@ -53,20 +39,14 @@ const copy = {
     avg: "میانگین تمام‌شده",
     vs: "در برابر تعهد فعلی",
     limited: "تاریخچه محدود",
-  },
-} as const;
+  } as const;
 
-export default function SprintChartsPanel({
-  language,
-  burndown,
+export default function SprintChartsPanel({  burndown,
   burndownLimited,
   velocity,
   avgVelocity,
   currentCommitted,
-}: Props) {
-  const t = copy[language];
-
-  const burndownConfig = useMemo(
+}: Props) {  const burndownConfig = useMemo(
     () =>
       ({
         remaining: { label: t.remaining, color: "var(--chart-1)" },

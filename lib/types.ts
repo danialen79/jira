@@ -143,21 +143,29 @@ export interface ConnectionConfig {
   sprintFieldId?: string;
 }
 
-export type Language = "en" | "fa";
+/** App UI is Persian-only. */
+export type Language = "fa";
 
 export interface EpicAuditChildIssue {
   key: string;
   summary: string;
   issuetype: string;
   status: string;
+  statusCategoryKey?: string;
   components: string[];
   missingComponents: string[];
+  /** Parsed lens-* label; null when missing. */
+  lens?: IssueLens | null;
 }
 
 export interface EpicAuditItem {
   key: string;
   summary: string;
   components: string[];
+  /** Parsed lens-* label on the epic; null when missing. */
+  lens?: IssueLens | null;
   status?: string;
+  /** `orphan` = independent Story/Bug/Task group (no epic). */
+  kind?: "epic" | "orphan";
   childIssues: EpicAuditChildIssue[];
 }

@@ -3,7 +3,7 @@
 import { useCallback, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { ArrowRightLeftIcon, Layers, PencilIcon, User } from "lucide-react";
-import type { Language, VersionIssue } from "@/lib/types";
+import type { VersionIssue } from "@/lib/types";
 import { lensDisplayLabel } from "@/lib/lens";
 import { IssueStatusBadge } from "@/components/IssueStatusBadge";
 import { getIssueTypeBadgeClass } from "@/lib/issue-type-badge";
@@ -32,7 +32,6 @@ type Props = {
   tree: VersionIssue[];
   total?: number;
   jiraUrl: string;
-  language: Language;
   className?: string;
   /** When true (default), epics expand and load stories on open. */
   lazyEpicChildren?: boolean;
@@ -40,20 +39,7 @@ type Props = {
   onChangeVersion?: (issue: VersionIssue) => void;
 };
 
-const copy = {
-  en: {
-    empty: "No issues",
-    emptyHint: "Assign Fix Version on epics (or orphan stories) in Jira.",
-    unassigned: "Unassigned",
-    children: (n: number) => `${n} issues`,
-    loadChildren: "Stories",
-    loadingChildren: "Loading stories…",
-    loadFailed: "Could not load stories.",
-    noChildren: "No stories under this epic.",
-    edit: "Edit",
-    changeVersion: "Change version",
-  },
-  fa: {
+const t = {
     empty: "ایشویی نیست",
     emptyHint: "Fix Version را روی اپیک (یا استوری بدون اپیک) تنظیم کنید.",
     unassigned: "بدون مسئول",
@@ -64,12 +50,10 @@ const copy = {
     noChildren: "استوری زیر این اپیک نیست.",
     edit: "ویرایش",
     changeVersion: "تغییر ورژن",
-  },
-} as const;
+  } as const;
 
 function issueBadges(
   issue: VersionIssue,
-  language: Language,
   jiraBase: string,
   extra?: ReactNode
 ) {
@@ -88,7 +72,7 @@ function issueBadges(
       />
       {issue.lens ? (
         <Badge variant="outline">
-          {lensDisplayLabel(issue.lens, language)}
+          {lensDisplayLabel(issue.lens)}
         </Badge>
       ) : null}
       {extra}
@@ -98,18 +82,15 @@ function issueBadges(
 
 function IssueActions({
   issue,
-  language,
   nestedUnderEpic,
   onEditIssue,
   onChangeVersion,
 }: {
   issue: VersionIssue;
-  language: Language;
   nestedUnderEpic: boolean;
   onEditIssue?: (issue: VersionIssue, nestedUnderEpic: boolean) => void;
   onChangeVersion?: (issue: VersionIssue) => void;
 }) {
-  const t = copy[language];
   const canChangeVersion = !nestedUnderEpic;
   if (!onEditIssue && !onChangeVersion) return null;
 
@@ -144,7 +125,6 @@ function IssueActions({
 function TreeIssueCard({
   issue,
   jiraBase,
-  language,
   nested = false,
   lazyEpicChildren,
   childrenByEpic,
@@ -156,7 +136,6 @@ function TreeIssueCard({
 }: {
   issue: VersionIssue;
   jiraBase: string;
-  language: Language;
   nested?: boolean;
   lazyEpicChildren: boolean;
   childrenByEpic: Record<string, VersionIssue[]>;
@@ -166,7 +145,6 @@ function TreeIssueCard({
   onEditIssue?: (issue: VersionIssue, nestedUnderEpic: boolean) => void;
   onChangeVersion?: (issue: VersionIssue) => void;
 }) {
-  const t = copy[language];
   const isEpic = isEpicIssueType(issue.issuetype);
   const seeded = issue.children;
   const kids =
@@ -178,7 +156,6 @@ function TreeIssueCard({
   const actions = (
     <IssueActions
       issue={issue}
-      language={language}
       nestedUnderEpic={nested}
       onEditIssue={onEditIssue}
       onChangeVersion={onChangeVersion}
@@ -208,7 +185,6 @@ function TreeIssueCard({
         title={issue.summary}
         badges={issueBadges(
           issue,
-          language,
           jiraBase,
           countLabel ? (
             <Badge variant="secondary">{countLabel}</Badge>
@@ -246,7 +222,6 @@ function TreeIssueCard({
                 key={child.key}
                 issue={child}
                 jiraBase={jiraBase}
-                language={language}
                 nested
                 lazyEpicChildren={false}
                 childrenByEpic={childrenByEpic}
@@ -268,13 +243,11 @@ export default function VersionIssueTree({
   tree,
   total,
   jiraUrl,
-  language,
   className,
   lazyEpicChildren = true,
   onEditIssue,
   onChangeVersion,
 }: Props) {
-  const t = copy[language];
   const base = normalizeJiraBase(jiraUrl);
   const [childrenByEpic, setChildrenByEpic] = useState<
     Record<string, VersionIssue[]>
@@ -373,9 +346,7 @@ export default function VersionIssueTree({
     <div className={className}>
       {typeof total === "number" && total > flatCount && (
         <p className="mb-2 text-xs text-muted-foreground">
-          {language === "fa"
-            ? `نمایش درخت از ${total} ایشوی ورژن`
-            : `Tree from ${total} version issues`}
+          {`نمایش درخت از ${total} ایشوی ورژن`}
         </p>
       )}
       <ul className="flex flex-col gap-2">
@@ -384,7 +355,6 @@ export default function VersionIssueTree({
             <TreeIssueCard
               issue={issue}
               jiraBase={base}
-              language={language}
               lazyEpicChildren={lazyEpicChildren}
               childrenByEpic={childrenByEpic}
               loadingEpics={loadingEpics}

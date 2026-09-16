@@ -89,32 +89,23 @@ export function localDateToIsoDate(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-export function formatIsoAsJalali(
-  iso: string | undefined,
-  language: "en" | "fa" = "fa"
-): string {
+export function formatIsoAsJalali(iso: string | undefined): string {
   if (!iso) return "—";
   const parts = isoDateToJalaliParts(iso);
   if (!parts) return iso;
-  const months = language === "fa" ? JALALI_MONTHS_FA : JALALI_MONTHS_EN;
+  const months = JALALI_MONTHS_FA;
   return `${parts.jd} ${months[parts.jm - 1]} ${parts.jy}`;
 }
 
-export function formatJalaliDate(
-  date: Date,
-  language: "en" | "fa" = "fa"
-): string {
+export function formatJalaliDate(date: Date): string {
   const { jy, jm, jd } = toJalaliParts(date);
-  const months = language === "fa" ? JALALI_MONTHS_FA : JALALI_MONTHS_EN;
+  const months = JALALI_MONTHS_FA;
   return `${jd} ${months[jm - 1]} ${jy}`;
 }
 
-export function formatJalaliMonthYear(
-  date: Date,
-  language: "en" | "fa" = "fa"
-): string {
+export function formatJalaliMonthYear(date: Date): string {
   const { jy, jm } = toJalaliParts(date);
-  const months = language === "fa" ? JALALI_MONTHS_FA : JALALI_MONTHS_EN;
+  const months = JALALI_MONTHS_FA;
   return `${months[jm - 1]} ${jy}`;
 }
 
@@ -128,22 +119,16 @@ export function jalaliQuarter(date: Date): number {
   return Math.ceil(jm / 3);
 }
 
-export function formatJalaliQuarter(
-  date: Date,
-  language: "en" | "fa" = "fa"
-): string {
+export function formatJalaliQuarter(date: Date): string {
   const { jy } = toJalaliParts(date);
   const q = jalaliQuarter(date);
-  return language === "fa" ? `سه‌ماهه ${q} ${jy}` : `Q${q} ${jy}`;
+  return `سه‌ماهه ${q} ${jy}`;
 }
 
-export function formatJalaliHalfYear(
-  date: Date,
-  language: "en" | "fa" = "fa"
-): string {
+export function formatJalaliHalfYear(date: Date): string {
   const { jy, jm } = toJalaliParts(date);
   const half = jm <= 6 ? 1 : 2;
-  return language === "fa" ? `نیمه ${half} ${jy}` : `H${half} ${jy}`;
+  return `نیمه ${half} ${jy}`;
 }
 
 export function jalaliMonthStart(date: Date): Date {

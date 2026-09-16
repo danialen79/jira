@@ -35,36 +35,7 @@ import {
 } from "@/lib/issue-peek";
 import { cn } from "@/lib/utils";
 
-const copy = {
-  en: {
-    assign: "Assign",
-    unassign: "Unassigned",
-    log: "Log work",
-    timePh: "1h 30m",
-    notePh: "Note…",
-    submitLog: "Log",
-    open: "Open in Jira",
-    copyKey: "Copy key",
-    refresh: "Refresh",
-    version: "Version",
-    sprint: "Sprint",
-    epic: "Epic",
-    backlog: "Backlog",
-    pickVersion: "Fix version",
-    pickSprint: "Sprint",
-    pickEpic: "Epic",
-    noneVersion: "No version",
-    noEpic: "No epic",
-    transitionOk: "Status updated.",
-    assignOk: "Assignee updated.",
-    logOk: "Work logged.",
-    versionOk: "Version updated.",
-    sprintOk: "Sprint updated.",
-    epicOk: "Epic link updated.",
-    copied: "Copied.",
-    failed: "Action failed.",
-  },
-  fa: {
+const t = {
     assign: "اختصاص",
     unassign: "بدون مسئول",
     log: "ثبت کار",
@@ -91,8 +62,7 @@ const copy = {
     epicOk: "لینک اپیک به‌روز شد.",
     copied: "کپی شد.",
     failed: "عملیات ناموفق.",
-  },
-} as const;
+  } as const;
 
 type Props = {
   issue: PeekIssue;
@@ -100,10 +70,7 @@ type Props = {
 };
 
 export function IssuePeekActions({ issue, className }: Props) {
-  const {
-    language,
-    isRtl,
-    jiraUrl,
+  const { jiraUrl,
     jiraUsers,
     fetchJiraUsers,
     fetchingUsers,
@@ -114,9 +81,7 @@ export function IssuePeekActions({ issue, className }: Props) {
     existingEpics,
     fetchExistingEpics,
     fetchingEpics,
-  } = useJiraApp();
-  const t = copy[language];
-  const { refresh, patchIssue } = useIssuePeek();
+  } = useJiraApp();  const { refresh, patchIssue } = useIssuePeek();
 
   const canVersion = peekCanSetFixVersion(issue);
   const canSprint = peekCanSetSprint(issue.issuetype);
@@ -380,7 +345,6 @@ export function IssuePeekActions({ issue, className }: Props) {
         body: JSON.stringify({
           issueKey: issue.key,
           epicKey: next,
-          language,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -439,7 +403,7 @@ export function IssuePeekActions({ issue, className }: Props) {
   return (
     <div
       className={cn("flex flex-col gap-2", className)}
-      dir={isRtl ? "rtl" : "ltr"}
+      dir="rtl"
     >
       {statuses.length > 0 ? (
         <div className="flex flex-wrap gap-1">
@@ -486,7 +450,6 @@ export function IssuePeekActions({ issue, className }: Props) {
                 options={userOptions}
                 value={issue.assignee || ""}
                 onChange={(v) => void assignTo(v)}
-                isRtl={isRtl}
                 disabled={assigning}
                 placeholder={t.assign}
               />
@@ -514,7 +477,6 @@ export function IssuePeekActions({ issue, className }: Props) {
                   options={epicOptions}
                   value={issue.epicKey || ""}
                   onChange={(v) => void setEpic(v)}
-                  isRtl={isRtl}
                   disabled={settingEpic}
                   placeholder={t.pickEpic}
                 />
@@ -538,7 +500,6 @@ export function IssuePeekActions({ issue, className }: Props) {
                 options={versionOptions}
                 value={issue.selectedRelease || issue.fixVersionIds?.[0] || ""}
                 onChange={(v) => void setVersion(v)}
-                isRtl={isRtl}
                 disabled={settingVersion}
                 placeholder={t.pickVersion}
               />
@@ -561,7 +522,6 @@ export function IssuePeekActions({ issue, className }: Props) {
                 options={sprintOptions}
                 value={issue.selectedSprint || "backlog"}
                 onChange={(v) => void setSprint(v)}
-                isRtl={isRtl}
                 disabled={settingSprint}
                 placeholder={t.pickSprint}
               />

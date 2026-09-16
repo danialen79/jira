@@ -140,10 +140,8 @@ export default function HealthPage() {
   }, [load]);
 
   const connected = !!data?.connected;
-  const title = isRtl ? "سلامت جیرا" : "Jira health";
-  const subtitle = isRtl
-    ? "اتصال، کاربر، پروژه و env."
-    : "Connection, user, project, and env.";
+  const title = "سلامت جیرا";
+  const subtitle = "اتصال، کاربر، پروژه و env.";
 
   return (
     <div className="flex flex-col gap-6">
@@ -163,14 +161,14 @@ export default function HealthPage() {
           ) : (
             <RefreshCw data-icon="inline-start" />
           )}
-          {isRtl ? "بررسی مجدد" : "Refresh"}
+          {"بررسی مجدد"}
         </Button>
       </div>
 
       {loading && !data ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Spinner />
-          {isRtl ? "در حال بررسی…" : "Checking…"}
+          {"در حال بررسی…"}
         </div>
       ) : (
         <>
@@ -186,37 +184,29 @@ export default function HealthPage() {
                   <div>
                     <CardTitle>
                       {connected
-                        ? isRtl
-                          ? "متصل به جیرا"
-                          : "Connected to Jira"
-                        : isRtl
-                          ? "عدم اتصال"
-                          : "Not connected"}
+                        ? "متصل به جیرا"
+                        : "عدم اتصال"}
                     </CardTitle>
                     <CardDescription>
                       {data?.checkedAt
-                        ? `${isRtl ? "بررسی" : "Checked"}: ${new Date(
+                        ? `${"بررسی"}: ${new Date(
                             data.checkedAt
-                          ).toLocaleString(isRtl ? "fa-IR" : "en-US")}`
+                          ).toLocaleString("fa-IR")}`
                         : null}
                     </CardDescription>
                   </div>
                 </div>
                 <Badge variant={connected ? "success" : "destructive"}>
                   {connected
-                    ? isRtl
-                      ? "Healthy"
-                      : "Healthy"
-                    : isRtl
-                      ? "Unhealthy"
-                      : "Unhealthy"}
+                    ? "Healthy"
+                    : "Unhealthy"}
                 </Badge>
               </div>
             </CardHeader>
             <CardContent className="grid gap-3 text-sm md:grid-cols-2">
               <div>
                 <p className="text-xs text-muted-foreground">
-                  {isRtl ? "آدرس سرور" : "Server URL"}
+                  {"آدرس سرور"}
                 </p>
                 {data?.url ? (
                   <a
@@ -234,13 +224,13 @@ export default function HealthPage() {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">
-                  {isRtl ? "نوع احراز هویت" : "Auth type"}
+                  {"نوع احراز هویت"}
                 </p>
                 <p className="font-medium uppercase">{data?.authType || "—"}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">
-                  {isRtl ? "کلید پروژه (env)" : "Project key (env)"}
+                  {"کلید پروژه (env)"}
                 </p>
                 <p className="font-mono font-medium">
                   {data?.projectKey || "—"}
@@ -248,23 +238,19 @@ export default function HealthPage() {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">
-                  {isRtl ? "پیکربندی env" : "Env configured"}
+                  {"پیکربندی env"}
                 </p>
                 <p className="font-medium">
                   {data?.configured
-                    ? isRtl
-                      ? "بله"
-                      : "Yes"
-                    : isRtl
-                      ? "خیر"
-                      : "No"}
+                    ? "بله"
+                    : "خیر"}
                 </p>
               </div>
               {data?.error ? (
                 <Alert variant="destructive" className="md:col-span-2">
                   <AlertCircle />
                   <AlertTitle>
-                    {isRtl ? "خطا" : "Error"}
+                    {"خطا"}
                   </AlertTitle>
                   <AlertDescription>{data.error}</AlertDescription>
                 </Alert>
@@ -272,7 +258,7 @@ export default function HealthPage() {
               {!!data?.missing?.length && (
                 <div className="md:col-span-2">
                   <p className="mb-1 text-xs text-muted-foreground">
-                    {isRtl ? "متغیرهای ناقص" : "Missing env vars"}
+                    {"متغیرهای ناقص"}
                   </p>
                   <SectionList empty="">
                     {data.missing.map((item) => (
@@ -291,19 +277,19 @@ export default function HealthPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Users className="size-4" />
-                  {isRtl ? "کاربر متصل" : "Connected user"}
+                  {"کاربر متصل"}
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-2 text-sm">
                 <p>
                   <span className="text-muted-foreground">
-                    {isRtl ? "نام نمایشی: " : "Display name: "}
+                    {"نام نمایشی: "}
                   </span>
                   {data?.user?.displayName || "—"}
                 </p>
                 <p>
                   <span className="text-muted-foreground">
-                    {isRtl ? "نام کاربری: " : "Username: "}
+                    {"نام کاربری: "}
                   </span>
                   <span className="font-mono">{data?.user?.name || "—"}</span>
                 </p>
@@ -313,7 +299,7 @@ export default function HealthPage() {
                 </p>
                 <p>
                   <span className="text-muted-foreground">
-                    {isRtl ? "منطقه زمانی: " : "Timezone: "}
+                    {"منطقه زمانی: "}
                   </span>
                   {data?.user?.timeZone || "—"}
                 </p>
@@ -333,13 +319,13 @@ export default function HealthPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Server className="size-4" />
-                  {isRtl ? "پروژه و سرور" : "Project & server"}
+                  {"پروژه و سرور"}
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-2 text-sm">
                 <p>
                   <span className="text-muted-foreground">
-                    {isRtl ? "پروژه: " : "Project: "}
+                    {"پروژه: "}
                   </span>
                   {data?.project
                     ? `${data.project.name} (${data.project.key})`
@@ -347,19 +333,19 @@ export default function HealthPage() {
                 </p>
                 <p>
                   <span className="text-muted-foreground">
-                    {isRtl ? "لید پروژه: " : "Lead: "}
+                    {"لید پروژه: "}
                   </span>
                   {data?.project?.lead || "—"}
                 </p>
                 <p>
                   <span className="text-muted-foreground">
-                    {isRtl ? "نسخه سرور: " : "Server version: "}
+                    {"نسخه سرور: "}
                   </span>
                   {data?.serverInfo?.version || "—"}
                 </p>
                 <p>
                   <span className="text-muted-foreground">
-                    {isRtl ? "نوع استقرار: " : "Deployment: "}
+                    {"نوع استقرار: "}
                   </span>
                   {data?.serverInfo?.deploymentType ||
                     data?.serverInfo?.serverTitle ||
@@ -380,14 +366,12 @@ export default function HealthPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Tag className="size-4" />
-                  {isRtl
-                    ? `کامپوننت‌ها (${data?.counts?.components ?? data?.components?.length ?? 0})`
-                    : `Components (${data?.counts?.components ?? data?.components?.length ?? 0})`}
+                  {`کامپوننت‌ها (${data?.counts?.components ?? data?.components?.length ?? 0})`}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <SectionList
-                  empty={isRtl ? "کامپوننتی یافت نشد" : "No components"}
+                  empty={"کامپوننتی یافت نشد"}
                 >
                   {(data?.components || []).map((c) => (
                     <Badge key={c.id} variant="secondary">
@@ -402,13 +386,11 @@ export default function HealthPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Layers className="size-4" />
-                  {isRtl
-                    ? `ورژن‌ها (${data?.counts?.versions ?? data?.versions?.length ?? 0})`
-                    : `Versions (${data?.counts?.versions ?? data?.versions?.length ?? 0})`}
+                  {`ورژن‌ها (${data?.counts?.versions ?? data?.versions?.length ?? 0})`}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <SectionList empty={isRtl ? "ورژنی یافت نشد" : "No versions"}>
+                <SectionList empty={"ورژنی یافت نشد"}>
                   {(data?.versions || []).map((v) => (
                     <Badge
                       key={v.id}
@@ -426,13 +408,11 @@ export default function HealthPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Activity className="size-4" />
-                  {isRtl
-                    ? `اسپرینت‌ها (${data?.counts?.sprints ?? data?.sprints?.length ?? 0})`
-                    : `Sprints (${data?.counts?.sprints ?? data?.sprints?.length ?? 0})`}
+                  {`اسپرینت‌ها (${data?.counts?.sprints ?? data?.sprints?.length ?? 0})`}
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-3">
-                <SectionList empty={isRtl ? "اسپرینتی یافت نشد" : "No sprints"}>
+                <SectionList empty={"اسپرینتی یافت نشد"}>
                   {(data?.sprints || []).map((s) => (
                     <Badge key={s.id} variant="secondary">
                       {s.name} ({s.state})
@@ -442,7 +422,7 @@ export default function HealthPage() {
                 {!!data?.boards?.length && (
                   <div>
                     <p className="mb-1 text-xs text-muted-foreground">
-                      {isRtl ? "بوردها" : "Boards"}
+                      {"بوردها"}
                     </p>
                     <SectionList empty="">
                       {data.boards.map((b) => (
@@ -460,16 +440,14 @@ export default function HealthPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Users className="size-4" />
-                  {isRtl
-                    ? `کاربران (${data?.counts?.users ?? data?.users?.length ?? 0})`
-                    : `Users (${data?.counts?.users ?? data?.users?.length ?? 0})`}
+                  {`کاربران (${data?.counts?.users ?? data?.users?.length ?? 0})`}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex max-h-48 flex-col gap-1 overflow-y-auto text-sm">
                   {(data?.users || []).length === 0 ? (
                     <p className="italic text-muted-foreground">
-                      {isRtl ? "کاربری یافت نشد" : "No users"}
+                      {"کاربری یافت نشد"}
                     </p>
                   ) : (
                     (data?.users || []).map((u) => (
@@ -492,15 +470,13 @@ export default function HealthPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base">
-                {isRtl
-                  ? `اپیک‌ها (نمونه ${data?.epics?.length ?? 0})`
-                  : `Epics (sample ${data?.epics?.length ?? 0})`}
+                {`اپیک‌ها (نمونه ${data?.epics?.length ?? 0})`}
               </CardTitle>
             </CardHeader>
             <CardContent>
               {(data?.epics || []).length === 0 ? (
                 <p className="text-sm italic text-muted-foreground">
-                  {isRtl ? "اپیکی یافت نشد" : "No epics found"}
+                  {"اپیکی یافت نشد"}
                 </p>
               ) : (
                 <div className="flex max-h-64 flex-col gap-2 overflow-y-auto text-sm">
@@ -542,7 +518,7 @@ export default function HealthPage() {
               <AlertCircle />
               <AlertTitle className="flex items-center gap-2">
                 <Badge variant="warning">
-                  {isRtl ? "هشدارها" : "Warnings"}
+                  {"هشدارها"}
                 </Badge>
               </AlertTitle>
               <AlertDescription className="text-warning-foreground">

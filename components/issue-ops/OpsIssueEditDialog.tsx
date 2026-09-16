@@ -30,7 +30,7 @@ import {
   selectableFixVersions,
 } from "@/lib/fix-version-policy";
 import type { OpsIssue } from "@/lib/issue-ops/types";
-import type { JiraUser, JiraVersion, Language } from "@/lib/types";
+import type { JiraUser, JiraVersion } from "@/lib/types";
 
 type FormState = {
   summary: string;
@@ -42,24 +42,7 @@ type FormState = {
   epicKey: string;
 };
 
-const copy = {
-  en: {
-    title: "Edit issue",
-    loading: "Loading…",
-    save: "Save changes",
-    saving: "Saving…",
-    cancel: "Cancel",
-    saved: "Issue updated.",
-    failed: "Could not update issue.",
-    summary: "Summary",
-    assignee: "Assignee",
-    lens: "Lens",
-    release: "Release (Fix Version)",
-    none: "None",
-    underEpicHint: "Linked to an epic — Fix Version is on the epic.",
-    viaEpic: "Inherited",
-  },
-  fa: {
+const t = {
     title: "ویرایش ایشو",
     loading: "در حال بارگذاری…",
     save: "ذخیره تغییرات",
@@ -74,8 +57,7 @@ const copy = {
     none: "هیچ",
     underEpicHint: "زیر اپیک است — Fix Version روی اپیک است.",
     viaEpic: "ارثی",
-  },
-} as const;
+  } as const;
 
 type Props = {
   open: boolean;
@@ -83,8 +65,6 @@ type Props = {
   issue: OpsIssue | null;
   versions: JiraVersion[];
   users: JiraUser[];
-  language: Language;
-  isRtl: boolean;
   onSaved?: () => void;
 };
 
@@ -93,12 +73,8 @@ export default function OpsIssueEditDialog({
   onOpenChange,
   issue,
   versions,
-  users,
-  language,
-  isRtl,
-  onSaved,
+  users,  onSaved,
 }: Props) {
-  const t = copy[language];
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -181,13 +157,9 @@ export default function OpsIssueEditDialog({
       }).map((v) => ({
         value: v.id,
         label: v.name,
-        sublabel: v.released
-          ? language === "fa"
-            ? "منتشرشده"
-            : "released"
-          : undefined,
+        sublabel: v.released ? "منتشرشده" : undefined,
       })),
-    [versions, form?.selectedRelease, language]
+    [versions, form?.selectedRelease]
   );
 
   const handleSave = async () => {
@@ -198,7 +170,6 @@ export default function OpsIssueEditDialog({
           issuetype: form.issuetype,
           hasEpicLink: false,
           selectedRelease: form.selectedRelease,
-          language,
         })
       : null;
     if (fvError) {
@@ -206,11 +177,7 @@ export default function OpsIssueEditDialog({
       return;
     }
     if (form.issuetype === "Story" && !isStoryLens(form.selectedLens)) {
-      toast.error(
-        language === "fa"
-          ? "برای استوری لنز لازم است."
-          : "Story requires a Lens."
-      );
+      toast.error("برای استوری لنز لازم است.");
       return;
     }
 
@@ -255,7 +222,7 @@ export default function OpsIssueEditDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="flex max-h-[min(92vh,36rem)] flex-col gap-0 overflow-y-auto sm:max-w-lg"
-        dir={isRtl ? "rtl" : "ltr"}
+        dir="rtl"
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -304,7 +271,7 @@ export default function OpsIssueEditDialog({
                     : LENS_OPTIONS
                   ).map((o) => ({
                     value: o.value,
-                    label: lensDisplayLabel(o.value, language),
+                    label: lensDisplayLabel(o.value),
                   }))}
                   value={form.selectedLens || ""}
                   onChange={(val) =>
@@ -313,8 +280,7 @@ export default function OpsIssueEditDialog({
                       selectedLens: (val || "") as IssueLens | "",
                     })
                   }
-                  isRtl={isRtl}
-                />
+                  />
               </Field>
             )}
 
@@ -333,8 +299,7 @@ export default function OpsIssueEditDialog({
                 onChange={(val) =>
                   setForm({ ...form, selectedAssignee: val })
                 }
-                isRtl={isRtl}
-              />
+                />
             </Field>
 
             {showRelease ? (
@@ -346,8 +311,7 @@ export default function OpsIssueEditDialog({
                   onChange={(val) =>
                     setForm({ ...form, selectedRelease: val })
                   }
-                  isRtl={isRtl}
-                />
+                  />
               </Field>
             ) : hasEpicLink ? (
               <p className="text-xs text-muted-foreground">

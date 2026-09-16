@@ -4,35 +4,23 @@ import { useEffect, useState } from "react";
 import { IssueStatusBadge } from "@/components/IssueStatusBadge";
 import { IssuePeekDescription } from "@/components/issue-peek/IssuePeekDescription";
 import { useIssuePeek } from "@/components/providers/issue-peek-provider";
-import { useJiraApp } from "@/components/providers/jira-app-provider";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { lensDisplayLabel } from "@/lib/lens";
 import type { PeekIssue } from "@/lib/issue-peek";
 import type { OpsIssue } from "@/lib/issue-ops/types";
 
-const copy = {
-  en: {
-    description: "Description",
-    subtasks: "Sub-tasks",
-    emptySubs: "No sub-tasks.",
-    loadFail: "Could not load sub-tasks.",
-    lens: "Lens",
-  },
-  fa: {
+const t = {
     description: "توضیحات",
     subtasks: "ساب‌تسک‌ها",
     emptySubs: "ساب‌تسکی نیست.",
     loadFail: "بارگذاری ساب‌تسک‌ها نشد.",
     lens: "لنز",
-  },
-} as const;
+  } as const;
 
 type Props = { issue: PeekIssue };
 
 export function StoryLayout({ issue }: Props) {
-  const { language } = useJiraApp();
-  const t = copy[language];
   const { openIssue } = useIssuePeek();
   const [subs, setSubs] = useState<OpsIssue[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,7 +51,7 @@ export function StoryLayout({ issue }: Props) {
     <div className="flex flex-col gap-3">
       {issue.selectedLens ? (
         <Badge variant="outline" className="w-fit">
-          {t.lens}: {lensDisplayLabel(issue.selectedLens, language)}
+          {t.lens}: {lensDisplayLabel(issue.selectedLens)}
         </Badge>
       ) : null}
 

@@ -27,16 +27,10 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import type {
-  ConnectionConfig,
-  JiraCredentials,
-  JiraProject,
-  Language,
-} from "@/lib/types";
+import type { ConnectionConfig, JiraCredentials, JiraProject } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 interface JiraConfigProps {
-  language: Language;
   credentials: JiraCredentials;
   onCredentialsChange: (creds: JiraCredentials) => void;
   projectKey: string;
@@ -49,41 +43,6 @@ interface JiraConfigProps {
 }
 
 const translations = {
-  en: {
-    title: "Jira connection",
-    subtitle: "Connect self-hosted Jira. Credentials stay in the browser.",
-    jiraUrl: "Jira Server URL",
-    jiraUrlPlaceholder: "https://jira.yourcompany.com",
-    authType: "Auth type",
-    pat: "Personal Access Token (PAT)",
-    basic: "Username + password / API token",
-    token: "Personal Access Token",
-    username: "Username",
-    password: "Password / API token",
-    projectKey: "Project key",
-    projectKeyPlaceholder: "e.g. PROJ",
-    epicNameField: "Epic Name field ID",
-    epicLinkField: "Epic Link field ID",
-    testConnection: "Test connection",
-    testing: "Connecting…",
-    connectedAs: "Connected as:",
-    advanced: "Custom field mapping",
-    advancedHelp: "Change IDs if your Epic Name / Link fields differ from defaults.",
-    saveSuccess: "Saved to browser storage.",
-    failedToConnect: "Connection failed",
-    selectProject: "Fetch projects",
-    projectsFetched: "Projects loaded",
-    placeholderProject: "Select a project",
-    fieldExplain:
-      "Defaults: Epic Name customfield_10008, Epic Link customfield_10014, Sprint customfield_10010.",
-    urlHelp: "Full URL of your self-hosted Jira.",
-    sprintField: "Sprint field ID",
-    export: "Export JSON",
-    import: "Import JSON",
-    importSuccess: "Settings imported.",
-    importError: "Could not parse settings JSON.",
-  },
-  fa: {
     title: "اتصال جیرا",
     subtitle: "به جیرای سلف‌هاست وصل شوید. اعتبارنامه در مرورگر می‌ماند.",
     jiraUrl: "آدرس سرور جیرا",
@@ -116,11 +75,9 @@ const translations = {
     import: "ورود JSON",
     importSuccess: "تنظیمات وارد شد.",
     importError: "خواندن JSON ناموفق بود.",
-  },
-};
+  };
 
 export default function JiraConfig({
-  language,
   credentials,
   onCredentialsChange,
   projectKey,
@@ -131,8 +88,8 @@ export default function JiraConfig({
   availableProjects,
   onAvailableProjectsChange,
 }: JiraConfigProps) {
-  const t = translations[language];
-  const isRtl = language === "fa";
+  const t = translations;
+  const isRtl = true;
 
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{
@@ -177,9 +134,7 @@ export default function JiraConfig({
     if (!credentials.url) {
       setTestResult({
         success: false,
-        message: isRtl
-          ? "لطفاً آدرس جیرا را وارد کنید."
-          : "Enter a Jira Server URL.",
+        message: "لطفاً آدرس جیرا را وارد کنید.",
       });
       return;
     }
@@ -208,9 +163,7 @@ export default function JiraConfig({
           success: false,
           message:
             data.error ||
-            (isRtl
-              ? "نام کاربری یا رمز عبور اشتباه است."
-              : "Invalid credentials or URL."),
+            ("نام کاربری یا رمز عبور اشتباه است."),
         });
       }
     } catch (err: unknown) {
@@ -270,7 +223,7 @@ export default function JiraConfig({
   const projectPlaceholder =
     availableProjects.length > 0
       ? `-- ${t.placeholderProject} --`
-      : `-- ${isRtl ? "اتصال را بررسی کنید" : "Test connection to load"} --`;
+      : `-- ${"اتصال را بررسی کنید"} --`;
 
   return (
     <Card id="jira-config-panel">
@@ -442,7 +395,7 @@ export default function JiraConfig({
             </Field>
             <Field>
               <FieldLabel>
-                {isRtl ? "پروژه‌های دریافت شده" : "Fetched Jira Projects"}
+                {"پروژه‌های دریافت شده"}
               </FieldLabel>
               <SearchableSelect
                 disabled={availableProjects.length === 0 || fetchingProjects}
@@ -463,7 +416,6 @@ export default function JiraConfig({
                 }
                 onChange={(val) => onProjectKeyChange(val)}
                 showSearch
-                isRtl={isRtl}
                 placeholder={projectPlaceholder}
               />
             </Field>
@@ -545,9 +497,7 @@ export default function JiraConfig({
                       htmlFor="sprint-field"
                       className="font-mono text-[10px] uppercase tracking-wider"
                     >
-                      {language === "fa"
-                        ? "شناسه فیلد اسپرینت"
-                        : "Sprint Field (e.g. customfield_10010)"}
+                      شناسه فیلد اسپرینت
                     </FieldLabel>
                     <Input
                       id="sprint-field"
@@ -587,9 +537,7 @@ export default function JiraConfig({
                   )}
                   <AlertTitle>
                     {testResult.success
-                      ? isRtl
-                        ? "موفق"
-                        : "Success"
+                      ? "موفق"
                       : t.failedToConnect}
                   </AlertTitle>
                   <AlertDescription

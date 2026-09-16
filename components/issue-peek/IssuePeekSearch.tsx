@@ -12,29 +12,19 @@ import {
 } from "@/lib/issue-peek";
 import { cn } from "@/lib/utils";
 
-const copy = {
-  en: {
-    placeholder: "PROJ-123…",
-    fetch: "Fetch",
-    invalid: "Use KEY-123",
-    recent: "Recent",
-  },
-  fa: {
+const t = {
     placeholder: "PROJ-123…",
     fetch: "بارگذاری",
     invalid: "فرمت KEY-123",
     recent: "اخیر",
-  },
-} as const;
+  } as const;
 
 type Props = {
   className?: string;
 };
 
 export function IssuePeekSearch({ className }: Props) {
-  const { language, isRtl } = useJiraApp();
-  const t = copy[language];
-  const { issueKey, openIssue, recentKeys, loading } = useIssuePeek();
+  const { isRtl } = useJiraApp();  const { issueKey, openIssue, recentKeys, loading } = useIssuePeek();
   const [value, setValue] = useState(issueKey || "");
   const [showRecent, setShowRecent] = useState(false);
 
@@ -50,7 +40,7 @@ export function IssuePeekSearch({ className }: Props) {
   };
 
   return (
-    <div className={cn("relative flex flex-col gap-1.5", className)} dir={isRtl ? "rtl" : "ltr"}>
+    <div className={cn("relative flex flex-col gap-1.5", className)} dir="rtl">
       <div className="flex gap-1.5">
         <div className="relative min-w-0 flex-1">
           <SearchIcon className="pointer-events-none absolute start-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />

@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import React, { useState, useEffect } from "react";
-import { Language } from "@/lib/types";
+
 import { Wand2, Sparkles, FileText, Plus, Trash2 } from "lucide-react";
 import SearchableSelect from "@/components/SearchableSelect";
 import { useAiSettings } from "@/components/providers/ai-settings-provider";
@@ -23,7 +23,6 @@ import { cn } from "@/lib/utils";
 import type { AIProvider } from "@/lib/ai-provider";
 
 interface DraftInputProps {
-  language: Language;
   onRefine: (
     draftText: string,
     customPrompt: string,
@@ -36,39 +35,6 @@ interface DraftInputProps {
 }
 
 const translations = {
-  en: {
-    title: "Draft stories",
-    subtitle: "Paste notes or stories. Persian and English both work.",
-    draftLabel: "Draft",
-    draftPlaceholder:
-      "Paste bullets or stories here…\n\nExample:\n- Epic: account security\n- Register with email/password\n- Google OAuth login\n- Password reset via email code",
-    customPrompt: "AI instruction",
-    promptPlaceholder: "e.g. Write fluent Persian Given-When-Then…",
-    refineBtn: "Refine with AI",
-    refining: "Refining…",
-    quickTemplates: "Prompt templates",
-    templateScrum: "Scrum (Persian)",
-    templateScrumDesc: "As a… I want… So that… in fluent Persian, no markup.",
-    templateFarsi: "Fluent Persian",
-    templateFarsiDesc: "Persian stories without markdown or Jira markup.",
-    templateTech: "Tech specs",
-    templateTechDesc: "Persian text with English API terms and status codes.",
-    templateSimple: "Checklist (Persian)",
-    templateSimpleDesc: "Short Persian bullets, no markup.",
-    addPromptTitle: "New prompt template",
-    promptNameLabel: "Template name",
-    promptNamePlaceholder: "e.g. Mobile UI",
-    promptTextLabel: "Prompt text",
-    promptTextPlaceholder: "e.g. Focus on mobile layouts…",
-    addBtn: "Save template",
-    deleteBtn: "Delete template",
-    outputModeLabel: "Output",
-    outputModeBoth: "Epics, stories & bugs",
-    outputModeEpics: "Epics only",
-    outputModeStories: "Stories only",
-    outputModeBugs: "Bugs only",
-  },
-  fa: {
     title: "پیش‌نویس استوری‌ها",
     subtitle: "یادداشت یا استوری را بچسبانید. فارسی و انگلیسی.",
     draftLabel: "پیش‌نویس",
@@ -99,17 +65,15 @@ const translations = {
     outputModeEpics: "فقط اپیک",
     outputModeStories: "فقط استوری",
     outputModeBugs: "فقط باگ",
-  },
-};
+  };
 
 export default function DraftInput({
-  language,
   onRefine,
   loading,
   draftText: draftTextProp,
 }: DraftInputProps) {
-  const t = translations[language];
-  const isRtl = language === "fa";
+  const t = translations;
+  const isRtl = true;
   const { aiProvider, selectedModel } = useAiSettings();
 
   const [draftText, setDraftText] = useState("");
@@ -369,7 +333,6 @@ export default function DraftInput({
               ]}
               value={outputMode}
               onChange={setOutputMode}
-              isRtl={isRtl}
               showSearch={false}
             />
           </Field>
@@ -398,7 +361,7 @@ export default function DraftInput({
                   onChange={(e) => setNewPromptText(e.target.value)}
                 />
                 <Button type="submit" size="sm">
-                  {isRtl ? "ذخیره" : "Save"}
+                  {"ذخیره"}
                 </Button>
               </div>
             </form>

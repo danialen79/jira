@@ -3,8 +3,11 @@ import { Providers } from "@/components/providers/providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Jira AI Workspace",
-  description: "Draft, refine, and publish to self-hosted Jira.",
+  title: {
+    default: "جیرا AI",
+    template: "%s",
+  },
+  description: "پیش‌نویس، اصلاح و انتشار در جیرای سلف‌هاست.",
 };
 
 export const viewport: Viewport = {

@@ -7,45 +7,29 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@/components/ui/empty";
-import type { Language } from "@/lib/types";
+
 
 type ScopeItem = { key: string; summary?: string };
 
-type Props = {
-  language: Language;
-  added: ScopeItem[];
+type Props = {  added: ScopeItem[];
   removed: ScopeItem[];
   limited: boolean;
   jiraUrl: string;
 };
 
-const copy = {
-  en: {
-    added: "Added mid-sprint",
-    removed: "Removed / punted",
-    empty: "No scope changes",
-    emptyHint: "Commitment held since sprint start.",
-    limited: "Limited — Greenhopper report unavailable",
-  },
-  fa: {
+const t = {
     added: "اضافه‌شده میان‌اسپرینت",
     removed: "حذف / خارج‌شده",
     empty: "تغییر اسکوپی نیست",
     emptyHint: "تعهد از شروع اسپرینت حفظ شده.",
     limited: "محدود — گزارش Greenhopper در دسترس نیست",
-  },
-} as const;
+  } as const;
 
-export default function SprintScopePanel({
-  language,
-  added,
+export default function SprintScopePanel({  added,
   removed,
   limited,
   jiraUrl,
-}: Props) {
-  const t = copy[language];
-
-  if (added.length === 0 && removed.length === 0) {
+}: Props) {  if (added.length === 0 && removed.length === 0) {
     return (
       <Empty className="border">
         <EmptyHeader>

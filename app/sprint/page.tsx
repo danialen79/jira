@@ -6,12 +6,10 @@ import { useJiraApp } from "@/components/providers/jira-app-provider";
 import { Spinner } from "@/components/ui/spinner";
 
 function SprintBody() {
-  const { language, isRtl, jiraUrl, jiraConnected } = useJiraApp();
+  const { jiraUrl, jiraConnected } = useJiraApp();
 
   return (
     <SprintControlCenter
-      language={language}
-      isRtl={isRtl}
       jiraUrl={jiraUrl}
       jiraConnected={jiraConnected}
     />

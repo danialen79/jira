@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect } from "react";
-import { Language } from "@/lib/types";
+
 import {
   MessageSquare,
   CheckCircle,
@@ -37,7 +37,6 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 
 interface MattermostIntegrationProps {
-  language: Language;
   onImportDraft: (text: string) => void;
 }
 
@@ -60,40 +59,6 @@ interface MattermostDraft {
 }
 
 const translations = {
-  en: {
-    title: "Mattermost",
-    subtitle: "Test the bot and fetch drafts from channels.",
-    notConfigured: "Bot not configured",
-    configInstructions: "Add these variables to the server .env:",
-    copyBtn: "Copy",
-    copied: "Copied",
-    refreshConfig: "Refresh config",
-    statusConnected: "Connected to Mattermost.",
-    statusError: "Mattermost connection failed.",
-    testBtn: "Test connection",
-    fetchBtn: "Fetch drafts",
-    testing: "Testing…",
-    fetching: "Fetching…",
-    botInfo: "Bot info",
-    username: "Username",
-    id: "User ID",
-    teams: "Teams",
-    channelsCount: "Channels",
-    receivedDrafts: "Drafts",
-    noDrafts: "No drafts. Mention the bot in a channel, then fetch.",
-    importBtn: "Import to refiner",
-    mentionBadge: "Mentioned",
-    channelLabel: "Channel",
-    senderLabel: "Sender",
-    timeLabel: "Received",
-    serverUrl: "Server URL",
-    placeholderHelp: "Invite the bot, @mention a draft, then fetch here.",
-    noTeamsJoined: "No teams. Invite the bot to a team in Mattermost.",
-    loadingConfig: "Loading config…",
-    testHint: "Run a connection test before fetching drafts.",
-    noDraftsTitle: "No drafts",
-  },
-  fa: {
     title: "مترموست",
     subtitle: "اتصال بات را بسنجید و پیش‌نویس کانال‌ها را بگیرید.",
     notConfigured: "بات پیکربندی نشده",
@@ -125,15 +90,13 @@ const translations = {
     loadingConfig: "بارگذاری پیکربندی…",
     testHint: "قبل از دریافت پیش‌نویس، اتصال را تست کنید.",
     noDraftsTitle: "بدون پیش‌نویس",
-  },
-};
+  };
 
 export default function MattermostIntegration({
-  language,
   onImportDraft,
 }: MattermostIntegrationProps) {
-  const t = translations[language];
-  const isRtl = language === "fa";
+  const t = translations;
+  const isRtl = true;
 
   const [config, setConfig] = useState<MattermostConfig | null>(null);
   const [loadingConfig, setLoadingConfig] = useState(true);
@@ -213,14 +176,14 @@ export default function MattermostIntegration({
   const formatRelativeTime = (timestamp: number) => {
     if (!timestamp) return "";
     const seconds = Math.floor((Date.now() - timestamp) / 1000);
-    if (seconds < 60) return isRtl ? "لحظاتی پیش" : "just now";
+    if (seconds < 60) return "لحظاتی پیش";
     const minutes = Math.floor(seconds / 60);
     if (minutes < 60)
-      return isRtl ? `${minutes} دقیقه پیش` : `${minutes}m ago`;
+      return `${minutes} دقیقه پیش`;
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return isRtl ? `${hours} ساعت پیش` : `${hours}h ago`;
+    if (hours < 24) return `${hours} ساعت پیش`;
     const days = Math.floor(hours / 24);
-    return isRtl ? `${days} روز پیش` : `${days}d ago`;
+    return `${days} روز پیش`;
   };
 
   if (loadingConfig) {
@@ -423,20 +386,16 @@ MATTERMOST_BOT_TOKEN="your-bot-account-token"`}
               <CardHeader>
                 <CardTitle className="flex items-center gap-1 text-sm">
                   <HelpCircle className="size-4 text-primary" />
-                  {isRtl ? "راهنما" : "How to mention?"}
+                  {"راهنما"}
                 </CardTitle>
                 <CardDescription>
-                  {isRtl
-                    ? "زمانی که بات را در چنل اضافه کردید، پیام‌های منشن شده را می‌خواند. مانند:"
-                    : "Once added to a channel, you can draft requirements and mention the bot handle:"}
+                  {"زمانی که بات را در چنل اضافه کردید، پیام‌های منشن شده را می‌خواند. مانند:"}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="select-all rounded-md border bg-card p-2 font-mono text-[11px] text-foreground">
                   @jira-bot{" "}
-                  {isRtl
-                    ? "یک تیکت استوری برای ثبت نام کاربر اضافه کن با تایید پیامکی"
-                    : "Create a user registration story with SMS verification"}
+                  {"یک تیکت استوری برای ثبت نام کاربر اضافه کن با تایید پیامکی"}
                 </div>
               </CardContent>
             </Card>

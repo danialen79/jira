@@ -11,8 +11,6 @@ export async function POST(req: Request) {
       epicKeyRaw === null || epicKeyRaw === undefined || epicKeyRaw === ""
         ? null
         : String(epicKeyRaw).trim().toUpperCase();
-    const language = body?.language === "fa" ? "fa" : "en";
-
     if (!issueKey) {
       return NextResponse.json(
         { error: "issueKey is required." },
@@ -26,8 +24,7 @@ export async function POST(req: Request) {
       { jiraUrl, headers },
       issueKey,
       epicKey,
-      epicLinkField,
-      language
+      epicLinkField
     );
 
     if (!result.ok) {

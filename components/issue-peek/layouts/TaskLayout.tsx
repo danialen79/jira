@@ -5,30 +5,18 @@ import { IssuePeekDescription } from "@/components/issue-peek/IssuePeekDescripti
 import { useJiraApp } from "@/components/providers/jira-app-provider";
 import { formatJiraSeconds, type PeekIssue } from "@/lib/issue-peek";
 
-const copy = {
-  en: {
-    time: "Time tracking",
-    spent: "Spent",
-    remaining: "Remaining",
-    original: "Original",
-    description: "Description",
-  },
-  fa: {
+const t = {
     time: "زمان",
     spent: "صرف‌شده",
     remaining: "باقیمانده",
     original: "اولیه",
     description: "توضیحات",
-  },
-} as const;
+  } as const;
 
 type Props = { issue: PeekIssue };
 
 export function TaskLayout({ issue }: Props) {
-  const { language } = useJiraApp();
-  const t = copy[language];
-
-  return (
+  return (
     <div className="flex flex-col gap-3">
       <div className="rounded-md border border-border/70 bg-muted/20 p-2.5">
         <p className="mb-2 flex items-center gap-1.5 text-xs font-medium">

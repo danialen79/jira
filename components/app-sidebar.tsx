@@ -87,13 +87,13 @@ const navItems = [
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const { t, isRtl, issues, jiraConnected } = useJiraApp();
+  const { t, issues, jiraConnected } = useJiraApp();
 
   return (
     <Sidebar
-      side={isRtl ? "right" : "left"}
+      side="right"
       collapsible="icon"
-      dir={isRtl ? "rtl" : "ltr"}
+      dir="rtl"
     >
       <SidebarHeader>
         <SidebarMenu>
@@ -104,7 +104,7 @@ export function AppSidebar() {
               </div>
               <div className="grid flex-1 text-start text-sm leading-tight">
                 <span className="truncate font-semibold">
-                  {isRtl ? "جیرا AI" : "Jira AI"}
+                  جیرا AI
                 </span>
                 <span className="truncate text-xs text-muted-foreground">
                   Self-Host
@@ -118,7 +118,7 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>
-            {isRtl ? "منو" : "Menu"}
+            منو
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>

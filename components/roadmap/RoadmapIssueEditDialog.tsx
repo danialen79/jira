@@ -3,14 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { PencilIcon } from "lucide-react";
 import { toast } from "sonner";
-import type {
-  JiraSprint,
-  JiraUser,
-  JiraVersion,
-  Language,
-  IssueLens,
-  VersionIssue,
-} from "@/lib/types";
+import type { JiraSprint, JiraUser, JiraVersion, IssueLens, VersionIssue } from "@/lib/types";
 import {
   EPIC_LENS_OPTIONS,
   isIssueLens,
@@ -59,34 +52,10 @@ type Props = {
   /** Nested under epic in tree → never owns Fix Version in this UI. */
   nestedUnderEpic?: boolean;
   versions: JiraVersion[];
-  language: Language;
-  isRtl: boolean;
   onSaved?: () => void;
 };
 
-const copy = {
-  en: {
-    title: "Edit issue",
-    loading: "Loading…",
-    save: "Save changes",
-    saving: "Saving…",
-    cancel: "Cancel",
-    saved: "Issue updated.",
-    failed: "Could not update issue.",
-    summary: "Summary",
-    description: "Description",
-    component: "Component",
-    assignee: "Assignee",
-    priority: "Priority",
-    lens: "Lens",
-    release: "Release (Fix Version)",
-    sprint: "Sprint",
-    epicLink: "Epic link",
-    none: "None",
-    releaseHint: "Epics and orphan stories own the release.",
-    underEpicHint: "Linked to an epic — Fix Version is on the epic.",
-  },
-  fa: {
+const t = {
     title: "ویرایش ایشو",
     loading: "در حال بارگذاری…",
     save: "ذخیره تغییرات",
@@ -106,8 +75,7 @@ const copy = {
     none: "هیچ",
     releaseHint: "ریلیز روی اپیک و استوری بدون اپیک است.",
     underEpicHint: "زیر اپیک است — Fix Version روی اپیک است.",
-  },
-} as const;
+  } as const;
 
 const PRIORITIES = ["Highest", "High", "Medium", "Low", "Lowest"];
 
@@ -116,12 +84,8 @@ export default function RoadmapIssueEditDialog({
   onOpenChange,
   issue,
   nestedUnderEpic = false,
-  versions,
-  language,
-  isRtl,
-  onSaved,
+  versions,  onSaved,
 }: Props) {
-  const t = copy[language];
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -222,13 +186,9 @@ export default function RoadmapIssueEditDialog({
       }).map((v) => ({
         value: v.id,
         label: v.name,
-        sublabel: v.released
-          ? language === "fa"
-            ? "منتشرشده"
-            : "released"
-          : undefined,
+        sublabel: v.released ? "منتشرشده" : undefined,
       })),
-    [versions, form?.selectedRelease, language]
+    [versions, form?.selectedRelease]
   );
 
   const handleSave = async () => {
@@ -239,7 +199,6 @@ export default function RoadmapIssueEditDialog({
           issuetype: form.issuetype,
           hasEpicLink: false,
           selectedRelease: form.selectedRelease,
-          language,
         })
       : null;
     if (fvError) {
@@ -247,11 +206,7 @@ export default function RoadmapIssueEditDialog({
       return;
     }
     if (form.issuetype === "Story" && !isStoryLens(form.selectedLens)) {
-      toast.error(
-        language === "fa"
-          ? "برای استوری لنز لازم است."
-          : "Story requires a Lens."
-      );
+      toast.error("برای استوری لنز لازم است.");
       return;
     }
 
@@ -298,7 +253,7 @@ export default function RoadmapIssueEditDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="flex max-h-[min(92vh,40rem)] flex-col gap-0 overflow-y-auto sm:max-w-xl"
-        dir={isRtl ? "rtl" : "ltr"}
+        dir="rtl"
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -356,8 +311,7 @@ export default function RoadmapIssueEditDialog({
                 onChange={(val) =>
                   setForm({ ...form, selectedPriority: val })
                 }
-                isRtl={isRtl}
-              />
+                />
             </Field>
 
             {(form.issuetype === "Story" || isEpic) && (
@@ -368,7 +322,7 @@ export default function RoadmapIssueEditDialog({
                     { value: "", label: t.none },
                     ...(isEpic ? EPIC_LENS_OPTIONS : LENS_OPTIONS).map((o) => ({
                       value: o.value,
-                      label: lensDisplayLabel(o.value, language),
+                      label: lensDisplayLabel(o.value),
                     })),
                   ]}
                   value={form.selectedLens || ""}
@@ -378,8 +332,7 @@ export default function RoadmapIssueEditDialog({
                       selectedLens: (val || "") as IssueLens | "",
                     })
                   }
-                  isRtl={isRtl}
-                />
+                  />
               </Field>
             )}
 
@@ -396,8 +349,7 @@ export default function RoadmapIssueEditDialog({
                     setForm({ ...form, selectedComponent: val })
                   }
                   showSearch
-                  isRtl={isRtl}
-                />
+                  />
               </Field>
             )}
 
@@ -418,8 +370,7 @@ export default function RoadmapIssueEditDialog({
                     setForm({ ...form, selectedAssignee: val })
                   }
                   showSearch
-                  isRtl={isRtl}
-                />
+                  />
               </Field>
             )}
 
@@ -462,8 +413,7 @@ export default function RoadmapIssueEditDialog({
                     setForm({ ...form, selectedRelease: val })
                   }
                   showSearch
-                  isRtl={isRtl}
-                />
+                  />
                 <p className="text-xs text-muted-foreground">{t.releaseHint}</p>
               </Field>
             )}
@@ -485,8 +435,7 @@ export default function RoadmapIssueEditDialog({
                     setForm({ ...form, selectedSprint: val })
                   }
                   showSearch
-                  isRtl={isRtl}
-                />
+                  />
               </Field>
             )}
           </FieldGroup>

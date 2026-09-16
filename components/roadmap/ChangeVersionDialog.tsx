@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { ArrowRightLeftIcon } from "lucide-react";
 import { toast } from "sonner";
-import type { JiraVersion, Language, VersionIssue } from "@/lib/types";
+import type { JiraVersion, VersionIssue } from "@/lib/types";
 import { parseProductFromVersionName } from "@/lib/roadmap";
 import {
   isEpicIssueType,
@@ -30,30 +30,10 @@ type Props = {
   issue: VersionIssue | null;
   currentVersion: JiraVersion;
   allVersions: JiraVersion[];
-  language: Language;
-  isRtl: boolean;
   onMoved?: () => void;
 };
 
-const copy = {
-  en: {
-    title: "Change version",
-    description: "Move this issue to another Fix Version, or remove it.",
-    target: "Target version",
-    current: "Current",
-    save: "Move",
-    remove: "Remove version",
-    saving: "Saving…",
-    cancel: "Cancel",
-    success: "Version updated.",
-    cleared: "Version removed.",
-    failed: "Could not change version.",
-    pick: "Select a version",
-    clearOption: "No version (remove)",
-    sameProduct: "Same-product versions, or remove Fix Version entirely.",
-    empty: "No other versions for this product. You can still remove it.",
-  },
-  fa: {
+const t = {
     title: "تغییر ورژن",
     description: "ایشو را به ورژن دیگری ببرید یا Fix Version را حذف کنید.",
     target: "ورژن مقصد",
@@ -69,8 +49,7 @@ const copy = {
     clearOption: "بدون ورژن (حذف)",
     sameProduct: "ورژن‌های همین محصول، یا حذف کامل Fix Version.",
     empty: "ورژن دیگری برای این محصول نیست. می‌توانید ورژن را حذف کنید.",
-  },
-} as const;
+  } as const;
 
 export default function ChangeVersionDialog({
   open,
@@ -78,11 +57,8 @@ export default function ChangeVersionDialog({
   issue,
   currentVersion,
   allVersions,
-  language,
-  isRtl,
   onMoved,
 }: Props) {
-  const t = copy[language];
   const [targetId, setTargetId] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -107,11 +83,11 @@ export default function ChangeVersionDialog({
       {
         value: CLEAR_VERSION,
         label: t.clearOption,
-        sublabel: language === "fa" ? "حذف Fix Version" : "Clear Fix Version",
+        sublabel: "حذف Fix Version",
       },
       ...versionOptions,
     ],
-    [t.pick, t.clearOption, versionOptions, language]
+    [t.pick, t.clearOption, versionOptions]
   );
 
   const isClear = targetId === CLEAR_VERSION;
@@ -154,7 +130,7 @@ export default function ChangeVersionDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md" dir={isRtl ? "rtl" : "ltr"}>
+      <DialogContent className="sm:max-w-md" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ArrowRightLeftIcon data-icon="inline-start" />
@@ -189,8 +165,7 @@ export default function ChangeVersionDialog({
               value={targetId}
               onChange={setTargetId}
               showSearch
-              isRtl={isRtl}
-            />
+              />
           </Field>
         </FieldGroup>
 

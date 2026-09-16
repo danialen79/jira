@@ -28,35 +28,15 @@ import {
   isValidVersionProduct,
   listProductsFromVersions,
 } from "@/lib/roadmap";
-import type { JiraVersion, Language } from "@/lib/types";
+import type { JiraVersion } from "@/lib/types";
 
 type Props = {
   open: boolean;
-  onOpenChange: (open: boolean) => void;
-  language: Language;
-  versions: JiraVersion[];
+  onOpenChange: (open: boolean) => void;  versions: JiraVersion[];
   onCreated: () => void;
 };
 
-const copy = {
-  en: {
-    title: "New version",
-    start: "Start date",
-    end: "End date",
-    product: "Product",
-    pickProduct: "Existing product",
-    productVer: "Product version",
-    preview: "Fix Version name",
-    create: "Create",
-    creating: "Creating…",
-    cancel: "Cancel",
-    ok: "Version created.",
-    fail: "Could not create version.",
-    productHint: "Letters/digits, e.g. Club",
-    versionHint: "e.g. 2.6",
-    needFields: "Fill start, end, product, and version.",
-  },
-  fa: {
+const t = {
     title: "ورژن جدید",
     start: "تاریخ شروع",
     end: "تاریخ پایان",
@@ -72,18 +52,13 @@ const copy = {
     productHint: "حروف/عدد، مثل Club",
     versionHint: "مثل 2.6",
     needFields: "شروع، پایان، محصول و ورژن را پر کنید.",
-  },
-} as const;
+  } as const;
 
 export default function CreateVersionDialog({
   open,
-  onOpenChange,
-  language,
-  versions,
+  onOpenChange,  versions,
   onCreated,
-}: Props) {
-  const t = copy[language];
-  const products = useMemo(() => listProductsFromVersions(versions), [versions]);
+}: Props) {  const products = useMemo(() => listProductsFromVersions(versions), [versions]);
   const productItems = useMemo(
     () => products.map((p) => ({ label: p, value: p })),
     [products]
@@ -169,7 +144,6 @@ export default function CreateVersionDialog({
               <FieldLabel htmlFor="version-create-start">{t.start}</FieldLabel>
               <JalaliDateInput
                 id="version-create-start"
-                language={language}
                 value={startDate}
                 onChange={setStartDate}
                 disabled={saving}
@@ -179,7 +153,6 @@ export default function CreateVersionDialog({
               <FieldLabel htmlFor="version-create-end">{t.end}</FieldLabel>
               <JalaliDateInput
                 id="version-create-end"
-                language={language}
                 value={releaseDate}
                 onChange={setReleaseDate}
                 disabled={saving}

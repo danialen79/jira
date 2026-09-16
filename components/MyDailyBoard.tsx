@@ -10,7 +10,7 @@ import {
   User,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Language, JiraUser } from "@/lib/types";
+import { JiraUser } from "@/lib/types";
 import { getSearchParam, useUrlQueryState } from "@/lib/url-state";
 import {
   buildKanbanColumns,
@@ -47,34 +47,13 @@ import {
 } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
 
-interface MyDailyBoardProps {
-  language: Language;
-  jiraUrl: string;
+interface MyDailyBoardProps {  jiraUrl: string;
   jiraUsername: string;
   jiraConnected: boolean;
   jiraUsers: JiraUser[];
 }
 
 const translations = {
-  en: {
-    subtitle: "Kanban for your work. Drag status; log from the dock.",
-    loadError: "Could not load tickets. Check Jira connection.",
-    notConnected: "Jira not connected",
-    notConnectedDesc: "Connect Jira in Settings, then refresh.",
-    refreshBtn: "Refresh",
-    loadingIssues: "Loading…",
-    searchPlaceholder: "Search key or summary…",
-    allUsersOption: "All assignees",
-    targetUserLabel: "Assignee",
-    searchUserPlaceholder: "Find user…",
-    noIssuesFound: "No issues match these filters.",
-    noTicketsFound: "No tickets",
-    jiraSystemError: "Jira error",
-    moveFailed: "Could not move ticket.",
-    addedToLog: "Added to worklog dock",
-    boardFrom: "Board",
-  },
-  fa: {
     subtitle: "کانبان کارهای شما. وضعیت را بکشید؛ کارکرد را از نوار پایین ثبت کنید.",
     loadError: "بارگذاری ایشوها ناموفق. اتصال جیرا را بررسی کنید.",
     notConnected: "جیرا متصل نیست",
@@ -91,18 +70,15 @@ const translations = {
     moveFailed: "جابه‌جایی ایشو ناموفق بود.",
     addedToLog: "به نوار کارکرد اضافه شد",
     boardFrom: "بورد",
-  },
-};
+  };
 
-export default function MyDailyBoard({
-  language,
-  jiraUrl,
+export default function MyDailyBoard({  jiraUrl,
   jiraUsername,
   jiraConnected,
   jiraUsers,
 }: MyDailyBoardProps) {
-  const t = translations[language];
-  const isRtl = language === "fa";
+  const t = translations;
+  const isRtl = true;
   const searchParams = useSearchParams();
   const urlAssignee = searchParams.get("assignee");
   const assigneeFromUrl = useRef(!!urlAssignee);
@@ -445,8 +421,7 @@ export default function MyDailyBoard({
             value={selectedAssignee}
             onChange={setSelectedAssignee}
             placeholder={t.searchUserPlaceholder}
-            isRtl={isRtl}
-          />
+            />
         </div>
 
         <Badge variant="secondary" className="shrink-0 self-start sm:self-auto">
@@ -484,15 +459,12 @@ export default function MyDailyBoard({
         <KanbanBoard
           columns={columns}
           jiraUrl={jiraUrl}
-          language={language}
           onStatusChange={handleStatusChange}
           onAddToLog={handleAddToLog}
         />
       )}
 
       <WorklogDock
-        language={language}
-        isRtl={isRtl}
         jiraUrl={jiraUrl}
         chips={chips}
         focusedKey={focusedKey}

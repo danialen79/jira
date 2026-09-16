@@ -29,12 +29,9 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { SprintHealth, BurndownPoint, VelocityBar } from "@/lib/sprint/metrics";
-import type { JiraSprint, Language, SprintIssue } from "@/lib/types";
+import type { JiraSprint, SprintIssue } from "@/lib/types";
 
-type Props = {
-  language: Language;
-  isRtl: boolean;
-  jiraUrl: string;
+type Props = {  jiraUrl: string;
   jiraConnected: boolean;
 };
 
@@ -56,33 +53,7 @@ type ReportPayload = {
   };
 };
 
-const copy = {
-  en: {
-    subtitle: "Active sprint health, moves, and forecasts.",
-    refresh: "Refresh",
-    create: "New sprint",
-    start: "Start",
-    complete: "Complete",
-    pickSprint: "Select sprint",
-    noBoardTitle: "Scrum board not set",
-    noBoardHint: "Pick the SIP Scrum board in Settings.",
-    settings: "Open Settings",
-    notConnected: "Jira is not connected",
-    notConnectedHint: "Configure Jira env, then refresh.",
-    noSprints: "No sprints",
-    noSprintsHint: "Create a future sprint to begin.",
-    work: "Work",
-    scope: "Scope",
-    charts: "Charts",
-    goal: "Goal",
-    active: "Active",
-    future: "Future",
-    closed: "Closed",
-    started: "Sprint started.",
-    startFail: "Could not start sprint.",
-    loadFail: "Could not load sprints.",
-  },
-  fa: {
+const t = {
     subtitle: "سلامت اسپرینت جاری، انتقال و پیش‌بینی.",
     refresh: "بروزرسانی",
     create: "اسپرینت جدید",
@@ -106,17 +77,11 @@ const copy = {
     started: "اسپرینت شروع شد.",
     startFail: "شروع اسپرینت ناموفق بود.",
     loadFail: "بارگذاری اسپرینت‌ها ناموفق بود.",
-  },
-} as const;
+  } as const;
 
-export default function SprintControlCenter({
-  language,
-  isRtl,
-  jiraUrl,
+export default function SprintControlCenter({  jiraUrl,
   jiraConnected,
-}: Props) {
-  const t = copy[language];
-  const [sprints, setSprints] = useState<JiraSprint[]>([]);
+}: Props) {  const [sprints, setSprints] = useState<JiraSprint[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
   const [issues, setIssues] = useState<SprintIssue[]>([]);
   const [report, setReport] = useState<ReportPayload | null>(null);
@@ -289,7 +254,7 @@ export default function SprintControlCenter({
   }
 
   return (
-    <div className="flex flex-col gap-4" dir={isRtl ? "rtl" : "ltr"}>
+    <div className="flex flex-col gap-4" dir="rtl">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">{t.subtitle}</p>
         <div className="flex flex-wrap gap-2">
@@ -333,8 +298,7 @@ export default function SprintControlCenter({
                 value={selectedId}
                 onChange={setSelectedId}
                 placeholder={t.pickSprint}
-                isRtl={isRtl}
-              />
+                />
             </div>
             {selected && (
               <Badge
@@ -379,7 +343,6 @@ export default function SprintControlCenter({
           )}
 
           <SprintHealthStrip
-            language={language}
             health={report?.health ?? null}
             scopeDelta={
               report
@@ -397,8 +360,6 @@ export default function SprintControlCenter({
             </TabsList>
             <TabsContent value="work" className="mt-3">
               <SprintWorkPanel
-                language={language}
-                isRtl={isRtl}
                 jiraUrl={jiraUrl}
                 issues={issues}
                 loading={loadingDetail}
@@ -409,7 +370,6 @@ export default function SprintControlCenter({
             </TabsContent>
             <TabsContent value="scope" className="mt-3">
               <SprintScopePanel
-                language={language}
                 added={report?.scope.added || []}
                 removed={report?.scope.removed || []}
                 limited={report?.scope.limited ?? true}
@@ -418,7 +378,6 @@ export default function SprintControlCenter({
             </TabsContent>
             <TabsContent value="charts" className="mt-3">
               <SprintChartsPanel
-                language={language}
                 burndown={report?.burndown.points || []}
                 burndownLimited={report?.burndown.limited ?? true}
                 velocity={report?.velocity.bars || []}
@@ -433,13 +392,11 @@ export default function SprintControlCenter({
       <CreateSprintDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
-        language={language}
         onCreated={() => void refreshAll()}
       />
       <CompleteSprintDialog
         open={completeOpen}
         onOpenChange={setCompleteOpen}
-        language={language}
         sprint={selected}
         issues={issues}
         futureSprints={futureSprints}

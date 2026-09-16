@@ -2,12 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { GanttChart } from "lucide-react";
-import type {
-  Language,
-  JiraVersion,
-  VersionIssue,
-  VersionProgressSummary,
-} from "@/lib/types";
+import type { JiraVersion, VersionIssue, VersionProgressSummary } from "@/lib/types";
 import {
   formatRoadmapDate,
   getVersionStatusLabel,
@@ -33,7 +28,6 @@ import VersionIssueList from "@/components/roadmap/VersionIssueList";
 
 type Props = {
   versions: JiraVersion[];
-  language: Language;
   jiraUrl: string;
   onOpenVersion: (v: JiraVersion) => void;
 };
@@ -48,24 +42,7 @@ type VersionBundle =
       total: number;
     };
 
-const copy = {
-  en: {
-    noCurrent: "No versions in progress",
-    noCurrentHint: "No unreleased version covers today.",
-    start: "Start",
-    release: "Release",
-    todo: "To Do",
-    inProgress: "In Progress",
-    done: "Done",
-    canceled: "Canceled",
-    progress: "Progress",
-    archived: "Archived",
-    released: "Released",
-    overdue: "Overdue",
-    unreleased: "Unreleased",
-    loading: "Loading…",
-  },
-  fa: {
+const t = {
     noCurrent: "ورژن فعالی نیست",
     noCurrentHint: "هیچ ورژن منتشرنشده‌ای امروز را پوشش نمی‌دهد.",
     start: "شروع",
@@ -80,8 +57,7 @@ const copy = {
     overdue: "عقب‌افتاده",
     unreleased: "منتشرنشده",
     loading: "در حال بارگذاری…",
-  },
-} as const;
+  } as const;
 
 function statusBadgeVariant(
   label: ReturnType<typeof getVersionStatusLabel>
@@ -99,12 +75,9 @@ function statusBadgeVariant(
 }
 
 export default function CurrentVersionsPanel({
-  versions,
-  language,
-  jiraUrl,
+  versions,  jiraUrl,
   onOpenVersion,
 }: Props) {
-  const t = copy[language];
   const [bundles, setBundles] = useState<Record<string, VersionBundle>>({});
 
   const load = useCallback(async (list: JiraVersion[]) => {
@@ -196,8 +169,8 @@ export default function CurrentVersionsPanel({
                 {v.name}
               </CardTitle>
               <CardDescription>
-                {t.start}: {formatRoadmapDate(v.startDate, language)} ·{" "}
-                {t.release}: {formatRoadmapDate(v.releaseDate, language)}
+                {t.start}: {formatRoadmapDate(v.startDate)} ·{" "}
+                {t.release}: {formatRoadmapDate(v.releaseDate)}
               </CardDescription>
             </CardHeader>
             <CardContent className="flex min-h-0 flex-1 flex-col gap-3">
@@ -235,7 +208,6 @@ export default function CurrentVersionsPanel({
                     issues={bundle.issues}
                     total={bundle.total}
                     jiraUrl={jiraUrl}
-                    language={language}
                     compact
                     className="min-h-0 flex-1"
                   />

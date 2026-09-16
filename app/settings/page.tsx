@@ -50,7 +50,7 @@ const PROVIDER_LABEL: Record<AIProvider, string> = {
 };
 
 export default function SettingsPage() {
-  const { language, isRtl, jiraConnected } = useJiraApp();
+  const { jiraConnected, isRtl } = useJiraApp();
   const { settings, loading, saveSettings, refresh, aiProvider, selectedModel, setAiProvider, setSelectedModel } =
     useAiSettings();
 
@@ -87,48 +87,26 @@ export default function SettingsPage() {
     });
   }, [settings]);
 
-  const t =
-    language === "fa"
-      ? {
-          title: "تنظیمات AI",
-          subtitle: "پروایدرها و کلیدها؛ ذخیره فقط روی سرور.",
-          defaultProvider: "پروایدر پیش‌فرض",
-          defaultModel: "مدل پیش‌فرض",
-          save: "ذخیره تنظیمات",
-          saving: "در حال ذخیره…",
-          test: "تست اتصال",
-          testing: "در حال تست…",
-          apiKey: "API Key",
-          apiKeyHint: "خالی بگذارید تا کلید فعلی عوض نشود",
-          clearKey: "پاک کردن کلید ذخیره‌شده",
-          baseUrl: "Base URL",
-          configured: "پیکربندی شده",
-          missing: "کلید ندارد",
-          fromEnv: "از env",
-          saved: "تنظیمات ذخیره شد",
-          testOk: "اتصال برقرار شد",
-          testFail: "تست اتصال ناموفق بود",
-        }
-      : {
-          title: "AI Settings",
-          subtitle: "Providers and keys; secrets stay on the server.",
-          defaultProvider: "Default provider",
-          defaultModel: "Default model",
-          save: "Save settings",
-          saving: "Saving…",
-          test: "Test connection",
-          testing: "Testing…",
-          apiKey: "API Key",
-          apiKeyHint: "Leave blank to keep the current key",
-          clearKey: "Clear stored key",
-          baseUrl: "Base URL",
-          configured: "Configured",
-          missing: "Not configured",
-          fromEnv: "from env",
-          saved: "Settings saved",
-          testOk: "Connection succeeded",
-          testFail: "Connection test failed",
-        };
+  const t = {
+    title: "تنظیمات AI",
+    subtitle: "پروایدرها و کلیدها؛ ذخیره فقط روی سرور.",
+    defaultProvider: "پروایدر پیش‌فرض",
+    defaultModel: "مدل پیش‌فرض",
+    save: "ذخیره تنظیمات",
+    saving: "در حال ذخیره…",
+    test: "تست اتصال",
+    testing: "در حال تست…",
+    apiKey: "API Key",
+    apiKeyHint: "خالی بگذارید تا کلید فعلی عوض نشود",
+    clearKey: "پاک کردن کلید ذخیره‌شده",
+    baseUrl: "Base URL",
+    configured: "پیکربندی شده",
+    missing: "کلید ندارد",
+    fromEnv: "از env",
+    saved: "تنظیمات ذخیره شد",
+    testOk: "اتصال برقرار شد",
+    testFail: "تست اتصال ناموفق بود",
+  };
 
   const providerMeta = (id: AIProvider): PublicAiProvider | undefined =>
     settings?.providers.find((p) => p.id === id);
@@ -241,7 +219,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6" dir={isRtl ? "rtl" : "ltr"}>
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6" dir="rtl">
       <div className="flex flex-col gap-2">
         <h2 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Sparkles className="size-6 text-primary" />
@@ -251,8 +229,6 @@ export default function SettingsPage() {
       </div>
 
       <JiraBoardSettings
-        language={language}
-        isRtl={isRtl}
         jiraConnected={jiraConnected}
       />
 
@@ -281,7 +257,6 @@ export default function SettingsPage() {
                     }))}
                     value={aiProvider}
                     onChange={(val) => setAiProvider(val as AIProvider)}
-                    isRtl={isRtl}
                     showSearch={false}
                   />
                 </Field>
@@ -297,7 +272,6 @@ export default function SettingsPage() {
                         [aiProvider]: val,
                       }));
                     }}
-                    isRtl={isRtl}
                     showSearch={false}
                   />
                 </Field>
@@ -372,7 +346,6 @@ export default function SettingsPage() {
                       onChange={(val) =>
                         setDefaultModels((prev) => ({ ...prev, [id]: val }))
                       }
-                      isRtl={isRtl}
                       showSearch={false}
                     />
                   </Field>
@@ -421,12 +394,10 @@ export default function SettingsPage() {
 
           <Alert>
             <AlertTitle>
-              {isRtl ? "اولویت پیکربندی" : "Config priority"}
+              {"اولویت پیکربندی"}
             </AlertTitle>
             <AlertDescription>
-              {isRtl
-                ? "مقادیر ذخیره‌شده در SQLite بر متغیرهای محیطی (.env) اولویت دارند. اگر در Settings کلیدی نباشد، از env استفاده می‌شود."
-                : "Values stored in SQLite override .env. If a key is empty in Settings, the environment fallback is used."}
+              {"مقادیر ذخیره‌شده در SQLite بر متغیرهای محیطی (.env) اولویت دارند. اگر در Settings کلیدی نباشد، از env استفاده می‌شود."}
             </AlertDescription>
           </Alert>
 

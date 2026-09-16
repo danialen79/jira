@@ -29,22 +29,9 @@ import { getIssueTypeBadgeClass } from "@/lib/issue-type-badge";
 import { jiraBrowseUrl, normalizeJiraBase } from "@/lib/jira-browse";
 import { lensDisplayLabel } from "@/lib/lens";
 import { isEpicIssueType } from "@/lib/fix-version-policy";
-import type { Language, VersionIssue } from "@/lib/types";
+import type { VersionIssue } from "@/lib/types";
 
-const copy = {
-  en: {
-    empty: "No backlog issues",
-    emptyHint: "Turn off a missing chip or clear search.",
-    viaEpic: "via",
-    unassigned: "Unassigned",
-    selectAll: "Select page",
-    edit: "Edit",
-    noSubtasks: "No sub-tasks",
-    noChildren: "No child issues",
-    loadSubtasksFailed: "Could not load sub-tasks.",
-    loadChildrenFailed: "Could not load epic children.",
-  },
-  fa: {
+const issueListText = {
     empty: "بک‌لاگی نیست",
     emptyHint: "یک چیپ ناقص را خاموش کنید یا جستجو را پاک کنید.",
     viaEpic: "از",
@@ -55,12 +42,9 @@ const copy = {
     noChildren: "فرزندی نیست",
     loadSubtasksFailed: "بارگذاری ساب‌تسک‌ها نشد.",
     loadChildrenFailed: "بارگذاری فرزندان اپیک نشد.",
-  },
-} as const;
+  } as const;
 
 type Props = {
-  language: Language;
-  isRtl: boolean;
   issues: OpsIssue[];
   loading: boolean;
   selectedKeys: Set<string>;
@@ -97,11 +81,9 @@ function canExpand(issuetype: string): boolean {
 
 function OpsIssueBadges({
   issue,
-  language,
   jiraBase,
 }: {
   issue: OpsIssue;
-  language: Language;
   jiraBase: string;
 }) {
   return (
@@ -119,7 +101,7 @@ function OpsIssueBadges({
       />
       {issue.lens ? (
         <Badge variant="outline">
-          {lensDisplayLabel(issue.lens, language)}
+          {lensDisplayLabel(issue.lens)}
         </Badge>
       ) : null}
     </>
@@ -128,27 +110,23 @@ function OpsIssueBadges({
 
 function OpsIssueRow({
   issue,
-  language,
   jiraBase,
   nested,
   selectedKeys,
   onToggle,
   onEdit,
-  t,
 }: {
   issue: OpsIssue;
-  language: Language;
   jiraBase: string;
   nested?: boolean;
   selectedKeys: Set<string>;
   onToggle: (key: string) => void;
   onEdit: (issue: OpsIssue) => void;
-  t: (typeof copy)[Language];
 }) {
   const checked = selectedKeys.has(issue.key);
   const versionLabel = issue.effectiveFixVersionName
     ? issue.effectiveFixVersionFromEpic && issue.epicKey
-      ? `${issue.effectiveFixVersionName} (${t.viaEpic} ${issue.epicKey})`
+      ? `${issue.effectiveFixVersionName} (${issueListText.viaEpic} ${issue.epicKey})`
       : issue.effectiveFixVersionName
     : null;
 
@@ -166,7 +144,6 @@ function OpsIssueRow({
         badges={
           <OpsIssueBadges
             issue={issue}
-            language={language}
             jiraBase={jiraBase}
           />
         }
@@ -176,7 +153,7 @@ function OpsIssueRow({
           {
             icon: User,
             label:
-              issue.assigneeDisplayName || issue.assignee || t.unassigned,
+              issue.assigneeDisplayName || issue.assignee || issueListText.unassigned,
             key: "assignee",
           },
           ...(versionLabel
@@ -188,11 +165,11 @@ function OpsIssueRow({
             type="button"
             variant="ghost"
             size="sm"
-            aria-label={t.edit}
+            aria-label={issueListText.edit}
             onClick={() => onEdit(issue)}
           >
             <PencilIcon data-icon="inline-start" />
-            {t.edit}
+            {issueListText.edit}
           </Button>
         }
       />
@@ -201,8 +178,6 @@ function OpsIssueRow({
 }
 
 export default function IssueList({
-  language,
-  isRtl,
   issues,
   loading,
   selectedKeys,
@@ -210,7 +185,6 @@ export default function IssueList({
   onTogglePage,
   onEdit,
 }: Props) {
-  const t = copy[language];
   const { jiraUrl } = useJiraApp();
   const jiraBase = normalizeJiraBase(jiraUrl);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -238,7 +212,7 @@ export default function IssueList({
       if (!res.ok || !data.success) {
         toast.error(
           data.error ||
-            (isEpic ? t.loadChildrenFailed : t.loadSubtasksFailed)
+            (isEpic ? issueListText.loadChildrenFailed : issueListText.loadSubtasksFailed)
         );
         setExpanded((prev) => {
           const next = new Set(prev);
@@ -259,8 +233,8 @@ export default function IssueList({
         e instanceof Error
           ? e.message
           : isEpic
-            ? t.loadChildrenFailed
-            : t.loadSubtasksFailed
+            ? issueListText.loadChildrenFailed
+            : issueListText.loadSubtasksFailed
       );
       setExpanded((prev) => {
         const next = new Set(prev);
@@ -304,22 +278,22 @@ export default function IssueList({
     return (
       <Empty className="border">
         <EmptyHeader>
-          <EmptyTitle>{t.empty}</EmptyTitle>
-          <EmptyDescription>{t.emptyHint}</EmptyDescription>
+          <EmptyTitle>{issueListText.empty}</EmptyTitle>
+          <EmptyDescription>{issueListText.emptyHint}</EmptyDescription>
         </EmptyHeader>
       </Empty>
     );
   }
 
   return (
-    <div className="flex flex-col gap-2" dir={isRtl ? "rtl" : "ltr"}>
+    <div className="flex flex-col gap-2" dir="rtl">
       <div className="flex items-center gap-2 px-1">
         <Checkbox
           checked={allSelected}
           onCheckedChange={() => onTogglePage()}
-          aria-label={t.selectAll}
+          aria-label={issueListText.selectAll}
         />
-        <span className="text-xs text-muted-foreground">{t.selectAll}</span>
+        <span className="text-xs text-muted-foreground">{issueListText.selectAll}</span>
       </div>
 
       <ul className="flex flex-col gap-2">
@@ -331,10 +305,10 @@ export default function IssueList({
           const kidsLoading = loadingParents.has(issue.key);
           const versionLabel = issue.effectiveFixVersionName
             ? issue.effectiveFixVersionFromEpic && issue.epicKey
-              ? `${issue.effectiveFixVersionName} (${t.viaEpic} ${issue.epicKey})`
+              ? `${issue.effectiveFixVersionName} (${issueListText.viaEpic} ${issue.epicKey})`
               : issue.effectiveFixVersionName
             : null;
-          const emptyLabel = isEpic ? t.noChildren : t.noSubtasks;
+          const emptyLabel = isEpic ? issueListText.noChildren : issueListText.noSubtasks;
 
           return (
             <li key={issue.key}>
@@ -356,7 +330,6 @@ export default function IssueList({
                   badges={
                     <OpsIssueBadges
                       issue={issue}
-                      language={language}
                       jiraBase={jiraBase}
                     />
                   }
@@ -368,7 +341,7 @@ export default function IssueList({
                       label:
                         issue.assigneeDisplayName ||
                         issue.assignee ||
-                        t.unassigned,
+                        issueListText.unassigned,
                       key: "assignee",
                     },
                     ...(versionLabel
@@ -386,11 +359,11 @@ export default function IssueList({
                       type="button"
                       variant="ghost"
                       size="sm"
-                      aria-label={t.edit}
+                      aria-label={issueListText.edit}
                       onClick={() => onEdit(issue)}
                     >
                       <PencilIcon data-icon="inline-start" />
-                      {t.edit}
+                      {issueListText.edit}
                     </Button>
                   }
                 />
@@ -410,13 +383,11 @@ export default function IssueList({
                       <OpsIssueRow
                         key={child.key}
                         issue={child}
-                        language={language}
                         jiraBase={jiraBase}
                         nested
                         selectedKeys={selectedKeys}
                         onToggle={onToggle}
                         onEdit={onEdit}
-                        t={t}
                       />
                     ))}
                   </IssueCardChildren>

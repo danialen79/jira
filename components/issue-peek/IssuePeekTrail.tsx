@@ -13,25 +13,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
-const copy = {
-  en: {
-    trail: "Issue path",
-    back: "Back",
-    more: "More",
-  },
-  fa: {
+const t = {
     trail: "مسیر ایشو",
     back: "بازگشت",
     more: "بیشتر",
-  },
-} as const;
+  } as const;
 
 type Props = { className?: string };
 
 export function IssuePeekTrail({ className }: Props) {
-  const { language, isRtl } = useJiraApp();
-  const t = copy[language];
-  const { navStack, openIssue, issueKey } = useIssuePeek();
+  const { isRtl } = useJiraApp();  const { navStack, openIssue, issueKey } = useIssuePeek();
 
   if (navStack.length <= 1) return null;
 
@@ -50,7 +41,7 @@ export function IssuePeekTrail({ className }: Props) {
         "flex min-w-0 items-center gap-1 border-b px-3 py-1.5",
         className
       )}
-      dir={isRtl ? "rtl" : "ltr"}
+      dir="rtl"
     >
       <Button
         type="button"

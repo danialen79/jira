@@ -10,6 +10,7 @@ import {
   createJiraIssueLink,
   isSupportIssueKey,
   mapSupportIssue,
+  supportQueuedComment,
 } from "@/lib/support";
 
 export async function POST(req: Request) {
@@ -86,7 +87,7 @@ export async function POST(req: Request) {
       jiraUrl,
       headers,
       issueKey: psKey,
-      body: `Linked ${sipKey}`,
+      body: supportQueuedComment(sipKey),
     });
 
     return NextResponse.json({

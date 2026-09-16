@@ -20,7 +20,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { Clock, MessageSquarePlus, User } from "lucide-react";
 import { toast } from "sonner";
-import type { Language } from "@/lib/types";
+
 import { IssueStatusBadge } from "@/components/IssueStatusBadge";
 import { getIssueTypeBadgeClass } from "@/lib/issue-type-badge";
 import { jiraBrowseUrl } from "@/lib/jira-browse";
@@ -242,31 +242,21 @@ function ColumnDroppable({
 export default function KanbanBoard({
   columns,
   jiraUrl,
-  language,
   onStatusChange,
   onAddToLog,
 }: {
   columns: KanbanColumn[];
   jiraUrl: string;
-  language: Language;
   /** Called with the Jira status name to transition to. */
   onStatusChange: (issueKey: string, jiraStatusName: string) => void;
   onAddToLog: (issue: DailyBoardIssue) => void;
 }) {
-  const copy: Copy =
-    language === "fa"
-      ? {
-          addToLog: "افزودن به ثبت کارکرد",
-          unassigned: "بدون مسئول",
-          mySubtasks: "ساب‌تسک من",
-          emptyColumn: "خالی",
-        }
-      : {
-          addToLog: "Add to worklog",
-          unassigned: "Unassigned",
-          mySubtasks: "my sub-tasks",
-          emptyColumn: "Empty",
-        };
+  const copy: Copy = {
+    addToLog: "افزودن به ثبت کارکرد",
+    unassigned: "بدون مسئول",
+    mySubtasks: "ساب‌تسک من",
+    emptyColumn: "خالی",
+  };
 
   const [activeIssue, setActiveIssue] = useState<DailyBoardIssue | null>(null);
   const sensors = useSensors(
@@ -318,11 +308,7 @@ export default function KanbanBoard({
       toColumn?.dropStatusName ??
       null;
     if (!dropStatus) {
-      toast.error(
-        language === "fa"
-          ? "این ستون وضعیت Jira ندارد."
-          : "This column has no mapped Jira status."
-      );
+      toast.error("این ستون وضعیت Jira ندارد.");
       return;
     }
     onStatusChange(issueKey, dropStatus);

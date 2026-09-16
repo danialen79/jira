@@ -4,26 +4,16 @@ import { IssuePeekDescription } from "@/components/issue-peek/IssuePeekDescripti
 import { useJiraApp } from "@/components/providers/jira-app-provider";
 import { formatJiraSeconds, type PeekIssue } from "@/lib/issue-peek";
 
-const copy = {
-  en: {
-    spent: "Spent",
-    remaining: "Remaining",
-    description: "Description",
-  },
-  fa: {
+const t = {
     spent: "صرف‌شده",
     remaining: "باقیمانده",
     description: "توضیحات",
-  },
-} as const;
+  } as const;
 
 type Props = { issue: PeekIssue };
 
 export function SubtaskLayout({ issue }: Props) {
-  const { language } = useJiraApp();
-  const t = copy[language];
-
-  return (
+  return (
     <div className="flex flex-col gap-3">
       <div className="flex gap-4 text-xs">
         <div>

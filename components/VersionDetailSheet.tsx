@@ -9,19 +9,14 @@ import {
   TagIcon,
 } from "lucide-react";
 import { toast } from "sonner";
-import type {
-  Language,
-  JiraVersion,
-  VersionIssue,
-  VersionProgressSummary,
-} from "@/lib/types";
+import type { JiraVersion, VersionIssue, VersionProgressSummary } from "@/lib/types";
 import {
+  countVersionLenses,
+  flattenVersionIssues,
   formatRoadmapDate,
   getVersionStatusLabel,
   parseProductVersionParts,
 } from "@/lib/roadmap";
-import type { StoryLens } from "@/lib/lens";
-import { isStoryLens } from "@/lib/lens";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -50,36 +45,10 @@ type Props = {
   version: JiraVersion | null;
   versions: JiraVersion[];
   jiraUrl: string;
-  language: Language;
-  isRtl: boolean;
   onVersionUpdated?: (version: JiraVersion) => void;
 };
 
-const copy = {
-  en: {
-    loading: "Loading issues…",
-    start: "Start",
-    release: "Release",
-    product: "Product",
-    productVer: "Version",
-    todo: "To Do",
-    inProgress: "In Progress",
-    done: "Done",
-    canceled: "Canceled",
-    archived: "Archived",
-    released: "Released",
-    overdue: "Overdue",
-    unreleased: "Unreleased",
-    openInJira: "Open in Jira",
-    edit: "Edit version",
-    markReleased: "Released",
-    save: "Save changes",
-    saving: "Saving…",
-    saved: "Version updated.",
-    saveFailed: "Could not update version.",
-    issues: "Issues",
-  },
-  fa: {
+const t = {
     loading: "در حال بارگذاری ایشوها…",
     start: "شروع",
     release: "انتشار",
@@ -101,8 +70,7 @@ const copy = {
     saved: "ورژن بروزرسانی شد.",
     saveFailed: "بروزرسانی ورژن نشد.",
     issues: "ایشوها",
-  },
-} as const;
+  } as const;
 
 function statusBadgeVariant(
   label: ReturnType<typeof getVersionStatusLabel>
@@ -131,35 +99,6 @@ function todayInputDate(): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
-}
-
-function flattenVersionIssues(nodes: VersionIssue[]): VersionIssue[] {
-  const out: VersionIssue[] = [];
-  for (const node of nodes) {
-    out.push(node);
-    if (node.children?.length) {
-      out.push(...node.children);
-    }
-  }
-  return out;
-}
-
-function countLenses(nodes: VersionIssue[]): {
-  byLens: Partial<Record<StoryLens, number>>;
-  none: number;
-} {
-  const byLens: Partial<Record<StoryLens, number>> = {};
-  let none = 0;
-  for (const issue of flattenVersionIssues(nodes)) {
-    // Reports count Stories only — never Epics (including mixed).
-    if (issue.issuetype.toLowerCase() !== "story") continue;
-    if (isStoryLens(issue.lens)) {
-      byLens[issue.lens] = (byLens[issue.lens] || 0) + 1;
-    } else {
-      none += 1;
-    }
-  }
-  return { byLens, none };
 }
 
 function MetaChip({
@@ -191,11 +130,9 @@ export default function VersionDetailSheet({
   version,
   versions,
   jiraUrl,
-  language,
-  isRtl,
   onVersionUpdated,
 }: Props) {
-  const t = copy[language];
+  const isRtl = true;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tree, setTree] = useState<VersionIssue[]>([]);
@@ -322,7 +259,10 @@ export default function VersionDetailSheet({
     );
   }, [version, startDate, releaseDate, released]);
 
-  const lensCounts = useMemo(() => countLenses(tree), [tree]);
+  const lensCounts = useMemo(
+    () => countVersionLenses(flattenVersionIssues(tree)),
+    [tree]
+  );
 
   const base = jiraUrl.replace(/\/+$/, "");
 
@@ -374,7 +314,7 @@ export default function VersionDetailSheet({
             "flex max-h-[min(94vh,72rem)] w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-4xl",
             isRtl && "font-sans"
           )}
-          dir={isRtl ? "rtl" : "ltr"}
+          dir="rtl"
         >
           <DialogHeader className="items-center gap-3 border-b px-6 pt-5 pb-4 text-center sm:items-center">
             <div className="flex max-w-full flex-wrap items-center justify-center gap-2">
@@ -395,15 +335,12 @@ export default function VersionDetailSheet({
                   <MetaChip
                     icon={<CalendarIcon />}
                     label={t.start}
-                    value={formatRoadmapDate(draftVersion.startDate, language)}
+                    value={formatRoadmapDate(draftVersion.startDate)}
                   />
                   <MetaChip
                     icon={<CalendarIcon />}
                     label={t.release}
-                    value={formatRoadmapDate(
-                      draftVersion.releaseDate,
-                      language
-                    )}
+                    value={formatRoadmapDate(draftVersion.releaseDate)}
                   />
                   <MetaChip
                     icon={<PackageIcon />}
@@ -469,8 +406,7 @@ export default function VersionDetailSheet({
               <VersionStatsCharts
                 progress={progress}
                 lensCounts={lensCounts}
-                language={language}
-              />
+                />
             )}
 
             <div className="flex flex-col gap-2">
@@ -499,7 +435,6 @@ export default function VersionDetailSheet({
                   tree={tree}
                   total={total}
                   jiraUrl={jiraUrl}
-                  language={language}
                   onEditIssue={(issue, nestedUnderEpic) =>
                     setIssueEdit({ issue, nestedUnderEpic })
                   }
@@ -514,7 +449,7 @@ export default function VersionDetailSheet({
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent
           className="sm:max-w-md"
-          dir={isRtl ? "rtl" : "ltr"}
+          dir="rtl"
         >
           <DialogHeader>
             <DialogTitle>{t.edit}</DialogTitle>
@@ -529,7 +464,6 @@ export default function VersionDetailSheet({
                 <FieldLabel htmlFor="version-start">{t.start}</FieldLabel>
                 <JalaliDateInput
                   id="version-start"
-                  language={language}
                   value={startDate}
                   onChange={setStartDate}
                   disabled={saving || !!version.archived}
@@ -539,7 +473,6 @@ export default function VersionDetailSheet({
                 <FieldLabel htmlFor="version-release">{t.release}</FieldLabel>
                 <JalaliDateInput
                   id="version-release"
-                  language={language}
                   value={releaseDate}
                   onChange={setReleaseDate}
                   disabled={saving || !!version.archived}
@@ -565,7 +498,7 @@ export default function VersionDetailSheet({
               onClick={() => setEditOpen(false)}
               disabled={saving}
             >
-              {language === "fa" ? "بستن" : "Close"}
+              بستن
             </Button>
             <Button
               disabled={!dirty || saving || !!version?.archived}
@@ -592,8 +525,6 @@ export default function VersionDetailSheet({
         issue={issueEdit?.issue || null}
         nestedUnderEpic={issueEdit?.nestedUnderEpic}
         versions={versions}
-        language={language}
-        isRtl={isRtl}
         onSaved={() => {
           if (version) void reloadIssues(version.id);
         }}
@@ -608,8 +539,6 @@ export default function VersionDetailSheet({
           issue={changeVersionIssue}
           currentVersion={version}
           allVersions={versions}
-          language={language}
-          isRtl={isRtl}
           onMoved={() => {
             if (version) void reloadIssues(version.id);
           }}

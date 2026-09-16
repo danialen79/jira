@@ -23,18 +23,7 @@ import { getIssueTypeBadgeClass } from "@/lib/issue-type-badge";
 import { DOCK_RAIL_PX, DOCK_WIDTH_PX } from "@/lib/issue-peek";
 import { cn } from "@/lib/utils";
 
-const copy = {
-  en: {
-    title: "Issue",
-    expand: "Expand issue panel",
-    collapse: "Collapse issue panel",
-    clear: "Clear",
-    empty: "Enter an issue key",
-    emptyHint: "Fetch to preview details.",
-    disconnected: "Connect Jira in Settings.",
-    loading: "Loading…",
-  },
-  fa: {
+const t = {
     title: "ایشو",
     expand: "باز کردن پنل ایشو",
     collapse: "بستن پنل ایشو",
@@ -43,13 +32,10 @@ const copy = {
     emptyHint: "برای نمایش، بارگذاری کنید.",
     disconnected: "جیرا را در تنظیمات وصل کنید.",
     loading: "در حال بارگذاری…",
-  },
-} as const;
+  } as const;
 
 export function IssuePeekDock() {
-  const { language, isRtl, jiraConnected } = useJiraApp();
-  const t = copy[language];
-  const {
+  const { jiraConnected, isRtl } = useJiraApp();  const {
     collapsed,
     setCollapsed,
     expandAndFocusSearch,
@@ -100,7 +86,7 @@ export function IssuePeekDock() {
       ) : (
         <div
           className="flex h-full min-h-0 flex-col overscroll-contain"
-          dir={isRtl ? "rtl" : "ltr"}
+          dir="rtl"
         >
           <div className="flex items-center gap-2 border-b px-3 py-2">
             <TicketIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />

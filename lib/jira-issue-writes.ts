@@ -152,8 +152,7 @@ export async function writeIssueFixVersion(
   client: JiraWriteClient,
   issueKey: string,
   fixVersionId: string,
-  epicLinkField: string,
-  language: "en" | "fa" = "en"
+  epicLinkField: string
 ): Promise<
   | { ok: true }
   | { ok: false; skipped?: boolean; error: string }
@@ -175,7 +174,6 @@ export async function writeIssueFixVersion(
     issuetype,
     hasEpicLink,
     selectedRelease: fixVersionId,
-    language,
   });
 
   const resolved = resolveFixVersionForWrite({
@@ -188,10 +186,7 @@ export async function writeIssueFixVersion(
     return {
       ok: false,
       skipped: true,
-      error:
-        language === "fa"
-          ? "ورژن از اپیک والد خوانده می‌شود."
-          : "Fix Version is inherited from the parent epic.",
+      error: "ورژن از اپیک والد خوانده می‌شود.",
     };
   }
 
@@ -221,8 +216,7 @@ export async function writeIssueEpicLink(
   client: JiraWriteClient,
   issueKey: string,
   epicKey: string | null,
-  epicLinkField: string,
-  language: "en" | "fa" = "en"
+  epicLinkField: string
 ): Promise<
   | { ok: true }
   | { ok: false; skipped?: boolean; error: string }
@@ -241,10 +235,7 @@ export async function writeIssueEpicLink(
     return {
       ok: false,
       skipped: true,
-      error:
-        language === "fa"
-          ? "لینک اپیک فقط برای استوری و باگ است."
-          : "Epic link applies to Story and Bug only.",
+      error: "لینک اپیک فقط برای استوری و باگ است.",
     };
   }
 

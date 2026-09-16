@@ -15,29 +15,14 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
-import type { Language } from "@/lib/types";
+
 
 type Props = {
   open: boolean;
-  onOpenChange: (open: boolean) => void;
-  language: Language;
-  onCreated: () => void;
+  onOpenChange: (open: boolean) => void;  onCreated: () => void;
 };
 
-const copy = {
-  en: {
-    title: "New sprint",
-    name: "Name",
-    goal: "Goal",
-    start: "Start date",
-    end: "End date",
-    create: "Create",
-    creating: "Creating…",
-    cancel: "Cancel",
-    ok: "Sprint created.",
-    fail: "Could not create sprint.",
-  },
-  fa: {
+const t = {
     title: "اسپرینت جدید",
     name: "نام",
     goal: "هدف",
@@ -48,8 +33,7 @@ const copy = {
     cancel: "انصراف",
     ok: "اسپرینت ساخته شد.",
     fail: "ساخت اسپرینت ناموفق بود.",
-  },
-} as const;
+  } as const;
 
 /** YYYY-MM-DD → ISO for Jira Agile sprint dates. */
 function isoDayToJiraDate(isoDay: string, endOfDay: boolean): string {
@@ -59,12 +43,8 @@ function isoDayToJiraDate(isoDay: string, endOfDay: boolean): string {
 
 export default function CreateSprintDialog({
   open,
-  onOpenChange,
-  language,
-  onCreated,
-}: Props) {
-  const t = copy[language];
-  const [name, setName] = useState("");
+  onOpenChange,  onCreated,
+}: Props) {  const [name, setName] = useState("");
   const [goal, setGoal] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -126,7 +106,6 @@ export default function CreateSprintDialog({
               <FieldLabel htmlFor="sprint-start">{t.start}</FieldLabel>
               <JalaliDateInput
                 id="sprint-start"
-                language={language}
                 value={startDate}
                 onChange={setStartDate}
                 disabled={saving}
@@ -136,7 +115,6 @@ export default function CreateSprintDialog({
               <FieldLabel htmlFor="sprint-end">{t.end}</FieldLabel>
               <JalaliDateInput
                 id="sprint-end"
-                language={language}
                 value={endDate}
                 onChange={setEndDate}
                 disabled={saving}

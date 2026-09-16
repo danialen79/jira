@@ -26,24 +26,14 @@ import { useUrlQueryState } from "@/lib/url-state";
 
 const PAGE_SIZE = 50;
 
-const copy = {
-  en: {
-    connectTitle: "Connect Jira",
-    connectHint: "Configure Jira in Settings, then refresh.",
-    refresh: "Refresh",
-    prev: "Previous",
-    next: "Next",
-    of: "of",
-  },
-  fa: {
+const t = {
     connectTitle: "اتصال جیرا",
     connectHint: "در تنظیمات جیرا را پیکربندی کنید، سپس تازه کنید.",
     refresh: "تازه‌سازی",
     prev: "قبلی",
     next: "بعدی",
     of: "از",
-  },
-} as const;
+  } as const;
 
 function chipUrlValue(value: string): string | null {
   // Default is on ("1"); only persist when off so URL stays short.
@@ -51,17 +41,12 @@ function chipUrlValue(value: string): string | null {
 }
 
 export default function IssueOpsBoard() {
-  const {
-    language,
-    isRtl,
-    jiraConnected,
+  const { jiraConnected,
     jiraUsers,
     jiraVersions,
     fetchJiraUsers,
     fetchJiraVersions,
-  } = useJiraApp();
-  const t = copy[language];
-  const searchParams = useSearchParams();
+  } = useJiraApp();  const searchParams = useSearchParams();
 
   const [filters, setFilters] = useState<OpsFilterValues>(() =>
     parseOpsFilters(searchParams)
@@ -141,12 +126,10 @@ export default function IssueOpsBoard() {
   }
 
   return (
-    <div className="flex flex-col gap-4" dir={isRtl ? "rtl" : "ltr"}>
+    <div className="flex flex-col gap-4" dir="rtl">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <FilterBar
-            language={language}
-            isRtl={isRtl}
             values={filters}
             statusOptions={statusOptions}
             users={jiraUsers}
@@ -172,8 +155,6 @@ export default function IssueOpsBoard() {
       )}
 
       <IssueList
-        language={language}
-        isRtl={isRtl}
         issues={issues}
         loading={loading}
         selectedKeys={selection.selected}
@@ -214,8 +195,6 @@ export default function IssueOpsBoard() {
       {selection.count > 0 ? <div className="h-40 shrink-0" aria-hidden /> : null}
 
       <BulkActionBar
-        language={language}
-        isRtl={isRtl}
         count={selection.count}
         selectedKeys={selection.selectedKeys}
         users={jiraUsers}
@@ -233,8 +212,6 @@ export default function IssueOpsBoard() {
         issue={editIssue}
         versions={jiraVersions}
         users={jiraUsers}
-        language={language}
-        isRtl={isRtl}
         onSaved={refresh}
       />
     </div>

@@ -1,29 +1,17 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import type { Language } from "@/lib/types";
+
 import type { SprintHealth } from "@/lib/sprint/metrics";
 import { cn } from "@/lib/utils";
 
-type Props = {
-  language: Language;
-  health: SprintHealth | null;
+type Props = {  health: SprintHealth | null;
   scopeDelta?: number;
   reliability?: number | null;
   className?: string;
 };
 
-const copy = {
-  en: {
-    done: "Done",
-    remaining: "Remaining",
-    todo: "To Do",
-    ip: "In progress",
-    days: "days left",
-    scope: "Scope Δ",
-    reliability: "Reliability",
-  },
-  fa: {
+const t = {
     done: "انجام‌شده",
     remaining: "مانده",
     todo: "باز",
@@ -31,18 +19,13 @@ const copy = {
     days: "روز مانده",
     scope: "تغییر اسکوپ",
     reliability: "قابلیت اتکا",
-  },
-} as const;
+  } as const;
 
-export default function SprintHealthStrip({
-  language,
-  health,
+export default function SprintHealthStrip({  health,
   scopeDelta = 0,
   reliability,
   className,
-}: Props) {
-  const t = copy[language];
-  if (!health) return null;
+}: Props) {  if (!health) return null;
 
   const remaining = health.todo + health.inProgress;
 

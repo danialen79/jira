@@ -1,9 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
-import { Calendar } from "@/components/ui/calendar";
 import { CalendarJalali } from "@/components/ui/calendar-jalali";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,7 +14,7 @@ import {
   isoDateToLocalDate,
   localDateToIsoDate,
 } from "@/lib/jalali";
-import type { Language } from "@/lib/types";
+
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -26,7 +24,6 @@ type Props = {
   disabled?: boolean;
   className?: string;
   allowEmpty?: boolean;
-  language?: Language;
   placeholder?: string;
 };
 
@@ -37,20 +34,13 @@ export default function JalaliDateInput({
   disabled,
   className,
   allowEmpty = true,
-  language = "fa",
   placeholder,
 }: Props) {
   const [open, setOpen] = useState(false);
   const selected = value ? isoDateToLocalDate(value) : undefined;
-  const isFa = language === "fa";
-  const emptyLabel =
-    placeholder || (isFa ? "انتخاب تاریخ" : "Pick a date");
+  const emptyLabel = placeholder || "انتخاب تاریخ";
 
-  const label = value
-    ? isFa
-      ? formatIsoAsJalali(value, "fa")
-      : format(isoDateToLocalDate(value) ?? new Date(), "PPP")
-    : emptyLabel;
+  const label = value ? formatIsoAsJalali(value) : emptyLabel;
 
   const handleSelect = (date: Date | undefined) => {
     if (!date) {
@@ -83,23 +73,13 @@ export default function JalaliDateInput({
         <span className="truncate">{label}</span>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-auto p-0">
-        {isFa ? (
-          <CalendarJalali
-            mode="single"
-            selected={selected}
-            onSelect={handleSelect}
-            defaultMonth={selected}
-            captionLayout="dropdown"
-          />
-        ) : (
-          <Calendar
-            mode="single"
-            selected={selected}
-            onSelect={handleSelect}
-            defaultMonth={selected}
-            captionLayout="dropdown"
-          />
-        )}
+        <CalendarJalali
+          mode="single"
+          selected={selected}
+          onSelect={handleSelect}
+          defaultMonth={selected}
+          captionLayout="dropdown"
+        />
         {allowEmpty && value ? (
           <div className="border-t p-2">
             <Button
@@ -112,7 +92,7 @@ export default function JalaliDateInput({
                 setOpen(false);
               }}
             >
-              {isFa ? "پاک کردن" : "Clear"}
+              پاک کردن
             </Button>
           </div>
         ) : null}

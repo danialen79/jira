@@ -18,12 +18,92 @@ export type SupportInboxItem = {
   linkedSipKeys: string[];
 };
 
+export type SupportAttachment = {
+  id: string;
+  filename: string;
+  size: number;
+  mimeType: string;
+  content: string;
+};
+
+export type SupportComment = {
+  id: string;
+  author: string;
+  created: string;
+  body: string;
+};
+
 export type SupportIssueDetail = SupportInboxItem & {
   reporter?: string;
   assignee?: string;
   assigneeDisplayName?: string;
   linkedSip: SupportLinkedSip[];
+  attachments: SupportAttachment[];
+  comments: SupportComment[];
 };
+
+export function jiraCommentBodyToText(body: unknown): string {
+  if (typeof body === "string") return body;
+  if (body && typeof body === "object") {
+    return JSON.stringify(body);
+  }
+  return "";
+}
+
+export function mapSupportAttachments(
+  raw: unknown[] | null | undefined
+): SupportAttachment[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((a) => {
+      const item = a as {
+        id?: string | number;
+        filename?: string;
+        size?: number;
+        mimeType?: string;
+        content?: string;
+      };
+      const id = item.id != null ? String(item.id) : "";
+      if (!id || !item.filename) return null;
+      return {
+        id,
+        filename: item.filename,
+        size: typeof item.size === "number" ? item.size : 0,
+        mimeType: item.mimeType || "",
+        content: item.content || "",
+      };
+    })
+    .filter((x): x is SupportAttachment => x !== null);
+}
+
+export function mapSupportComments(
+  raw: unknown[] | null | undefined
+): SupportComment[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((c) => {
+      const item = c as {
+        id?: string | number;
+        author?: { displayName?: string; name?: string };
+        created?: string;
+        body?: unknown;
+      };
+      const id = item.id != null ? String(item.id) : "";
+      if (!id) return null;
+      return {
+        id,
+        author: item.author?.displayName || item.author?.name || "",
+        created: item.created || "",
+        body: jiraCommentBodyToText(item.body),
+      };
+    })
+    .filter((x): x is SupportComment => x !== null);
+}
+
+export function supportQueuedComment(sipKey: string): string {
+  const key = sipKey.trim().toUpperCase();
+  return `در صف بررسی و انجام قرار گرفت. (${key})`;
+}
 
 function escapeJqlString(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
@@ -76,7 +156,11 @@ export function mapSupportIssue(
     key: string;
     fields?: Record<string, any>;
   },
-  deliveryProjectKey: string
+  deliveryProjectKey: string,
+  extras?: {
+    attachments?: SupportAttachment[];
+    comments?: SupportComment[];
+  }
 ): SupportIssueDetail {
   const f = issue.fields || {};
   const linkedSip = extractLinkedIssues(f.issuelinks, deliveryProjectKey);
@@ -94,6 +178,10 @@ export function mapSupportIssue(
     assignee: f.assignee?.name || "",
     assigneeDisplayName: f.assignee?.displayName || "",
     linkedSip,
+    attachments:
+      extras?.attachments ??
+      mapSupportAttachments(f.attachment as unknown[] | undefined),
+    comments: extras?.comments ?? [],
   };
 }
 

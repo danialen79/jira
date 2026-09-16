@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { Label, Pie, PieChart } from "recharts";
-import type { Language, VersionProgressSummary } from "@/lib/types";
+import type { VersionProgressSummary } from "@/lib/types";
 import {
   LENS_OPTIONS,
   lensDisplayLabel,
@@ -24,29 +24,17 @@ export type LensCountSummary = {
 type Props = {
   progress: VersionProgressSummary | null;
   lensCounts: LensCountSummary;
-  language: Language;
   className?: string;
 };
 
-const copy = {
-  en: {
-    progress: "Progress",
-    lenses: "Lenses",
-    done: "Done",
-    remaining: "Remaining",
-    noLensData: "No lens-tagged stories yet",
-    withoutLens: (n: number) =>
-      n === 1 ? "1 story without a lens" : `${n} stories without a lens`,
-  },
-  fa: {
+const t = {
     progress: "پیشرفت",
     lenses: "لنزها",
     done: "انجام‌شده",
     remaining: "باقی‌مانده",
     noLensData: "استوری دارای لنز نیست",
     withoutLens: (n: number) => `${n} استوری بدون لنز`,
-  },
-} as const;
+  } as const;
 
 const LENS_COLORS: Record<StoryLens, string> = {
   strategy: "var(--chart-1)",
@@ -55,26 +43,22 @@ const LENS_COLORS: Record<StoryLens, string> = {
   business: "var(--chart-4)",
 };
 
-function formatPercent(value: number, language: Language): string {
-  return new Intl.NumberFormat(language === "fa" ? "fa-IR" : "en-US", {
+function formatPercent(value: number): string {
+  return new Intl.NumberFormat("fa-IR", {
     style: "percent",
     maximumFractionDigits: 0,
   }).format(value / 100);
 }
 
-function formatCount(value: number, language: Language): string {
-  return new Intl.NumberFormat(language === "fa" ? "fa-IR" : "en-US").format(
-    value
-  );
+function formatCount(value: number): string {
+  return new Intl.NumberFormat("fa-IR").format(value);
 }
 
 export default function VersionStatsCharts({
   progress,
   lensCounts,
-  language,
   className,
 }: Props) {
-  const t = copy[language];
   const percent = Math.min(100, Math.max(0, progress?.percent ?? 0));
 
   const progressConfig = {
@@ -110,12 +94,12 @@ export default function VersionStatsCharts({
     const cfg: ChartConfig = {};
     for (const o of LENS_OPTIONS) {
       cfg[o.value] = {
-        label: lensDisplayLabel(o.value, language),
+        label: lensDisplayLabel(o.value),
         color: LENS_COLORS[o.value],
       };
     }
     return cfg;
-  }, [language]);
+  }, []);
 
   const lensRows = useMemo(() => {
     return LENS_OPTIONS.map((o) => {
@@ -124,10 +108,10 @@ export default function VersionStatsCharts({
         lens: o.value,
         count,
         fill: `var(--color-${o.value})`,
-        label: lensDisplayLabel(o.value, language),
+        label: lensDisplayLabel(o.value),
       };
     });
-  }, [lensCounts, language]);
+  }, [lensCounts]);
 
   const lensData = useMemo(
     () => lensRows.filter((d) => d.count > 0),
@@ -154,7 +138,7 @@ export default function VersionStatsCharts({
           config={progressConfig}
           className="mx-auto aspect-square h-40 w-full max-w-40"
           initialDimension={{ width: 160, height: 160 }}
-          aria-label={`${t.progress}: ${formatPercent(percent, language)}`}
+          aria-label={`${t.progress}: ${formatPercent(percent)}`}
         >
           <PieChart accessibilityLayer>
             <Pie
@@ -184,7 +168,7 @@ export default function VersionStatsCharts({
                         y={(viewBox.cy || 0) - 2}
                         className="fill-foreground text-2xl font-semibold tabular-nums"
                       >
-                        {formatPercent(percent, language)}
+                        {formatPercent(percent)}
                       </tspan>
                       <tspan
                         x={viewBox.cx}
@@ -257,8 +241,8 @@ export default function VersionStatsCharts({
                       </span>
                     </span>
                     <span className="shrink-0 tabular-nums text-foreground">
-                      {formatCount(row.count, language)} ·{" "}
-                      {formatPercent(pct, language)}
+                      {formatCount(row.count)} ·{" "}
+                      {formatPercent(pct)}
                     </span>
                   </li>
                 );

@@ -1,6 +1,6 @@
 "use client";
 
-import { Languages, TicketIcon } from "lucide-react";
+import { TicketIcon } from "lucide-react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { IssuePeekDock } from "@/components/issue-peek/IssuePeekDock";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -17,11 +17,11 @@ import {
 import { cn } from "@/lib/utils";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { language, setLanguage, t, jiraConnected, isRtl } = useJiraApp();
+  const { t, jiraConnected } = useJiraApp();
   const { expandAndFocusSearch, issueKey } = useIssuePeek();
 
   return (
-    <SidebarProvider className="mx-auto max-w-[1920px]">
+    <SidebarProvider className="mx-auto max-w-[2560px]">
       <AppSidebar />
       <SidebarInset>
         <header className="bg-background sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b px-4">
@@ -40,13 +40,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 variant="outline"
                 size="sm"
                 onClick={expandAndFocusSearch}
-                aria-label={isRtl ? "پنل ایشو" : "Issue panel"}
-                title={isRtl ? "پنل ایشو (Ctrl+Shift+J)" : "Issue panel (Ctrl+Shift+J)"}
+                aria-label="پنل ایشو"
+                title="پنل ایشو (Ctrl+Shift+J)"
               >
                 <TicketIcon data-icon="inline-start" />
-                <span className="hidden sm:inline">
-                  {issueKey || (isRtl ? "ایشو" : "Issue")}
-                </span>
+                <span className="hidden sm:inline">{issueKey || "ایشو"}</span>
               </Button>
               <Badge
                 variant={jiraConnected ? "success" : "secondary"}
@@ -60,16 +58,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 />
                 {jiraConnected ? t.connected : t.disconnected}
               </Badge>
-              <ThemeToggle isRtl={isRtl} />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setLanguage(language === "fa" ? "en" : "fa")}
-              >
-                <Languages data-icon="inline-start" />
-                {language === "fa" ? "English" : "فارسی"}
-              </Button>
+              <ThemeToggle />
             </div>
           </div>
         </header>
@@ -79,7 +68,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             id="main-content"
             tabIndex={-1}
             className="flex min-w-0 flex-1 flex-col gap-5 overflow-auto p-4 md:p-5"
-            dir={isRtl ? "rtl" : "ltr"}
+            dir="rtl"
           >
             {children}
           </div>

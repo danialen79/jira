@@ -14,35 +14,18 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
-import type { JiraSprint, Language, SprintIssue } from "@/lib/types";
+import type { JiraSprint, SprintIssue } from "@/lib/types";
 import { statusBucket } from "@/lib/sprint/map";
 
 type Props = {
   open: boolean;
-  onOpenChange: (open: boolean) => void;
-  language: Language;
-  sprint: JiraSprint | null;
+  onOpenChange: (open: boolean) => void;  sprint: JiraSprint | null;
   issues: SprintIssue[];
   futureSprints: JiraSprint[];
   onCompleted: () => void;
 };
 
-const copy = {
-  en: {
-    title: "Complete sprint",
-    desc: (n: number) =>
-      n === 0
-        ? "No open issues to move."
-        : `${n} open issue(s) — pick a destination, then complete.`,
-    dest: "Move open issues to",
-    backlog: "Backlog",
-    complete: "Complete sprint",
-    completing: "Completing…",
-    cancel: "Cancel",
-    ok: "Sprint completed.",
-    fail: "Could not complete sprint.",
-  },
-  fa: {
+const t = {
     title: "بستن اسپرینت",
     desc: (n: number) =>
       n === 0
@@ -55,20 +38,15 @@ const copy = {
     cancel: "انصراف",
     ok: "اسپرینت بسته شد.",
     fail: "بستن اسپرینت ناموفق بود.",
-  },
-} as const;
+  } as const;
 
 export default function CompleteSprintDialog({
   open,
-  onOpenChange,
-  language,
-  sprint,
+  onOpenChange,  sprint,
   issues,
   futureSprints,
   onCompleted,
-}: Props) {
-  const t = copy[language];
-  const openIssues = useMemo(
+}: Props) {  const openIssues = useMemo(
     () => issues.filter((i) => statusBucket(i.statusCategoryKey) !== "done"),
     [issues]
   );

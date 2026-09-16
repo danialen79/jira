@@ -1,5 +1,6 @@
-import type { JiraVersion } from "@/lib/types";
+import type { JiraVersion, VersionIssue } from "@/lib/types";
 import { formatJalaliDate, toJalaliParts } from "@/lib/jalali";
+import { isStoryLens, type StoryLens } from "@/lib/lens";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const RANGE_PADDING_DAYS = 14;
@@ -179,21 +180,11 @@ export function toDateOnly(isoOrDate: string | Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
-export function formatRoadmapDate(
-  iso: string | undefined,
-  language: "en" | "fa"
-): string {
+export function formatRoadmapDate(iso: string | undefined): string {
   if (!iso) return "—";
   try {
     const d = toDateOnly(iso);
-    if (language === "fa") {
-      return formatJalaliDate(d, "fa");
-    }
-    return new Intl.DateTimeFormat("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    }).format(d);
+    return formatJalaliDate(d);
   } catch {
     return iso;
   }
@@ -266,6 +257,53 @@ export function computeVersionProgress(
     activeTotal === 0 ? 0 : Math.round((done / activeTotal) * 100);
 
   return { todo, inProgress, done, canceled, percent, activeTotal };
+}
+
+/** Epic roots + direct children (same depth as version progress API). */
+export function flattenVersionIssues(nodes: VersionIssue[]): VersionIssue[] {
+  const out: VersionIssue[] = [];
+  for (const node of nodes) {
+    out.push(node);
+    if (node.children?.length) {
+      out.push(...node.children);
+    }
+  }
+  return out;
+}
+
+export function dedupeVersionIssuesByKey(
+  issues: VersionIssue[]
+): VersionIssue[] {
+  const seen = new Set<string>();
+  const out: VersionIssue[] = [];
+  for (const issue of issues) {
+    if (seen.has(issue.key)) continue;
+    seen.add(issue.key);
+    out.push(issue);
+  }
+  return out;
+}
+
+export type VersionLensCountSummary = {
+  byLens: Partial<Record<StoryLens, number>>;
+  none: number;
+};
+
+/** Story lens tallies only — never Epics (including mixed). Pass a flat list. */
+export function countVersionLenses(
+  issues: VersionIssue[]
+): VersionLensCountSummary {
+  const byLens: Partial<Record<StoryLens, number>> = {};
+  let none = 0;
+  for (const issue of issues) {
+    if (issue.issuetype.toLowerCase() !== "story") continue;
+    if (isStoryLens(issue.lens)) {
+      byLens[issue.lens] = (byLens[issue.lens] || 0) + 1;
+    } else {
+      none += 1;
+    }
+  }
+  return { byLens, none };
 }
 
 export type TimelineRange = {

@@ -25,7 +25,6 @@ interface SearchableSelectProps {
   placeholder?: string;
   showSearch?: boolean;
   className?: string;
-  isRtl?: boolean;
   disabled?: boolean;
 }
 
@@ -55,10 +54,9 @@ export default function SearchableSelect({
   options,
   value,
   onChange,
-  placeholder = "Select...",
+  placeholder = "انتخاب…",
   showSearch = true,
   className,
-  isRtl = false,
   disabled = false,
 }: SearchableSelectProps) {
   const selected = options.find((opt) => opt.value === value);
@@ -96,7 +94,7 @@ export default function SearchableSelect({
   );
 
   return (
-    <div className={cn("w-full", className)} dir={isRtl ? "rtl" : "ltr"}>
+    <div className={cn("w-full", className)} dir="rtl">
       <Combobox
         items={items}
         value={value || null}
@@ -119,7 +117,7 @@ export default function SearchableSelect({
         />
         <ComboboxContent className="min-w-[280px] md:min-w-[340px]">
           <ComboboxEmpty>
-            {isRtl ? "یافت نشد" : "No matches found"}
+            یافت نشد
           </ComboboxEmpty>
           <ComboboxList>
             {(item) => {

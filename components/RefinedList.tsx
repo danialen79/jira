@@ -1,15 +1,7 @@
 ﻿"use client";
 
 import React, { useEffect, useState } from "react";
-import {
-  RefinedIssue,
-  JiraEpic,
-  Language,
-  JiraUser,
-  JiraVersion,
-  JiraSprint,
-  IssueLens,
-} from "@/lib/types";
+import { RefinedIssue, JiraEpic, JiraUser, JiraVersion, JiraSprint, IssueLens } from "@/lib/types";
 import {
   EPIC_LENS_OPTIONS,
   isIssueLens,
@@ -78,7 +70,6 @@ import { cn } from "@/lib/utils";
 import type { VariantProps } from "class-variance-authority";
 
 interface RefinedListProps {
-  language: Language;
   issues: RefinedIssue[];
   onIssuesChange: (issues: RefinedIssue[]) => void;
   jiraUrl: string;
@@ -99,50 +90,6 @@ interface RefinedListProps {
 }
 
 const translations = {
-  en: {
-    title: "Refined board",
-    subtitle: "Edit and publish generated Jira tickets.",
-    bulkCreate: "Bulk publish",
-    publishingAll: "Publishing structure…",
-    filterAll: "All",
-    filterEpics: "Epics",
-    filterStories: "Stories",
-    filterBugs: "Bugs",
-    emptyState: "No tickets yet. Refine a draft in the left panel.",
-    issueType: "Type",
-    epic: "Epic",
-    story: "Story",
-    bug: "Bug",
-    epicLink: "Epic draft:",
-    noEpicLink: "No epic link",
-    createInJira: "Publish",
-    creating: "Creating…",
-    published: "Published",
-    edit: "Edit",
-    save: "Save",
-    cancel: "Discard",
-    summary: "Summary",
-    description: "Description (Markdown)",
-    existingEpics: "Link existing Jira epic",
-    linkHelp: "Bulk publish creates epics first, then links stories.",
-    errorOccurred: "Error:",
-    rePublish: "Retry",
-    noEpicsToLink: "No epics found. Connect Jira to fetch.",
-    loading: "Loading…",
-    loadingUsers: "Loading users…",
-    loadingVersions: "Loading versions…",
-    loadingSprints: "Loading sprints…",
-    refining: "Refining…",
-    lens: "Lens",
-    lensRequired: "Pick a Lens before publishing this Story.",
-    lensNone: "No lens",
-    changeLens: "Change Lens:",
-    releaseRequiredEpic: "Epic requires a Fix Version before publishing.",
-    releaseRequiredOrphan:
-      "Story/Bug without an Epic requires a Fix Version.",
-    releaseHintUnderEpic: "Release is on the Epic — not set on linked issues.",
-  },
-  fa: {
     title: "برد اصلاح‌شده",
     subtitle: "تیکت‌های تولیدشده را ویرایش و منتشر کنید.",
     bulkCreate: "انتشار گروهی",
@@ -184,28 +131,16 @@ const translations = {
     releaseRequiredOrphan:
       "استوری/باگ بدون اپیک باید ریلیز داشته باشد.",
     releaseHintUnderEpic: "ریلیز روی اپیک است — روی ایشوی لینک‌شده تنظیم نمی‌شود.",
-  },
-};
+  };
 
-const priorityLabels: Record<Language, Record<string, string>> = {
-  en: {
-    Highest: "Highest",
-    High: "High",
-    Medium: "Medium",
-    Low: "Low",
-    Lowest: "Lowest",
-    priority: "Priority",
-    changePriority: "Change Priority:",
-  },
-  fa: {
-    Highest: "بالاترین",
-    High: "بالا",
-    Medium: "متوسط",
-    Low: "پایین",
-    Lowest: "پایین‌ترین",
-    priority: "اولویت (Priority)",
-    changePriority: "تغییر اولویت:",
-  },
+const priorityLabels: Record<string, string> = {
+  Highest: "بالاترین",
+  High: "بالا",
+  Medium: "متوسط",
+  Low: "پایین",
+  Lowest: "پایین‌ترین",
+  priority: "اولویت (Priority)",
+  changePriority: "تغییر اولویت:",
 };
 
 type BadgeVariant = NonNullable<VariantProps<typeof badgeVariants>["variant"]>;
@@ -286,7 +221,6 @@ const getSortedUsers = (users: JiraUser[]): JiraUser[] => {
 };
 
 export default function RefinedList({
-  language,
   issues,
   onIssuesChange,
   jiraUrl,
@@ -305,8 +239,8 @@ export default function RefinedList({
   fetchingSprints,
   onFetchSprints,
 }: RefinedListProps) {
-  const t = translations[language];
-  const isRtl = language === "fa";
+  const t = translations;
+  const isRtl = true;
   const { aiProvider, selectedModel } = useAiSettings();
   const searchParams = useSearchParams();
   const [, setFreqTick] = useState(0);
@@ -544,7 +478,7 @@ export default function RefinedList({
       } else {
         setLoadError(
           data.error ||
-            (isRtl ? "یافتن تیکت ناموفق بود" : "Failed to find Jira ticket.")
+            ("یافتن تیکت ناموفق بود")
         );
       }
     } catch (err: any) {
@@ -591,10 +525,7 @@ export default function RefinedList({
     }
 
     if (linkedToDraftEpic) {
-      const msg =
-        language === "fa"
-          ? "اول اپیک را منتشر کنید، بعد استوری را."
-          : "Publish the Epic first, then this issue.";
+      const msg = "اول اپیک را منتشر کنید، بعد استوری را.";
       updatedIssues[index].status = "failed";
       updatedIssues[index].error = msg;
       onIssuesChange([...updatedIssues]);
@@ -610,7 +541,6 @@ export default function RefinedList({
       issuetype: targetIssue.issuetype,
       hasEpicLink,
       selectedRelease: releaseForPublish,
-      language,
     });
     if (fvError) {
       updatedIssues[index].status = "failed";
@@ -854,13 +784,11 @@ export default function RefinedList({
                     setLoadError(null);
                   }}
                   aria-label={
-                    isRtl
-                      ? "بارگذاری تیکت موجود با شناسه"
-                      : "Load existing ticket by ID"
+                    "بارگذاری تیکت موجود با شناسه"
                   }
                 >
                   <RefreshCw data-icon="inline-start" />
-                  {isRtl ? "بارگذاری تیکت با شناسه" : "Load Issue by ID"}
+                  {"بارگذاری تیکت با شناسه"}
                 </Button>
               )}
 
@@ -895,9 +823,7 @@ export default function RefinedList({
                 <FieldGroup className="flex-1 gap-0">
                   <Field>
                     <FieldLabel htmlFor="load-jira-key">
-                      {isRtl
-                        ? "کلید یا شناسه تیکت جیرا"
-                        : "Jira Issue Key / ID"}
+                      {"کلید یا شناسه تیکت جیرا"}
                     </FieldLabel>
                     <Input
                       id="load-jira-key"
@@ -922,7 +848,7 @@ export default function RefinedList({
                     }}
                     disabled={loadingJiraIssue}
                   >
-                    {isRtl ? "انصراف" : "Cancel"}
+                    {"انصراف"}
                   </Button>
                   <Button
                     type="submit"
@@ -935,7 +861,7 @@ export default function RefinedList({
                         {t.loading}
                       </>
                     ) : (
-                      <>{isRtl ? "بارگذاری و شروع بازبینی" : "Load & Review"}</>
+                      <>{"بارگذاری و شروع بازبینی"}</>
                     )}
                   </Button>
                 </div>
@@ -943,7 +869,7 @@ export default function RefinedList({
                   <Alert variant="destructive" className="w-full">
                     <AlertCircle />
                     <AlertTitle>
-                      {isRtl ? "خطا" : "Error"}
+                      {"خطا"}
                     </AlertTitle>
                     <AlertDescription>{loadError}</AlertDescription>
                   </Alert>
@@ -955,12 +881,10 @@ export default function RefinedList({
               <Alert>
                 <AlertCircle />
                 <AlertTitle>
-                  {isRtl ? "اتصال جیرا لازم است" : "Jira connection required"}
+                  {"اتصال جیرا لازم است"}
                 </AlertTitle>
                 <AlertDescription>
-                  {isRtl
-                    ? "متغیرهای JIRA_* را تنظیم کنید و صفحه Health را باز کنید."
-                    : "Set JIRA_* env vars, then open Health."}
+                  {"متغیرهای JIRA_* را تنظیم کنید و صفحه Health را باز کنید."}
                 </AlertDescription>
               </Alert>
             )}
@@ -986,7 +910,7 @@ export default function RefinedList({
               <Layers2 />
             </EmptyMedia>
             <EmptyTitle>
-              {isRtl ? "تیکتی یافت نشد" : "Workspace Empty"}
+              {"تیکتی یافت نشد"}
             </EmptyTitle>
             <EmptyDescription>{t.emptyState}</EmptyDescription>
           </EmptyHeader>
@@ -1013,9 +937,7 @@ export default function RefinedList({
                   htmlFor="select-all-checkbox"
                   className="cursor-pointer text-xs font-semibold text-foreground"
                 >
-                  {isRtl
-                    ? `انتخاب همه (${selectedIds.length} از ${selectableIssues.length} تیکت قابل ویرایش انتخاب شده است)`
-                    : `Select All (${selectedIds.length} of ${selectableIssues.length} editable tickets selected)`}
+                  {`انتخاب همه (${selectedIds.length} از ${selectableIssues.length} تیکت قابل ویرایش انتخاب شده است)`}
                 </label>
               </div>
 
@@ -1026,7 +948,7 @@ export default function RefinedList({
                   size="xs"
                   onClick={() => setSelectedIds([])}
                 >
-                  {isRtl ? "لغو انتخاب‌ها" : "Clear selection"}
+                  {"لغو انتخاب‌ها"}
                 </Button>
               )}
             </div>
@@ -1036,9 +958,7 @@ export default function RefinedList({
                 <div className="flex items-center gap-1.5 text-primary">
                   <Sparkles className="size-4" />
                   <span className="text-xs font-bold">
-                    {isRtl
-                      ? "اعمال گروهی مقادیر به تیکت‌های انتخاب شده"
-                      : "Bulk Edit Selected Issues"}
+                    {"اعمال گروهی مقادیر به تیکت‌های انتخاب شده"}
                   </span>
                 </div>
 
@@ -1046,7 +966,7 @@ export default function RefinedList({
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
                     <Field>
                       <FieldLabel>
-                        {isRtl ? "اتصال به اپیک" : "Link to Epic"}
+                        {"اتصال به اپیک"}
                       </FieldLabel>
                       <div className="flex gap-2">
                         <div className="flex-1">
@@ -1054,15 +974,11 @@ export default function RefinedList({
                             options={[
                               {
                                 value: "",
-                                label: isRtl
-                                  ? "تغییر داده نشود"
-                                  : "Do not change",
+                                label: "تغییر داده نشود",
                               },
                               {
                                 value: "CLEAR_FIELD",
-                                label: isRtl
-                                  ? "پاک کردن اتصال اپیک"
-                                  : "Clear epic link",
+                                label: "پاک کردن اتصال اپیک",
                               },
                               ...existingEpics.map((epic) => ({
                                 value: epic.key,
@@ -1072,8 +988,7 @@ export default function RefinedList({
                             value={bulkEpicKey}
                             onChange={(val) => setBulkEpicKey(val)}
                             showSearch={true}
-                            isRtl={isRtl}
-                          />
+                            />
                         </div>
                         {jiraConnected && existingEpics.length === 0 && (
                           <Button
@@ -1082,7 +997,7 @@ export default function RefinedList({
                             size="icon-sm"
                             disabled={fetchingEpics}
                             onClick={onFetchEpics}
-                            aria-label={isRtl ? "بارگذاری اپیک‌ها" : "Fetch Epics"}
+                            aria-label={"بارگذاری اپیک‌ها"}
                           >
                             {fetchingEpics ? (
                               <Spinner />
@@ -1095,7 +1010,7 @@ export default function RefinedList({
                       {jiraConnected && (
                         <div className="mt-1 flex items-center gap-1 text-[10px]">
                           <span className="text-muted-foreground">
-                            {isRtl ? "شناسه مستقیم:" : "Direct Key:"}
+                            {"شناسه مستقیم:"}
                           </span>
                           <Input
                             type="text"
@@ -1114,46 +1029,39 @@ export default function RefinedList({
 
                     <Field>
                       <FieldLabel>
-                        {isRtl ? "اولویت" : "Priority"}
+                        {"اولویت"}
                       </FieldLabel>
                       <SearchableSelect
                         options={[
                           {
                             value: "",
-                            label: isRtl
-                              ? "تغییر داده نشود"
-                              : "Do not change",
+                            label: "تغییر داده نشود",
                           },
                           ...["Highest", "High", "Medium", "Low", "Lowest"].map(
                             (p) => ({
                               value: p,
-                              label: priorityLabels[language][p] || p,
+                              label: priorityLabels[p] || p,
                             })
                           ),
                         ]}
                         value={bulkPriority}
                         onChange={(val) => setBulkPriority(val)}
-                        isRtl={isRtl}
-                      />
+                        />
                     </Field>
 
                     <Field>
                       <FieldLabel>
-                        {isRtl ? "کامپوننت" : "Component"}
+                        {"کامپوننت"}
                       </FieldLabel>
                       <SearchableSelect
                         options={[
                           {
                             value: "",
-                            label: isRtl
-                              ? "تغییر داده نشود"
-                              : "Do not change",
+                            label: "تغییر داده نشود",
                           },
                           {
                             value: "CLEAR_FIELD",
-                            label: isRtl
-                              ? "پاک کردن کامپوننت"
-                              : "Clear component",
+                            label: "پاک کردن کامپوننت",
                           },
                           ...availableComponents.map((comp) => ({
                             value: comp,
@@ -1163,14 +1071,13 @@ export default function RefinedList({
                         value={bulkComponent}
                         onChange={(val) => setBulkComponent(val)}
                         showSearch={true}
-                        isRtl={isRtl}
-                      />
+                        />
                     </Field>
 
                     {jiraConnected && (
                       <Field>
                         <FieldLabel>
-                          {isRtl ? "اسپرینت" : "Sprint"}
+                          {"اسپرینت"}
                         </FieldLabel>
                         <div className="flex gap-2">
                           <div className="flex-1">
@@ -1178,15 +1085,11 @@ export default function RefinedList({
                               options={[
                                 {
                                   value: "",
-                                  label: isRtl
-                                    ? "تغییر داده نشود"
-                                    : "Do not change",
+                                  label: "تغییر داده نشود",
                                 },
                                 {
                                   value: "CLEAR_FIELD",
-                                  label: isRtl
-                                    ? "انتقال به بکلاگ (بدون اسپرینت)"
-                                    : "Send to backlog",
+                                  label: "انتقال به بکلاگ (بدون اسپرینت)",
                                 },
                                 ...availableSprints.map((sprint) => ({
                                   value: String(sprint.id),
@@ -1197,8 +1100,7 @@ export default function RefinedList({
                               value={bulkSprint}
                               onChange={(val) => setBulkSprint(val)}
                               showSearch={true}
-                              isRtl={isRtl}
-                            />
+                              />
                           </div>
                           {availableSprints.length === 0 && (
                             <Button
@@ -1208,7 +1110,7 @@ export default function RefinedList({
                               disabled={fetchingSprints}
                               onClick={onFetchSprints}
                               aria-label={
-                                isRtl ? "بارگذاری اسپرینت‌ها" : "Fetch Sprints"
+                                "بارگذاری اسپرینت‌ها"
                               }
                             >
                               {fetchingSprints ? (
@@ -1225,7 +1127,7 @@ export default function RefinedList({
                     {jiraConnected && (
                       <Field>
                         <FieldLabel>
-                          {isRtl ? "مسئول (Assignee)" : "Assignee"}
+                          {"مسئول (Assignee)"}
                         </FieldLabel>
                         <div className="flex gap-2">
                           <div className="flex-1">
@@ -1233,15 +1135,11 @@ export default function RefinedList({
                               options={[
                                 {
                                   value: "",
-                                  label: isRtl
-                                    ? "تغییر داده نشود"
-                                    : "Do not change",
+                                  label: "تغییر داده نشود",
                                 },
                                 {
                                   value: "CLEAR_FIELD",
-                                  label: isRtl
-                                    ? "بدون مسئول (Unassigned)"
-                                    : "Clear assignee",
+                                  label: "بدون مسئول (Unassigned)",
                                 },
                                 ...getSortedUsers(availableUsers).map(
                                   (user) => ({
@@ -1254,8 +1152,7 @@ export default function RefinedList({
                               value={bulkAssignee}
                               onChange={(val) => setBulkAssignee(val)}
                               showSearch={true}
-                              isRtl={isRtl}
-                            />
+                              />
                           </div>
                           {availableUsers.length === 0 && (
                             <Button
@@ -1265,7 +1162,7 @@ export default function RefinedList({
                               disabled={fetchingUsers}
                               onClick={onFetchUsers}
                               aria-label={
-                                isRtl ? "بارگذاری کاربران" : "Fetch Users"
+                                "بارگذاری کاربران"
                               }
                             >
                               {fetchingUsers ? <Spinner /> : <RefreshCw />}
@@ -1278,7 +1175,7 @@ export default function RefinedList({
                     {jiraConnected && (
                       <Field>
                         <FieldLabel>
-                          {isRtl ? "ریلیز / نسخه" : "Release / Version"}
+                          {"ریلیز / نسخه"}
                         </FieldLabel>
                         <div className="flex gap-2">
                           <div className="flex-1">
@@ -1286,15 +1183,11 @@ export default function RefinedList({
                               options={[
                                 {
                                   value: "",
-                                  label: isRtl
-                                    ? "تغییر داده نشود"
-                                    : "Do not change",
+                                  label: "تغییر داده نشود",
                                 },
                                 {
                                   value: "CLEAR_FIELD",
-                                  label: isRtl
-                                    ? "پاک کردن ریلیز"
-                                    : "Clear release",
+                                  label: "پاک کردن ریلیز",
                                 },
                                 ...selectableFixVersions(availableVersions).map(
                                   (version) => ({
@@ -1306,8 +1199,7 @@ export default function RefinedList({
                               value={bulkRelease}
                               onChange={(val) => setBulkRelease(val)}
                               showSearch={true}
-                              isRtl={isRtl}
-                            />
+                              />
                           </div>
                           {availableVersions.length === 0 && (
                             <Button
@@ -1317,7 +1209,7 @@ export default function RefinedList({
                               disabled={fetchingVersions}
                               onClick={onFetchVersions}
                               aria-label={
-                                isRtl ? "بارگذاری ریلیزها" : "Fetch Releases"
+                                "بارگذاری ریلیزها"
                               }
                             >
                               {fetchingVersions ? (
@@ -1337,9 +1229,7 @@ export default function RefinedList({
                 <div className="flex justify-end">
                   <Button type="button" size="sm" onClick={handleApplyBulkChanges}>
                     <Check data-icon="inline-start" />
-                    {isRtl
-                      ? `اعمال تغییرات روی ${selectedIds.length} تیکت`
-                      : `Apply changes to ${selectedIds.length} tickets`}
+                    {`اعمال تغییرات روی ${selectedIds.length} تیکت`}
                   </Button>
                 </div>
               </div>
@@ -1425,7 +1315,7 @@ export default function RefinedList({
                     <Badge
                       variant={getPriorityBadgeStyles(issue.selectedPriority)}
                     >
-                      {priorityLabels[language][
+                      {priorityLabels[
                         issue.selectedPriority || "Medium"
                       ] ||
                         issue.selectedPriority ||
@@ -1435,7 +1325,7 @@ export default function RefinedList({
                       issue.issuetype === "Epic") &&
                     issue.selectedLens ? (
                       <Badge variant="outline">
-                        {lensDisplayLabel(issue.selectedLens, language)}
+                        {lensDisplayLabel(issue.selectedLens)}
                       </Badge>
                     ) : null}
                     {issue.status === "success" && issue.createdKey ? (
@@ -1473,12 +1363,12 @@ export default function RefinedList({
                           }
                         }}
                         aria-label={
-                          isRtl ? "بازبینی با هوش مصنوعی" : "Review with AI"
+                          "بازبینی با هوش مصنوعی"
                         }
                       >
                         <Sparkles data-icon="inline-start" />
                         <span className="hidden sm:inline">
-                          {isRtl ? "بازبینی مجدد" : "Re-Review"}
+                          {"بازبینی مجدد"}
                         </span>
                       </Button>
                     ) : null}
@@ -1513,9 +1403,7 @@ export default function RefinedList({
                           <ArrowUpRight data-icon="inline-start" />
                         )}
                         {issue.createdKey
-                          ? isRtl
-                            ? "به‌روزرسانی در جیرا"
-                            : "Update in Jira"
+                          ? "به‌روزرسانی در جیرا"
                           : issue.status === "failed"
                             ? t.rePublish
                             : t.createInJira}
@@ -1532,7 +1420,7 @@ export default function RefinedList({
                           "bg-success text-success-foreground hover:bg-success/90"
                         )}
                       >
-                        {isRtl ? "مشاهده در جیرا" : "Open in Jira"}
+                        {"مشاهده در جیرا"}
                         <ExternalLink data-icon="inline-end" />
                       </a>
                     ) : null}
@@ -1579,8 +1467,7 @@ export default function RefinedList({
                                 : "",
                           })
                         }
-                        isRtl={isRtl}
-                      />
+                        />
                     </Field>
 
                     {(editForm.issuetype === "Story" ||
@@ -1595,7 +1482,7 @@ export default function RefinedList({
                               : LENS_OPTIONS
                             ).map((o) => ({
                               value: o.value,
-                              label: language === "fa" ? o.labelFa : o.labelEn,
+                              label: o.labelFa,
                               sublabel: o.jiraLabel,
                             })),
                           ]}
@@ -1606,8 +1493,7 @@ export default function RefinedList({
                               selectedLens: (val || "") as IssueLens | "",
                             })
                           }
-                          isRtl={isRtl}
-                        />
+                          />
                       </Field>
                     )}
 
@@ -1631,7 +1517,7 @@ export default function RefinedList({
 
                     <Field>
                       <FieldLabel>
-                        {isRtl ? "اولویت (Priority)" : "Priority"}
+                        {"اولویت (Priority)"}
                       </FieldLabel>
                       <SearchableSelect
                         options={[
@@ -1642,28 +1528,25 @@ export default function RefinedList({
                           "Lowest",
                         ].map((p) => ({
                           value: p,
-                          label: priorityLabels[language][p] || p,
+                          label: priorityLabels[p] || p,
                         }))}
                         value={editForm.selectedPriority || "Medium"}
                         onChange={(val) =>
                           setEditForm({ ...editForm, selectedPriority: val })
                         }
-                        isRtl={isRtl}
-                      />
+                        />
                     </Field>
 
                     {availableComponents.length > 0 && (
                       <Field>
                         <FieldLabel>
-                          {isRtl ? "کامپوننت جیرا" : "Jira Component"}
+                          {"کامپوننت جیرا"}
                         </FieldLabel>
                         <SearchableSelect
                           options={[
                             {
                               value: "",
-                              label: isRtl
-                                ? "بدون کامپوننت"
-                                : "No Component",
+                              label: "بدون کامپوننت",
                             },
                             ...availableComponents.map((comp) => ({
                               value: comp,
@@ -1678,15 +1561,14 @@ export default function RefinedList({
                             })
                           }
                           showSearch={true}
-                          isRtl={isRtl}
-                        />
+                          />
                       </Field>
                     )}
 
                     {jiraConnected && (
                       <Field>
                         <FieldLabel>
-                          {isRtl ? "مسئول (Assignee)" : "Assignee"}
+                          {"مسئول (Assignee)"}
                         </FieldLabel>
                         {fetchingUsers ? (
                           <div className="flex items-center gap-1.5 py-2">
@@ -1700,9 +1582,7 @@ export default function RefinedList({
                             options={[
                               {
                                 value: "",
-                                label: isRtl
-                                  ? "تخصیص داده نشده"
-                                  : "Unassigned",
+                                label: "تخصیص داده نشده",
                               },
                               ...getSortedUsers(availableUsers).map((user) => {
                                 const storedFreq = assigneeFrequencyCache;
@@ -1712,7 +1592,7 @@ export default function RefinedList({
                                   label: user.displayName,
                                   sublabel:
                                     freqVal > 0
-                                      ? `${isRtl ? "پرکاربرد" : "Frequent"} (${freqVal})`
+                                      ? `${"پرکاربرد"} (${freqVal})`
                                       : user.name,
                                   avatar: user.avatarUrls?.["24x24"],
                                 };
@@ -1726,8 +1606,7 @@ export default function RefinedList({
                               })
                             }
                             showSearch={true}
-                            isRtl={isRtl}
-                          />
+                            />
                         )}
                       </Field>
                     )}
@@ -1735,9 +1614,7 @@ export default function RefinedList({
                     {jiraConnected && showRelease && (
                       <Field>
                         <FieldLabel>
-                          {isRtl
-                            ? "ریلیز (Fix Version)"
-                            : "Release (Fix Version)"}
+                          {"ریلیز (Fix Version)"}
                         </FieldLabel>
                         {fetchingVersions ? (
                           <div className="flex items-center gap-1.5 py-2">
@@ -1753,9 +1630,7 @@ export default function RefinedList({
                                 options={[
                                   {
                                     value: "",
-                                    label: isRtl
-                                      ? "انتخاب نشده"
-                                      : "None / Unreleased",
+                                    label: "انتخاب نشده",
                                   },
                                   ...selectableFixVersions(availableVersions, {
                                     includeId: editForm.selectedRelease,
@@ -1763,7 +1638,7 @@ export default function RefinedList({
                                     value: version.id,
                                     label: version.name,
                                     sublabel: version.released
-                                      ? `(${isRtl ? "منتشر شده" : "released"})`
+                                      ? `(${"منتشر شده"})`
                                       : "",
                                   })),
                                 ]}
@@ -1775,8 +1650,7 @@ export default function RefinedList({
                                   })
                                 }
                                 showSearch={true}
-                                isRtl={isRtl}
-                              />
+                                />
                             </div>
                             {availableVersions.length === 0 && (
                               <Button
@@ -1786,9 +1660,7 @@ export default function RefinedList({
                                 disabled={fetchingVersions}
                                 onClick={onFetchVersions}
                                 aria-label={
-                                  isRtl
-                                    ? "دریافت مجدد نسخه‌ها"
-                                    : "Reload Versions"
+                                  "دریافت مجدد نسخه‌ها"
                                 }
                               >
                                 {fetchingVersions ? (
@@ -1812,7 +1684,7 @@ export default function RefinedList({
                     {jiraConnected && !isEpic && (
                       <Field>
                         <FieldLabel>
-                          {isRtl ? "اسپرینت (Sprint)" : "Sprint"}
+                          {"اسپرینت (Sprint)"}
                         </FieldLabel>
                         {fetchingSprints ? (
                           <div className="flex items-center gap-1.5 py-2">
@@ -1828,9 +1700,7 @@ export default function RefinedList({
                                 options={[
                                   {
                                     value: "",
-                                    label: isRtl
-                                      ? "تخصیص داده نشده (بکلاگ)"
-                                      : "Backlog",
+                                    label: "تخصیص داده نشده (بکلاگ)",
                                   },
                                   ...availableSprints.map((sprint) => ({
                                     value: String(sprint.id),
@@ -1846,8 +1716,7 @@ export default function RefinedList({
                                   })
                                 }
                                 showSearch={true}
-                                isRtl={isRtl}
-                              />
+                                />
                             </div>
                             {availableSprints.length === 0 && (
                               <Button
@@ -1857,9 +1726,7 @@ export default function RefinedList({
                                 disabled={fetchingSprints}
                                 onClick={onFetchSprints}
                                 aria-label={
-                                  isRtl
-                                    ? "دریافت مجدد اسپرینت‌ها"
-                                    : "Reload Sprints"
+                                  "دریافت مجدد اسپرینت‌ها"
                                 }
                               >
                                 {fetchingSprints ? (
@@ -1910,9 +1777,7 @@ export default function RefinedList({
                           ) : issue.selectedEpicKey ? (
                             <span className="flex items-center gap-1.5">
                               <span className="inline-block size-2 rounded-full bg-success" />
-                              {isRtl
-                                ? "لینک شده به اپیک موجود:"
-                                : "Linked to Existing Epic:"}{" "}
+                              {"لینک شده به اپیک موجود:"}{" "}
                               <Badge variant="success" className="font-mono">
                                 {issue.selectedEpicKey}
                               </Badge>
@@ -1934,7 +1799,7 @@ export default function RefinedList({
                                 options={[
                                   {
                                     value: "",
-                                    label: isRtl ? "انتخاب نشده" : "None",
+                                    label: "انتخاب نشده",
                                   },
                                   ...existingEpics.map((epic) => ({
                                     value: epic.key,
@@ -1946,12 +1811,11 @@ export default function RefinedList({
                                   handleEpicLinkOverride(issue.id, val)
                                 }
                                 showSearch={true}
-                                isRtl={isRtl}
-                              />
+                                />
                             </div>
                             <div className="flex shrink-0 items-center gap-1.5">
                               <span className="text-[10px] font-medium text-muted-foreground">
-                                {isRtl ? "یا شناسه:" : "or Key:"}
+                                {"یا شناسه:"}
                               </span>
                               <Input
                                 type="text"
@@ -1974,9 +1838,7 @@ export default function RefinedList({
                                 disabled={fetchingEpics}
                                 onClick={onFetchEpics}
                                 aria-label={
-                                  isRtl
-                                    ? "بارگذاری اپیک‌های موجود جیرا"
-                                    : "Fetch existing Epics from Jira"
+                                  "بارگذاری اپیک‌های موجود جیرا"
                                 }
                               >
                                 {fetchingEpics ? <Spinner /> : <RefreshCw />}
@@ -1996,7 +1858,7 @@ export default function RefinedList({
                             {t.lens}:{" "}
                             {issue.selectedLens ? (
                               <Badge variant="outline">
-                                {lensDisplayLabel(issue.selectedLens, language)}
+                                {lensDisplayLabel(issue.selectedLens)}
                               </Badge>
                             ) : (
                               <span className="font-normal italic text-muted-foreground">
@@ -2020,8 +1882,7 @@ export default function RefinedList({
                                     : LENS_OPTIONS
                                   ).map((o) => ({
                                     value: o.value,
-                                    label:
-                                      language === "fa" ? o.labelFa : o.labelEn,
+                                    label: o.labelFa,
                                     sublabel: o.jiraLabel,
                                   })),
                                 ]}
@@ -2039,8 +1900,7 @@ export default function RefinedList({
                                   );
                                   onIssuesChange(updated);
                                 }}
-                                isRtl={isRtl}
-                              />
+                                />
                             </div>
                           </div>
                         )}
@@ -2051,15 +1911,13 @@ export default function RefinedList({
                       <div className="flex items-center gap-1.5 font-medium text-muted-foreground">
                         <span className="inline-block size-2 rounded-full bg-destructive" />
                         <span>
-                          {isRtl
-                            ? "اولویت انتخاب شده:"
-                            : "Selected Priority:"}{" "}
+                          {"اولویت انتخاب شده:"}{" "}
                           <Badge
                             variant={getPriorityBadgeStyles(
                               issue.selectedPriority
                             )}
                           >
-                            {priorityLabels[language][
+                            {priorityLabels[
                               issue.selectedPriority || "Medium"
                             ] ||
                               issue.selectedPriority ||
@@ -2071,7 +1929,7 @@ export default function RefinedList({
                       {issue.status !== "success" && (
                         <div className="flex min-w-[160px] items-center gap-1.5">
                           <span className="whitespace-nowrap text-[10px] font-semibold text-muted-foreground">
-                            {isRtl ? "تغییر اولویت:" : "Change Priority:"}
+                            {"تغییر اولویت:"}
                           </span>
                           <div className="flex-1">
                             <SearchableSelect
@@ -2083,7 +1941,7 @@ export default function RefinedList({
                                 "Lowest",
                               ].map((p) => ({
                                 value: p,
-                                label: priorityLabels[language][p] || p,
+                                label: priorityLabels[p] || p,
                               }))}
                               value={issue.selectedPriority || "Medium"}
                               onChange={(val) => {
@@ -2094,8 +1952,7 @@ export default function RefinedList({
                                 );
                                 onIssuesChange(updated);
                               }}
-                              isRtl={isRtl}
-                            />
+                              />
                           </div>
                         </div>
                       )}
@@ -2106,16 +1963,14 @@ export default function RefinedList({
                         <div className="flex items-center gap-1.5 font-medium text-muted-foreground">
                           <span className="inline-block size-2 rounded-full bg-accent-foreground" />
                           <span>
-                            {isRtl
-                              ? "کامپوننت انتخاب شده:"
-                              : "Selected Component:"}{" "}
+                            {"کامپوننت انتخاب شده:"}{" "}
                             {issue.selectedComponent ? (
                               <Badge variant="outline">
                                 {issue.selectedComponent}
                               </Badge>
                             ) : (
                               <span className="font-normal italic text-muted-foreground">
-                                {isRtl ? "هیچ" : "None"}
+                                {"هیچ"}
                               </span>
                             )}
                           </span>
@@ -2124,18 +1979,14 @@ export default function RefinedList({
                         {issue.status !== "success" && (
                           <div className="flex min-w-[160px] items-center gap-1.5">
                             <span className="whitespace-nowrap text-[10px] font-semibold text-muted-foreground">
-                              {isRtl
-                                ? "تغییر کامپوننت:"
-                                : "Change Component:"}
+                              {"تغییر کامپوننت:"}
                             </span>
                             <div className="flex-1">
                               <SearchableSelect
                                 options={[
                                   {
                                     value: "",
-                                    label: isRtl
-                                      ? "بدون کامپوننت"
-                                      : "No Component",
+                                    label: "بدون کامپوننت",
                                   },
                                   ...availableComponents.map((comp) => ({
                                     value: comp,
@@ -2155,8 +2006,7 @@ export default function RefinedList({
                                   onIssuesChange(updated);
                                 }}
                                 showSearch={true}
-                                isRtl={isRtl}
-                              />
+                                />
                             </div>
                           </div>
                         )}
@@ -2168,9 +2018,7 @@ export default function RefinedList({
                         <div className="flex items-center gap-1.5 font-medium text-muted-foreground">
                           <span className="inline-block size-2 rounded-full bg-success" />
                           <span>
-                            {isRtl
-                              ? "ریلیز انتخاب شده:"
-                              : "Selected Release:"}{" "}
+                            {"ریلیز انتخاب شده:"}{" "}
                             {issue.selectedRelease ? (
                               <Badge variant="outline">
                                 {availableVersions.find(
@@ -2179,7 +2027,7 @@ export default function RefinedList({
                               </Badge>
                             ) : (
                               <span className="font-normal italic text-muted-foreground">
-                                {isRtl ? "هیچ" : "None"}
+                                {"هیچ"}
                               </span>
                             )}
                           </span>
@@ -2188,7 +2036,7 @@ export default function RefinedList({
                         {issue.status !== "success" && (
                           <div className="flex min-w-[160px] items-center gap-1.5">
                             <span className="whitespace-nowrap text-[10px] font-semibold text-muted-foreground">
-                              {isRtl ? "تغییر ریلیز:" : "Change Release:"}
+                              {"تغییر ریلیز:"}
                             </span>
                             {fetchingVersions ? (
                               <Spinner />
@@ -2198,7 +2046,7 @@ export default function RefinedList({
                                   options={[
                                     {
                                       value: "",
-                                      label: isRtl ? "انتخاب نشده" : "None",
+                                      label: "انتخاب نشده",
                                     },
                                     ...selectableFixVersions(availableVersions, {
                                       includeId: issue.selectedRelease,
@@ -2206,7 +2054,7 @@ export default function RefinedList({
                                       value: version.id,
                                       label: version.name,
                                       sublabel: version.released
-                                        ? `(${isRtl ? "منتشر شده" : "released"})`
+                                        ? `(${"منتشر شده"})`
                                         : "",
                                     })),
                                   ]}
@@ -2223,8 +2071,7 @@ export default function RefinedList({
                                     onIssuesChange(updated);
                                   }}
                                   showSearch={true}
-                                  isRtl={isRtl}
-                                />
+                                  />
                               </div>
                             )}
                             {availableVersions.length === 0 && (
@@ -2235,7 +2082,7 @@ export default function RefinedList({
                                 disabled={fetchingVersions}
                                 onClick={onFetchVersions}
                                 aria-label={
-                                  isRtl ? "بارگذاری ریلیزها" : "Fetch Releases"
+                                  "بارگذاری ریلیزها"
                                 }
                               >
                                 {fetchingVersions ? (
@@ -2261,9 +2108,7 @@ export default function RefinedList({
                         <div className="flex items-center gap-1.5 font-medium text-muted-foreground">
                           <span className="inline-block size-2 rounded-full bg-primary" />
                           <span>
-                            {isRtl
-                              ? "اسپرینت انتخاب شده:"
-                              : "Selected Sprint:"}{" "}
+                            {"اسپرینت انتخاب شده:"}{" "}
                             {issue.selectedSprint ? (
                               <Badge variant="outline">
                                 {availableSprints.find(
@@ -2272,7 +2117,7 @@ export default function RefinedList({
                               </Badge>
                             ) : (
                               <span className="font-normal italic text-muted-foreground">
-                                {isRtl ? "بکلاگ" : "Backlog"}
+                                {"بکلاگ"}
                               </span>
                             )}
                           </span>
@@ -2281,7 +2126,7 @@ export default function RefinedList({
                         {issue.status !== "success" && (
                           <div className="flex min-w-[160px] items-center gap-1.5">
                             <span className="whitespace-nowrap text-[10px] font-semibold text-muted-foreground">
-                              {isRtl ? "تغییر اسپرینت:" : "Change Sprint:"}
+                              {"تغییر اسپرینت:"}
                             </span>
                             {fetchingSprints ? (
                               <Spinner />
@@ -2291,7 +2136,7 @@ export default function RefinedList({
                                   options={[
                                     {
                                       value: "",
-                                      label: isRtl ? "بکلاگ" : "Backlog",
+                                      label: "بکلاگ",
                                     },
                                     ...availableSprints.map((sprint) => ({
                                       value: String(sprint.id),
@@ -2312,8 +2157,7 @@ export default function RefinedList({
                                     onIssuesChange(updated);
                                   }}
                                   showSearch={true}
-                                  isRtl={isRtl}
-                                />
+                                  />
                               </div>
                             )}
                             {availableSprints.length === 0 && (
@@ -2324,9 +2168,7 @@ export default function RefinedList({
                                 disabled={fetchingSprints}
                                 onClick={onFetchSprints}
                                 aria-label={
-                                  isRtl
-                                    ? "بارگذاری اسپرینت‌ها"
-                                    : "Fetch Sprints"
+                                  "بارگذاری اسپرینت‌ها"
                                 }
                               >
                                 {fetchingSprints ? (
@@ -2346,7 +2188,7 @@ export default function RefinedList({
                         <div className="flex items-center gap-1.5 font-medium text-muted-foreground">
                           <span className="inline-block size-2 rounded-full bg-warning" />
                           <span>
-                            {isRtl ? "مسئول (Assignee):" : "Assignee:"}{" "}
+                            {"مسئول (Assignee):"}{" "}
                             {issue.selectedAssignee ? (
                               <Badge variant="outline">
                                 {availableUsers.find(
@@ -2355,7 +2197,7 @@ export default function RefinedList({
                               </Badge>
                             ) : (
                               <span className="font-normal italic text-muted-foreground">
-                                {isRtl ? "تخصیص داده نشده" : "Unassigned"}
+                                {"تخصیص داده نشده"}
                               </span>
                             )}
                           </span>
@@ -2364,7 +2206,7 @@ export default function RefinedList({
                         {issue.status !== "success" && (
                           <div className="flex min-w-[160px] items-center gap-1.5">
                             <span className="whitespace-nowrap text-[10px] font-semibold text-muted-foreground">
-                              {isRtl ? "تغییر مسئول:" : "Change Assignee:"}
+                              {"تغییر مسئول:"}
                             </span>
                             {fetchingUsers ? (
                               <Spinner />
@@ -2374,9 +2216,7 @@ export default function RefinedList({
                                   options={[
                                     {
                                       value: "",
-                                      label: isRtl
-                                        ? "تخصیص داده نشده"
-                                        : "Unassigned",
+                                      label: "تخصیص داده نشده",
                                     },
                                     ...getSortedUsers(availableUsers).map(
                                       (user) => {
@@ -2388,7 +2228,7 @@ export default function RefinedList({
                                           label: user.displayName,
                                           sublabel:
                                             freqVal > 0
-                                              ? `${isRtl ? "پرکاربرد" : "Frequent"} (${freqVal})`
+                                              ? `${"پرکاربرد"} (${freqVal})`
                                               : user.name,
                                           avatar: user.avatarUrls?.["24x24"],
                                         };
@@ -2409,8 +2249,7 @@ export default function RefinedList({
                                     onIssuesChange(updated);
                                   }}
                                   showSearch={true}
-                                  isRtl={isRtl}
-                                />
+                                  />
                               </div>
                             )}
                             {availableUsers.length === 0 && (
@@ -2421,7 +2260,7 @@ export default function RefinedList({
                                 disabled={fetchingUsers}
                                 onClick={onFetchUsers}
                                 aria-label={
-                                  isRtl ? "بارگذاری کاربران" : "Fetch Users"
+                                  "بارگذاری کاربران"
                                 }
                               >
                                 {fetchingUsers ? <Spinner /> : <RefreshCw />}
@@ -2437,24 +2276,18 @@ export default function RefinedList({
                         <div className="flex items-center gap-1.5 text-primary">
                           <Sparkles className="size-4 animate-pulse" />
                           <span className="text-xs font-bold">
-                            {isRtl
-                              ? "بازبینی و اصلاح متن با هوش مصنوعی"
-                              : "AI Re-Review & Refinement"}
+                            {"بازبینی و اصلاح متن با هوش مصنوعی"}
                           </span>
                         </div>
                         <p className="text-[11px] leading-relaxed text-muted-foreground">
-                          {isRtl
-                            ? "دستور اصلاح را بنویسید."
-                            : "Write a refinement instruction."}
+                          {"دستور اصلاح را بنویسید."}
                         </p>
                         <Textarea
                           rows={3}
                           value={reRefinePrompt}
                           onChange={(e) => setReRefinePrompt(e.target.value)}
                           placeholder={
-                            isRtl
-                              ? "مثال: سناریوی خطا را اضافه کن…"
-                              : "e.g. Add error-handling scenarios…"
+                            "مثال: سناریوی خطا را اضافه کن…"
                           }
                           disabled={isAIProcessing}
                         />
@@ -2479,7 +2312,7 @@ export default function RefinedList({
                               }}
                               disabled={isAIProcessing}
                             >
-                              {isRtl ? "انصراف" : "Cancel"}
+                              {"انصراف"}
                             </Button>
                             <Button
                               type="button"
@@ -2494,7 +2327,7 @@ export default function RefinedList({
                               ) : (
                                 <Sparkles data-icon="inline-start" />
                               )}
-                              {isAIProcessing ? t.refining : isRtl ? "اعمال" : "Apply"}
+                              {isAIProcessing ? t.refining : "اعمال"}
                             </Button>
                           </div>
                         </div>

@@ -79,10 +79,10 @@ export function lensToLabel(lens: IssueLens): string {
 
 export function lensDisplayLabel(
   lens: IssueLens,
-  language: "en" | "fa"
+  _language?: "fa"
 ): string {
   const opt = LENS_BY_VALUE.get(lens)!;
-  return language === "fa" ? opt.labelFa : opt.labelEn;
+  return opt.labelFa;
 }
 
 /** First valid lens-* label wins when multiple are present. */

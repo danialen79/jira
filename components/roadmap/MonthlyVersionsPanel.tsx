@@ -1,15 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarIcon, Layers } from "lucide-react";
-import type {
-  Language,
-  JiraVersion,
-  VersionIssue,
-  VersionProgressSummary,
-} from "@/lib/types";
+import type { JiraVersion, VersionIssue, VersionProgressSummary } from "@/lib/types";
 import { isSameJalaliMonth } from "@/lib/jalali";
 import {
+  computeVersionProgress,
+  countVersionLenses,
+  dedupeVersionIssuesByKey,
+  flattenVersionIssues,
   formatRoadmapDate,
   formatVersionProductLabel,
   getVersionStatusLabel,
@@ -26,11 +25,11 @@ import {
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import VersionIssueTree from "@/components/roadmap/VersionIssueTree";
+import VersionStatsCharts from "@/components/roadmap/VersionStatsCharts";
 
 type Props = {
   versions: JiraVersion[];
   monthAnchor: Date;
-  language: Language;
   jiraUrl: string;
   onOpenVersion: (v: JiraVersion) => void;
 };
@@ -45,29 +44,11 @@ type VersionBundle =
       total: number;
     };
 
-const copy = {
-  en: {
-    empty: "No releases this month",
-    emptyHint: "No version starts or ends in this month.",
-    start: "Start",
-    release: "End",
-    todo: "To Do",
-    inProgress: "In Progress",
-    done: "Done",
-    canceled: "Canceled",
-    archived: "Archived",
-    released: "Released",
-    overdue: "Overdue",
-    unreleased: "Unreleased",
-    loading: "Loading…",
-    open: "Open",
-    boundaryStart: "Starts",
-    boundaryEnd: "Ends",
-    boundaryBoth: "Starts & ends",
-  },
-  fa: {
+const t = {
     empty: "ریلیزی در این ماه نیست",
     emptyHint: "هیچ ورژنی شروع یا پایانش در این ماه نیست.",
+    monthSummary: "جمع ماه",
+    versions: "ورژن‌ها",
     start: "شروع",
     release: "پایان",
     todo: "انجام‌نشده",
@@ -83,8 +64,7 @@ const copy = {
     boundaryStart: "شروع",
     boundaryEnd: "پایان",
     boundaryBoth: "شروع و پایان",
-  },
-} as const;
+  } as const;
 
 function statusBadgeVariant(
   label: ReturnType<typeof getVersionStatusLabel>
@@ -120,12 +100,9 @@ function boundaryKind(
 
 export default function MonthlyVersionsPanel({
   versions,
-  monthAnchor,
-  language,
-  jiraUrl,
+  monthAnchor,  jiraUrl,
   onOpenVersion,
 }: Props) {
-  const t = copy[language];
   const [bundles, setBundles] = useState<Record<string, VersionBundle>>({});
 
   const load = useCallback(async (list: JiraVersion[]) => {
@@ -158,7 +135,7 @@ export default function MonthlyVersionsPanel({
             [v.id]: {
               state: "ok",
               progress: (data.progress as VersionProgressSummary) || null,
-              tree: (data.issues || []) as VersionIssue[],
+              tree: (data.tree || data.issues || []) as VersionIssue[],
               total: data.total ?? (data.issues || []).length,
             },
           }));
@@ -176,6 +153,33 @@ export default function MonthlyVersionsPanel({
     void load(versions);
   }, [versions, load]);
 
+  const aggregateLoading = useMemo(() => {
+    if (versions.length === 0) return false;
+    return versions.some((v) => {
+      const b = bundles[v.id];
+      return b == null || b.state === "loading";
+    });
+  }, [versions, bundles]);
+
+  const monthAggregate = useMemo(() => {
+    if (aggregateLoading) return null;
+
+    const trees: VersionIssue[] = [];
+    for (const v of versions) {
+      const b = bundles[v.id];
+      if (b?.state !== "ok") continue;
+      trees.push(...b.tree);
+    }
+
+    const flat = dedupeVersionIssuesByKey(flattenVersionIssues(trees));
+    if (flat.length === 0) return null;
+
+    return {
+      progress: computeVersionProgress(flat),
+      lensCounts: countVersionLenses(flat),
+    };
+  }, [versions, bundles, aggregateLoading]);
+
   if (versions.length === 0) {
     return (
       <Empty className="border py-12">
@@ -192,6 +196,33 @@ export default function MonthlyVersionsPanel({
 
   return (
     <div className="flex flex-col gap-4">
+      <section className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-none">
+        <h3 className="text-center text-xs font-medium text-muted-foreground">
+          {t.monthSummary}
+        </h3>
+        {aggregateLoading ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="flex flex-col items-center gap-2">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="size-40 rounded-full" />
+            </div>
+            <div className="flex flex-col items-center gap-2">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="size-40 rounded-full" />
+            </div>
+          </div>
+        ) : monthAggregate ? (
+          <VersionStatsCharts
+            progress={monthAggregate.progress}
+            lensCounts={monthAggregate.lensCounts}
+            />
+        ) : (
+          <p className="py-6 text-center text-xs text-muted-foreground">—</p>
+        )}
+      </section>
+
+      <p className="text-xs font-medium text-muted-foreground">{t.versions}</p>
+
       {versions.map((v) => {
         const bundle = bundles[v.id];
         const status = getVersionStatusLabel(v);
@@ -229,8 +260,8 @@ export default function MonthlyVersionsPanel({
                   {v.name}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {t.start}: {formatRoadmapDate(v.startDate, language)} ·{" "}
-                  {t.release}: {formatRoadmapDate(v.releaseDate, language)}
+                  {t.start}: {formatRoadmapDate(v.startDate)} ·{" "}
+                  {t.release}: {formatRoadmapDate(v.releaseDate)}
                 </p>
               </div>
               <Button
@@ -281,8 +312,7 @@ export default function MonthlyVersionsPanel({
                   tree={bundle.tree}
                   total={bundle.total}
                   jiraUrl={jiraUrl}
-                  language={language}
-                />
+                  />
               </div>
             )}
           </section>

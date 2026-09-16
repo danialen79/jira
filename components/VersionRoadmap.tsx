@@ -8,7 +8,7 @@ import {
   Layers,
   PlusIcon,
 } from "lucide-react";
-import type { Language, JiraVersion } from "@/lib/types";
+import type { JiraVersion } from "@/lib/types";
 import { isCurrentVersion } from "@/lib/roadmap";
 import {
   filterVersionsWithBoundaryInMonth,
@@ -37,8 +37,6 @@ import CreateVersionDialog from "@/components/roadmap/CreateVersionDialog";
 import MonthlyVersionsPanel from "@/components/roadmap/MonthlyVersionsPanel";
 
 type Props = {
-  language: Language;
-  isRtl: boolean;
   jiraUrl: string;
   jiraConnected: boolean;
   versions: JiraVersion[];
@@ -46,25 +44,7 @@ type Props = {
   onRefreshVersions: () => Promise<void>;
 };
 
-const copy = {
-  en: {
-    timeline: "Roadmap",
-    current: "Current versions",
-    showArchived: "Show archived",
-    noVersions: "No versions found",
-    noVersionsHint: "Create a Fix Version from New version.",
-    notConnected: "Jira is not connected",
-    notConnectedHint: "Configure Jira in Settings, then refresh.",
-    refresh: "Refresh",
-    create: "New version",
-    fourMonth: "4 months",
-    year: "Year",
-    month: "Month",
-    scaleLabel: "View",
-    prevPeriod: "Previous period",
-    nextPeriod: "Next period",
-  },
-  fa: {
+const t = {
     timeline: "رودمپ",
     current: "ورژن فعلی",
     showArchived: "نمایش بایگانی",
@@ -80,23 +60,19 @@ const copy = {
     scaleLabel: "نمایش",
     prevPeriod: "دوره قبل",
     nextPeriod: "دوره بعد",
-  },
-} as const;
+  } as const;
 
 export default function VersionRoadmap({
-  language,
-  isRtl,
   jiraUrl,
   jiraConnected,
   versions,
   fetchingVersions,
   onRefreshVersions,
 }: Props) {
-  const t = copy[language];
   const [showArchived, setShowArchived] = useState(false);
-  const [scaleMode, setScaleMode] = useState<RoadmapScaleMode>("fourMonth");
+  const [scaleMode, setScaleMode] = useState<RoadmapScaleMode>("month");
   const [anchorDate, setAnchorDate] = useState(() =>
-    normalizeAnchor("fourMonth")
+    normalizeAnchor("month")
   );
   const [selected, setSelected] = useState<JiraVersion | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -123,8 +99,8 @@ export default function VersionRoadmap({
   );
 
   const periodTitle = useMemo(
-    () => formatViewPeriodTitle(scaleMode, anchorDate, language),
-    [scaleMode, anchorDate, language]
+    () => formatViewPeriodTitle(scaleMode, anchorDate),
+    [scaleMode, anchorDate]
   );
 
   const openVersion = useCallback((v: JiraVersion) => {
@@ -149,7 +125,7 @@ export default function VersionRoadmap({
 
   if (!jiraConnected) {
     return (
-      <Empty className="border py-16" dir={isRtl ? "rtl" : "ltr"}>
+      <Empty className="border py-16" dir="rtl">
         <EmptyHeader>
           <EmptyMedia variant="icon">
             <GanttChart />
@@ -162,7 +138,7 @@ export default function VersionRoadmap({
   }
 
   return (
-    <div className="flex flex-col gap-4" dir={isRtl ? "rtl" : "ltr"}>
+    <div className="flex flex-col gap-4" dir="rtl">
       <Tabs defaultValue="timeline">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <TabsList>
@@ -225,7 +201,7 @@ export default function VersionRoadmap({
               <div
                 className="min-w-[10rem] px-2 text-center text-sm font-medium tracking-tight"
                 translate="no"
-                dir={isRtl ? "rtl" : "ltr"}
+                dir="rtl"
               >
                 {periodTitle}
               </div>
@@ -264,15 +240,12 @@ export default function VersionRoadmap({
             <MonthlyVersionsPanel
               versions={monthlyVersions}
               monthAnchor={anchorDate}
-              language={language}
               jiraUrl={jiraUrl}
               onOpenVersion={openVersion}
             />
           ) : (
             <VersionGantt
               versions={visibleVersions}
-              language={language}
-              isRtl={isRtl}
               jiraUrl={jiraUrl}
               scaleMode={scaleMode}
               viewStart={viewBounds.start}
@@ -285,7 +258,6 @@ export default function VersionRoadmap({
         <TabsContent value="current" className="mt-4">
           <CurrentVersionsPanel
             versions={currentVersions}
-            language={language}
             jiraUrl={jiraUrl}
             onOpenVersion={openVersion}
           />
@@ -298,15 +270,12 @@ export default function VersionRoadmap({
         version={selected}
         versions={versions}
         jiraUrl={jiraUrl}
-        language={language}
-        isRtl={isRtl}
         onVersionUpdated={handleVersionUpdated}
       />
 
       <CreateVersionDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
-        language={language}
         versions={versions}
         onCreated={() => void onRefreshVersions()}
       />

@@ -13,30 +13,19 @@ import { resolveIssueStatusTone } from "@/lib/issue-status-badge";
 import type { PeekIssue } from "@/lib/issue-peek";
 import type { VersionIssue } from "@/lib/types";
 
-const copy = {
-  en: {
-    children: "Children",
-    empty: "No child issues.",
-    loadFail: "Could not load children.",
-    progress: "Progress",
-    description: "Description",
-  },
-  fa: {
+const t = {
     children: "فرزندان",
     empty: "فرزندی نیست.",
     loadFail: "بارگذاری فرزندان نشد.",
     progress: "پیشرفت",
     description: "توضیحات",
-  },
-} as const;
+  } as const;
 
 type Props = { issue: PeekIssue };
 
 export function EpicLayout({ issue }: Props) {
   const epicKey = issue.key;
-  const { language } = useJiraApp();
-  const t = copy[language];
-  const { openIssue } = useIssuePeek();
+  const { openIssue } = useIssuePeek();
   const [children, setChildren] = useState<VersionIssue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

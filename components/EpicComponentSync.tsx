@@ -1,10 +1,10 @@
 ﻿"use client";
 
-import React, { useState, useEffect } from "react";
-import { Language, EpicAuditItem } from "@/lib/types";
+import React, { useEffect, useMemo, useState } from "react";
+import { EpicAuditItem } from "@/lib/types";
 import { getSearchParam, useUrlQueryState } from "@/lib/url-state";
 import { useSearchParams } from "next/navigation";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   Layers,
   RefreshCw,
@@ -14,14 +14,21 @@ import {
   Filter,
   ChevronRight,
   ChevronLeft,
-  ShieldCheck,
-  Tag,
   CheckSquare,
   Square,
   Info,
+  Tag,
+  Aperture,
 } from "lucide-react";
 import { getIssueTypeBadgeClass } from "@/lib/issue-type-badge";
 import { jiraBrowseUrl, normalizeJiraBase } from "@/lib/jira-browse";
+import {
+  LENS_OPTIONS,
+  isStoryLens,
+  lensDisplayLabel,
+  type IssueLens,
+  type StoryLens,
+} from "@/lib/lens";
 import { cn } from "@/lib/utils";
 import {
   IssueCard,
@@ -58,85 +65,100 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import SearchableSelect from "@/components/SearchableSelect";
+import { useJiraApp } from "@/components/providers/jira-app-provider";
+
+type SyncMode = "component" | "lens";
+
+const ORPHAN_GROUP_KEY = "__orphans__";
 
 interface EpicComponentSyncProps {
-  language: Language;
   jiraUrl: string;
   jiraConnected: boolean;
 }
 
 const syncTranslations = {
-  en: {
-    title: "Epic component sync",
-    subtitle: "Find child issues missing the epic’s components, then apply.",
-    connectFirst: "Set JIRA_* on the server, then open Health.",
-    refreshBtn: "Refresh",
-    loadingEpics: "Loading epics…",
-    onlyMissingToggle: "Only missing components",
-    showAllToggle: "Show all connected issues",
-    epicComponentLabel: "Epic components:",
-    noEpicsFound: "No epics with components for this filter.",
-    pageLabel: "Page",
-    ofLabel: "of",
-    epicsTotal: "Total epics:",
-    selectedCount: "Selected",
-    issuesSelected: "issue(s)",
-    applyBtn: "Apply to selected",
-    confirmModalTitle: "Confirm update",
-    confirmModalDesc: "Selected issues will inherit their parent epic’s components.",
-    confirmBtn: "Update in Jira",
-    cancelBtn: "Cancel",
-    updatingProgress: "Updating issues…",
-    updateSuccess: "Components updated.",
-    noIssuesInEpic: "No child issues under this epic.",
-    allHaveComponents: "All connected issues already have components.",
-    currentComponents: "Current:",
-    missingToAdd: "Will add:",
-    noComponentBadge: "No component",
-    selectAllEpic: "Select all in epic",
-  },
-  fa: {
-    title: "همگام‌سازی کامپوننت اپیک",
-    subtitle: "تیکت‌های بدون کامپوننت اپیک را پیدا و اعمال کنید.",
+    title: "همگام‌سازی اپیک",
+    subtitle: "کامپوننت یا لنز خالی روی فرزندان را پر کنید.",
     connectFirst: "متغیرهای JIRA_* را تنظیم کنید، سپس Health را باز کنید.",
     refreshBtn: "بروزرسانی",
-    loadingEpics: "بارگذاری اپیک‌ها…",
-    onlyMissingToggle: "فقط بدون کامپوننت",
-    showAllToggle: "همه تیکت‌های متصل",
+    loadingEpics: "بارگذاری…",
+    modeComponent: "بدون کامپوننت",
+    modeLens: "بدون لنز",
     epicComponentLabel: "کامپوننت‌های اپیک:",
-    noEpicsFound: "اپیک دارای کامپوننتی برای این فیلتر نیست.",
+    epicLensLabel: "لنز اپیک:",
+    noEpicsFound: "موردی برای این فیلتر نیست.",
     pageLabel: "صفحه",
     ofLabel: "از",
-    epicsTotal: "کل اپیک‌ها:",
+    groupsTotal: "گروه‌ها:",
     selectedCount: "انتخاب‌شده",
     issuesSelected: "تیکت",
     applyBtn: "اعمال روی انتخاب‌شده‌ها",
     confirmModalTitle: "تایید به‌روزرسانی",
-    confirmModalDesc: "تیکت‌های انتخاب‌شده کامپوننت اپیک والد را می‌گیرند.",
+    confirmModalDescComponent:
+      "کامپوننت موردنظر برای تیکت‌های انتخاب‌شده را انتخاب کنید.",
+    confirmModalDescLens: "لنز موردنظر برای تیکت‌های انتخاب‌شده را انتخاب کنید.",
     confirmBtn: "به‌روزرسانی در جیرا",
     cancelBtn: "انصراف",
     updatingProgress: "در حال به‌روزرسانی…",
-    updateSuccess: "کامپوننت‌ها به‌روز شد.",
-    noIssuesInEpic: "تیکت فرعی زیر این اپیک نیست.",
-    allHaveComponents: "همه تیکت‌های متصل کامپوننت دارند.",
+    updateSuccess: "به‌روز شد.",
+    noIssuesInEpic: "تیکت منطبقی زیر این گروه نیست.",
     currentComponents: "فعلی:",
-    missingToAdd: "افزودن:",
     noComponentBadge: "بدون کامپوننت",
-    selectAllEpic: "انتخاب همه در اپیک",
-  },
-};
+    noLensBadge: "بدون لنز",
+    selectAllEpic: "انتخاب همه در گروه",
+    orphanTitle: "بدون اپیک",
+    orphanBadge: "مستقل",
+    pickComponent: "کامپوننت",
+    pickLens: "لنز",
+    pickRequired: "اول یک مقدار انتخاب کنید.",
+    none: "—",
+  };
+
+function parseMode(raw: string | null): SyncMode {
+  return raw === "lens" ? "lens" : "component";
+}
+
+function suggestedComponent(epics: EpicAuditItem[], keys: string[]): string {
+  const selected = new Set(keys);
+  const parentComps = new Set<string>();
+  for (const epic of epics) {
+    if (epic.kind === "orphan") continue;
+    const hasSelected = epic.childIssues.some((c) => selected.has(c.key));
+    if (!hasSelected) continue;
+    for (const c of epic.components) parentComps.add(c);
+  }
+  if (parentComps.size === 1) return [...parentComps][0];
+  return "";
+}
+
+function suggestedLens(epics: EpicAuditItem[], keys: string[]): string {
+  const selected = new Set(keys);
+  const parentLenses = new Set<string>();
+  for (const epic of epics) {
+    if (epic.kind === "orphan") continue;
+    const hasSelected = epic.childIssues.some((c) => selected.has(c.key));
+    if (!hasSelected) continue;
+    if (epic.lens && isStoryLens(epic.lens)) parentLenses.add(epic.lens);
+  }
+  if (parentLenses.size === 1) return [...parentLenses][0];
+  return "";
+}
 
 export default function EpicComponentSync({
-  language,
   jiraUrl,
   jiraConnected,
 }: EpicComponentSyncProps) {
-  const t = syncTranslations[language];
-  const isRtl = language === "fa";
+  const t = syncTranslations;
+  const isRtl = true;
   const jiraBase = normalizeJiraBase(jiraUrl);
+  const reduceMotion = useReducedMotion();
+  const { componentNames } = useJiraApp();
+
   const [loading, setLoading] = useState(false);
   const [epics, setEpics] = useState<EpicAuditItem[]>([]);
   const [totalEpics, setTotalEpics] = useState(0);
@@ -147,33 +169,48 @@ export default function EpicComponentSync({
   });
   const pageSize = 10;
 
-  const [onlyMissing, setOnlyMissing] = useState(
-    searchParams.get("missing") !== "0"
+  const [mode, setMode] = useState<SyncMode>(() =>
+    parseMode(searchParams.get("mode"))
   );
 
   useUrlQueryState({
     page: currentPage <= 1 ? null : String(currentPage),
-    missing: onlyMissing ? null : "0",
+    mode: mode === "component" ? null : mode,
   });
-  const [selectedIssueKeys, setSelectedIssueKeys] = useState<string[]>([]);
 
+  const [selectedIssueKeys, setSelectedIssueKeys] = useState<string[]>([]);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [pickedComponent, setPickedComponent] = useState("");
+  const [pickedLens, setPickedLens] = useState("");
   const [updating, setUpdating] = useState(false);
   const [updateProgress, setUpdateProgress] = useState("");
   const [toastSuccess, setToastSuccess] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const componentOptions = useMemo(
+    () => componentNames.map((name) => ({ value: name, label: name })),
+    [componentNames]
+  );
+
+  const lensOptions = useMemo(
+    () =>
+      LENS_OPTIONS.map((o) => ({
+        value: o.value,
+        label: lensDisplayLabel(o.value),
+      })),
+    []
+  );
+
   const fetchAuditData = async (
     page: number = currentPage,
-    overrideOnlyMissing?: boolean
+    overrideMode?: SyncMode
   ) => {
     if (!jiraConnected) return;
     setLoading(true);
     setErrorMsg(null);
     setToastSuccess(null);
 
-    const missingFilter =
-      overrideOnlyMissing !== undefined ? overrideOnlyMissing : onlyMissing;
+    const activeMode = overrideMode ?? mode;
     const startAt = (page - 1) * pageSize;
 
     try {
@@ -183,8 +220,7 @@ export default function EpicComponentSync({
         body: JSON.stringify({
           startAt,
           maxResults: pageSize,
-          onlyWithComponents: true,
-          onlyMissing: missingFilter,
+          mode: activeMode,
         }),
       });
 
@@ -194,7 +230,7 @@ export default function EpicComponentSync({
         setTotalEpics(data.total || 0);
         setSelectedIssueKeys([]);
       } else {
-        setErrorMsg(data.error || "Failed to audit epic components.");
+        setErrorMsg(data.error || "Failed to audit epic sync.");
       }
     } catch (err: any) {
       setErrorMsg(err.message || "Network error fetching audit data.");
@@ -203,16 +239,19 @@ export default function EpicComponentSync({
     }
   };
 
-  const handleMissingToggle = (val: boolean) => {
-    setOnlyMissing(val);
+  const handleModeChange = (next: SyncMode) => {
+    if (next === mode) return;
+    setMode(next);
     setCurrentPage(1);
-    fetchAuditData(1, val);
+    setSelectedIssueKeys([]);
+    fetchAuditData(1, next);
   };
 
   useEffect(() => {
     if (jiraConnected) {
       fetchAuditData(currentPage);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch on page/connection only
   }, [jiraConnected, currentPage]);
 
   const totalPages = Math.ceil(totalEpics / pageSize) || 1;
@@ -224,13 +263,7 @@ export default function EpicComponentSync({
   };
 
   const toggleEpicSelection = (epic: EpicAuditItem) => {
-    const candidateIssues = epic.childIssues.filter((child) =>
-      onlyMissing
-        ? child.missingComponents.length > 0 || child.components.length === 0
-        : true
-    );
-    const candidateKeys = candidateIssues.map((c) => c.key);
-
+    const candidateKeys = epic.childIssues.map((c) => c.key);
     const allSelected = candidateKeys.every((k) =>
       selectedIssueKeys.includes(k)
     );
@@ -240,66 +273,87 @@ export default function EpicComponentSync({
         prev.filter((k) => !candidateKeys.includes(k))
       );
     } else {
-      const newKeys = [...selectedIssueKeys];
-      candidateKeys.forEach((k) => {
-        if (!newKeys.includes(k)) newKeys.push(k);
+      setSelectedIssueKeys((prev) => {
+        const next = [...prev];
+        for (const k of candidateKeys) {
+          if (!next.includes(k)) next.push(k);
+        }
+        return next;
       });
-      setSelectedIssueKeys(newKeys);
     }
   };
 
-  const getSelectedUpdatesPayload = () => {
-    const updatesMap: Record<string, string[]> = {};
-
-    epics.forEach((epic) => {
-      epic.childIssues.forEach((child) => {
-        if (selectedIssueKeys.includes(child.key)) {
-          const combined = Array.from(
-            new Set([...child.components, ...epic.components])
-          );
-          updatesMap[child.key] = combined;
-        }
-      });
-    });
-
-    return Object.entries(updatesMap).map(([issueKey, components]) => ({
-      issueKey,
-      components,
-    }));
+  const openConfirm = () => {
+    if (selectedIssueKeys.length === 0) return;
+    setPickedComponent(suggestedComponent(epics, selectedIssueKeys));
+    setPickedLens(suggestedLens(epics, selectedIssueKeys));
+    setShowConfirmModal(true);
   };
 
   const handleConfirmUpdate = async () => {
-    const payload = getSelectedUpdatesPayload();
-    if (payload.length === 0) return;
+    if (selectedIssueKeys.length === 0) return;
+
+    if (mode === "component") {
+      if (!pickedComponent.trim()) {
+        setErrorMsg(t.pickRequired);
+        return;
+      }
+    } else if (!isStoryLens(pickedLens)) {
+      setErrorMsg(t.pickRequired);
+      return;
+    }
 
     setUpdating(true);
-    setUpdateProgress(isRtl ? "در حال ارسال…" : "Sending…");
+    setUpdateProgress("در حال ارسال…");
     setErrorMsg(null);
 
     try {
-      const res = await fetch("/api/jira/bulk-update-components", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          updates: payload,
-        }),
-      });
+      if (mode === "component") {
+        const payload = selectedIssueKeys.map((issueKey) => ({
+          issueKey,
+          components: [pickedComponent.trim()],
+        }));
 
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setToastSuccess(
-          `${t.updateSuccess} (${data.updatedCount} / ${payload.length})`
-        );
-        setShowConfirmModal(false);
-        setSelectedIssueKeys([]);
-        fetchAuditData(currentPage);
+        const res = await fetch("/api/jira/bulk-update-components", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ updates: payload }),
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          setToastSuccess(
+            `${t.updateSuccess} (${data.updatedCount} / ${payload.length})`
+          );
+          setShowConfirmModal(false);
+          setSelectedIssueKeys([]);
+          fetchAuditData(currentPage);
+        } else {
+          setErrorMsg(data.error || "Failed to update issue components.");
+        }
       } else {
-        setErrorMsg(data.error || "Failed to update issue components.");
+        const res = await fetch("/api/jira/issues/bulk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "setLens",
+            issueKeys: selectedIssueKeys,
+            params: { lens: pickedLens as StoryLens },
+          }),
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          setToastSuccess(
+            `${t.updateSuccess} (${data.updatedCount} / ${selectedIssueKeys.length})`
+          );
+          setShowConfirmModal(false);
+          setSelectedIssueKeys([]);
+          fetchAuditData(currentPage);
+        } else {
+          setErrorMsg(data.error || "Failed to update issue lenses.");
+        }
       }
     } catch (err: any) {
-      setErrorMsg(
-        err.message || "Failed to connect to bulk update server endpoint."
-      );
+      setErrorMsg(err.message || "Failed to connect to update endpoint.");
     } finally {
       setUpdating(false);
       setUpdateProgress("");
@@ -318,6 +372,14 @@ export default function EpicComponentSync({
       </Empty>
     );
   }
+
+  const motionProps = reduceMotion
+    ? { initial: false as const, animate: { y: 0, opacity: 1 }, exit: { opacity: 0 } }
+    : {
+        initial: { y: 50, opacity: 0 },
+        animate: { y: 0, opacity: 1 },
+        exit: { y: 50, opacity: 0 },
+      };
 
   return (
     <div className="flex flex-col gap-6">
@@ -347,32 +409,37 @@ export default function EpicComponentSync({
 
         <CardContent className="flex flex-wrap items-center justify-between gap-3 pt-(--card-spacing)">
           <div className="flex items-center gap-2">
-            <Filter className="size-3.5 text-muted-foreground" />
+            <Filter className="size-3.5 text-muted-foreground" aria-hidden />
             <ToggleGroup
-              value={onlyMissing ? ["missing"] : ["all"]}
+              value={[mode]}
               onValueChange={(values) => {
                 if (!values.length) return;
-                handleMissingToggle(values[0] === "missing");
+                const next = values[0] === "lens" ? "lens" : "component";
+                handleModeChange(next);
               }}
               variant="outline"
               size="sm"
             >
-              <ToggleGroupItem value="missing">
-                {t.onlyMissingToggle}
+              <ToggleGroupItem value="component">
+                {t.modeComponent}
               </ToggleGroupItem>
-              <ToggleGroupItem value="all">{t.showAllToggle}</ToggleGroupItem>
+              <ToggleGroupItem value="lens">{t.modeLens}</ToggleGroupItem>
             </ToggleGroup>
           </div>
 
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             <span>
-              {t.epicsTotal}{" "}
-              <strong className="text-foreground">{totalEpics}</strong>
+              {t.groupsTotal}{" "}
+              <strong className="text-foreground tabular-nums">
+                {totalEpics}
+              </strong>
             </span>
             <Separator orientation="vertical" className="h-4" />
             <span>
               {t.pageLabel}{" "}
-              <strong className="text-foreground">{currentPage}</strong>{" "}
+              <strong className="text-foreground tabular-nums">
+                {currentPage}
+              </strong>{" "}
               {t.ofLabel} {totalPages}
             </span>
           </div>
@@ -389,7 +456,7 @@ export default function EpicComponentSync({
               variant="ghost"
               size="icon-xs"
               onClick={() => setToastSuccess(null)}
-              aria-label={isRtl ? "بستن" : "Dismiss"}
+              aria-label={"بستن"}
             >
               ×
             </Button>
@@ -407,7 +474,7 @@ export default function EpicComponentSync({
               variant="ghost"
               size="icon-xs"
               onClick={() => setErrorMsg(null)}
-              aria-label={isRtl ? "بستن" : "Dismiss"}
+              aria-label={"بستن"}
             >
               ×
             </Button>
@@ -436,62 +503,73 @@ export default function EpicComponentSync({
       ) : (
         <div className="flex flex-col gap-4">
           {epics.map((epic) => {
-            const filteredChildIssues = epic.childIssues.filter((child) =>
-              onlyMissing
-                ? child.missingComponents.length > 0 ||
-                  child.components.length === 0
-                : true
-            );
-
-            const missingChildCount = epic.childIssues.filter(
-              (c) =>
-                c.missingComponents.length > 0 || c.components.length === 0
-            ).length;
-
-            const allFilteredSelected =
-              filteredChildIssues.length > 0 &&
-              filteredChildIssues.every((c) =>
-                selectedIssueKeys.includes(c.key)
-              );
+            const isOrphan = epic.kind === "orphan" || epic.key === ORPHAN_GROUP_KEY;
+            const childIssues = epic.childIssues;
+            const allSelected =
+              childIssues.length > 0 &&
+              childIssues.every((c) => selectedIssueKeys.includes(c.key));
 
             return (
               <Card key={epic.key} className="cv-auto">
                 <CardHeader className="border-b bg-muted/40">
                   <div className="flex flex-wrap items-center gap-3">
-                    <Badge variant="secondary" className="font-mono">
-                      {epic.key}
-                    </Badge>
-                    <CardTitle className="text-sm">{epic.summary}</CardTitle>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="me-1 text-[11px] font-medium text-muted-foreground">
-                      {t.epicComponentLabel}
-                    </span>
-                    {epic.components.length > 0 ? (
-                      epic.components.map((comp) => (
-                        <Badge key={comp} variant="outline">
-                          <Tag data-icon="inline-start" />
-                          {comp}
-                        </Badge>
-                      ))
+                    {isOrphan ? (
+                      <Badge variant="secondary">{t.orphanBadge}</Badge>
                     ) : (
-                      <span className="text-[11px] text-muted-foreground italic">
-                        --
-                      </span>
+                      <Badge variant="secondary" className="font-mono">
+                        {epic.key}
+                      </Badge>
                     )}
+                    <CardTitle className="text-sm">
+                      {isOrphan ? t.orphanTitle : epic.summary}
+                    </CardTitle>
                   </div>
+                  {!isOrphan && (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {mode === "component" ? (
+                        <>
+                          <span className="me-1 text-[11px] font-medium text-muted-foreground">
+                            {t.epicComponentLabel}
+                          </span>
+                          {epic.components.length > 0 ? (
+                            epic.components.map((comp) => (
+                              <Badge key={comp} variant="outline">
+                                <Tag data-icon="inline-start" />
+                                {comp}
+                              </Badge>
+                            ))
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground italic">
+                              {t.none}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <span className="me-1 text-[11px] font-medium text-muted-foreground">
+                            {t.epicLensLabel}
+                          </span>
+                          {epic.lens ? (
+                            <Badge variant="outline">
+                              <Aperture data-icon="inline-start" />
+                              {lensDisplayLabel(epic.lens as IssueLens)}
+                            </Badge>
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground italic">
+                              {t.none}
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
                 </CardHeader>
 
                 <CardContent className="pt-(--card-spacing)">
-                  {epic.childIssues.length === 0 ? (
+                  {childIssues.length === 0 ? (
                     <p className="py-2 text-center text-xs text-muted-foreground italic">
                       {t.noIssuesInEpic}
                     </p>
-                  ) : filteredChildIssues.length === 0 ? (
-                    <Alert>
-                      <ShieldCheck />
-                      <AlertDescription>{t.allHaveComponents}</AlertDescription>
-                    </Alert>
                   ) : (
                     <div className="flex flex-col gap-3">
                       <div className="flex items-center justify-between pb-2 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
@@ -502,35 +580,33 @@ export default function EpicComponentSync({
                           onClick={() => toggleEpicSelection(epic)}
                           className="h-auto px-0 lowercase tracking-normal"
                         >
-                          {allFilteredSelected ? (
+                          {allSelected ? (
                             <CheckSquare data-icon="inline-start" />
                           ) : (
                             <Square data-icon="inline-start" />
                           )}
                           {t.selectAllEpic}
                         </Button>
-                        <div>
-                          {missingChildCount} {t.issuesSelected}
+                        <div className="tabular-nums">
+                          {childIssues.length} {t.issuesSelected}
                         </div>
                       </div>
 
                       <Separator />
 
                       <div className="flex flex-col gap-2">
-                        {filteredChildIssues.map((child) => {
+                        {childIssues.map((child) => {
                           const isSelected = selectedIssueKeys.includes(
                             child.key
                           );
-                          const isMissingComps =
-                            child.missingComponents.length > 0 ||
-                            child.components.length === 0;
-                          const componentsLabel =
-                            child.components.length > 0
-                              ? `${t.currentComponents} ${child.components.join(", ")}`
-                              : t.noComponentBadge;
-                          const missingLabel = isMissingComps
-                            ? `${t.missingToAdd} ${epic.components.map((ec) => `+${ec}`).join(" ")}`
-                            : null;
+                          const metaLabel =
+                            mode === "component"
+                              ? child.components.length > 0
+                                ? `${t.currentComponents} ${child.components.join(", ")}`
+                                : t.noComponentBadge
+                              : child.lens
+                                ? lensDisplayLabel(child.lens as IssueLens)
+                                : t.noLensBadge;
 
                           return (
                             <IssueCard
@@ -555,19 +631,14 @@ export default function EpicComponentSync({
                                 badges={
                                   <>
                                     <IssueKeyLink
-                                      href={jiraBrowseUrl(
-                                        jiraBase,
-                                        child.key
-                                      )}
+                                      href={jiraBrowseUrl(jiraBase, child.key)}
                                       issueKey={child.key}
                                       showIcon={false}
                                     />
                                     <Badge
                                       className={cn(
                                         "uppercase",
-                                        getIssueTypeBadgeClass(
-                                          child.issuetype
-                                        )
+                                        getIssueTypeBadgeClass(child.issuetype)
                                       )}
                                     >
                                       {child.issuetype}
@@ -578,17 +649,9 @@ export default function EpicComponentSync({
                               <IssueCardFooter
                                 meta={[
                                   {
-                                    label: componentsLabel,
-                                    key: "components",
+                                    label: metaLabel,
+                                    key: mode,
                                   },
-                                  ...(missingLabel
-                                    ? [
-                                        {
-                                          label: missingLabel,
-                                          key: "missing" as const,
-                                        },
-                                      ]
-                                    : []),
                                 ]}
                               />
                             </IssueCard>
@@ -619,10 +682,10 @@ export default function EpicComponentSync({
               ) : (
                 <ChevronLeft data-icon="inline-start" />
               )}
-              {isRtl ? "صفحه قبل" : "Previous"}
+              {"صفحه قبل"}
             </Button>
 
-            <div className="text-xs font-medium text-foreground">
+            <div className="text-xs font-medium text-foreground tabular-nums">
               {t.pageLabel} {currentPage} {t.ofLabel} {totalPages}
             </div>
 
@@ -635,7 +698,7 @@ export default function EpicComponentSync({
               }
               disabled={currentPage === totalPages || loading}
             >
-              {isRtl ? "صفحه بعد" : "Next"}
+              {"صفحه بعد"}
               {isRtl ? (
                 <ChevronLeft data-icon="inline-end" />
               ) : (
@@ -649,18 +712,18 @@ export default function EpicComponentSync({
       <AnimatePresence>
         {selectedIssueKeys.length > 0 && (
           <motion.div
-            initial={{ y: 50, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 50, opacity: 0 }}
+            {...motionProps}
             className="fixed bottom-6 left-1/2 z-50 w-[90%] max-w-xl -translate-x-1/2"
           >
             <Card className="bg-primary text-primary-foreground ring-primary">
               <CardContent className="flex items-center gap-4 py-3">
                 <div className="flex items-center gap-2 text-xs font-medium">
-                  <span className="size-2 animate-ping rounded-full bg-primary-foreground/70" />
+                  {!reduceMotion && (
+                    <span className="size-2 animate-ping rounded-full bg-primary-foreground/70" />
+                  )}
                   <span>
                     {t.selectedCount}{" "}
-                    <strong className="font-bold">
+                    <strong className="font-bold tabular-nums">
                       {selectedIssueKeys.length}
                     </strong>{" "}
                     {t.issuesSelected}
@@ -672,7 +735,7 @@ export default function EpicComponentSync({
                   variant="secondary"
                   size="sm"
                   className="ms-auto"
-                  onClick={() => setShowConfirmModal(true)}
+                  onClick={openConfirm}
                 >
                   <CheckCircle2 data-icon="inline-start" />
                   {t.applyBtn}
@@ -696,21 +759,52 @@ export default function EpicComponentSync({
             </AlertDialogMedia>
             <AlertDialogTitle>{t.confirmModalTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t.confirmModalDesc}
+              {mode === "component"
+                ? t.confirmModalDescComponent
+                : t.confirmModalDescLens}
             </AlertDialogDescription>
           </AlertDialogHeader>
 
+          <FieldGroup>
+            <Field>
+              <FieldLabel>
+                {mode === "component" ? t.pickComponent : t.pickLens}
+              </FieldLabel>
+              {mode === "component" ? (
+                <SearchableSelect
+                  options={componentOptions}
+                  value={pickedComponent}
+                  onChange={setPickedComponent}
+                  placeholder={t.pickComponent}
+                  disabled={updating}
+                />
+              ) : (
+                <SearchableSelect
+                  options={lensOptions}
+                  value={pickedLens}
+                  onChange={setPickedLens}
+                  placeholder={t.pickLens}
+                  disabled={updating}
+                />
+              )}
+            </Field>
+          </FieldGroup>
+
           <div className="flex max-h-48 flex-col gap-2 overflow-y-auto rounded-xl border bg-muted/50 p-3 text-xs">
-            {getSelectedUpdatesPayload().map((item) => (
+            {selectedIssueKeys.map((key) => (
               <div
-                key={item.issueKey}
+                key={key}
                 className="flex items-center justify-between border-b border-border py-1 last:border-0"
               >
                 <span className="font-mono font-bold text-foreground">
-                  {item.issueKey}
+                  {key}
                 </span>
                 <span className="font-medium text-primary">
-                  {item.components.join(", ")}
+                  {mode === "component"
+                    ? pickedComponent || t.none
+                    : pickedLens
+                      ? lensDisplayLabel(pickedLens as IssueLens)
+                      : t.none}
                 </span>
               </div>
             ))}
@@ -719,7 +813,9 @@ export default function EpicComponentSync({
           {updating && (
             <Alert>
               <Spinner />
-              <AlertDescription>{updateProgress || t.updatingProgress}</AlertDescription>
+              <AlertDescription>
+                {updateProgress || t.updatingProgress}
+              </AlertDescription>
             </Alert>
           )}
 
@@ -728,7 +824,12 @@ export default function EpicComponentSync({
               {t.cancelBtn}
             </AlertDialogCancel>
             <AlertDialogAction
-              disabled={updating}
+              disabled={
+                updating ||
+                (mode === "component"
+                  ? !pickedComponent.trim()
+                  : !isStoryLens(pickedLens))
+              }
               onClick={(e) => {
                 e.preventDefault();
                 void handleConfirmUpdate();

@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/card";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
-import type { Language } from "@/lib/types";
+
 
 type BoardOption = {
   id: number;
@@ -30,31 +30,10 @@ type ScrumBoardSetting = {
   boardType: "scrum";
 };
 
-type Props = {
-  language: Language;
-  isRtl: boolean;
-  jiraConnected: boolean;
+type Props = {  jiraConnected: boolean;
 };
 
-const copy = {
-  en: {
-    title: "Scrum board",
-    subtitle: "Used by Sprint Control for all sprint actions.",
-    board: "Board",
-    save: "Save board",
-    saving: "Saving…",
-    refresh: "Refresh boards",
-    saved: "Board saved.",
-    saveFailed: "Could not save board.",
-    loadFailed: "Could not load boards.",
-    notConnected: "Connect Jira first.",
-    pick: "Select a Scrum board",
-    missing: "No board saved",
-    configured: "Configured",
-    stale: "Saved board is not in the current list. Pick again.",
-    empty: "No Scrum boards found for this project.",
-  },
-  fa: {
+const t = {
     title: "بورد اسکرام",
     subtitle: "مرکز کنترل اسپرینت از این بورد استفاده می‌کند.",
     board: "بورد",
@@ -70,16 +49,10 @@ const copy = {
     configured: "پیکربندی شده",
     stale: "بورد ذخیره‌شده در لیست نیست. دوباره انتخاب کنید.",
     empty: "برای این پروژه بورد اسکرامی یافت نشد.",
-  },
-} as const;
+  } as const;
 
-export default function JiraBoardSettings({
-  language,
-  isRtl,
-  jiraConnected,
-}: Props) {
-  const t = copy[language];
-  const [boards, setBoards] = useState<BoardOption[]>([]);
+export default function JiraBoardSettings({  jiraConnected,
+}: Props) {  const [boards, setBoards] = useState<BoardOption[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [saved, setSaved] = useState<ScrumBoardSetting | null>(null);
   const [loading, setLoading] = useState(true);
@@ -210,7 +183,6 @@ export default function JiraBoardSettings({
                 value={selectedId}
                 onChange={setSelectedId}
                 placeholder={options.length ? t.pick : t.empty}
-                isRtl={isRtl}
                 disabled={!jiraConnected || options.length === 0}
               />
             </Field>

@@ -11,31 +11,12 @@ import {
   ToggleGroupItem,
 } from "@/components/ui/toggle-group";
 import type { OpsFilterValues } from "@/lib/issue-ops/types";
-import type { JiraUser, Language } from "@/lib/types";
+import type { JiraUser } from "@/lib/types";
 
 const CHIP_KEYS = ["rel", "asn", "lens", "cmp"] as const;
 type ChipKey = (typeof CHIP_KEYS)[number];
 
-const copy = {
-  en: {
-    missing: "Missing",
-    missingHint: "Show independents missing every active field.",
-    release: "Release",
-    assign: "Assign",
-    lens: "Lens",
-    component: "Component",
-    all: "All",
-    status: "Status",
-    assignee: "Assignee",
-    anyAssignee: "Any assignee",
-    assigneePlaceholder: "Pick people…",
-    search: "Search…",
-    story: "Story",
-    bug: "Bug",
-    epic: "Epic",
-    task: "Task",
-  },
-  fa: {
+const t = {
     missing: "ناقص",
     missingHint: "مستقل‌هایی که همهٔ فیلدهای روشن را ندارند.",
     release: "ریلیز",
@@ -52,13 +33,9 @@ const copy = {
     bug: "باگ",
     epic: "اپیک",
     task: "تسک",
-  },
-} as const;
+  } as const;
 
-type Props = {
-  language: Language;
-  isRtl: boolean;
-  values: OpsFilterValues;
+type Props = {  values: OpsFilterValues;
   statusOptions: string[];
   users: JiraUser[];
   onChange: (patch: Partial<OpsFilterValues>) => void;
@@ -86,16 +63,11 @@ function patchFromChips(chips: string[]): Partial<OpsFilterValues> {
   };
 }
 
-export default function FilterBar({
-  language,
-  isRtl,
-  values,
+export default function FilterBar({  values,
   statusOptions,
   users,
   onChange,
-}: Props) {
-  const t = copy[language];
-  const chipValue = chipsFromValues(values);
+}: Props) {  const chipValue = chipsFromValues(values);
 
   const assigneeOptions = users.map((u) => ({
     value: u.name,
@@ -108,7 +80,7 @@ export default function FilterBar({
   return (
     <div
       className="flex flex-col gap-3 border-b border-border pb-3"
-      dir={isRtl ? "rtl" : "ltr"}
+      dir="rtl"
     >
       <div className="flex flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
@@ -160,7 +132,6 @@ export default function FilterBar({
                 ...(assignee ? { missAssign: "0" } : {}),
               });
             }}
-            isRtl={isRtl}
             placeholder={t.assigneePlaceholder}
           />
         </div>

@@ -7,7 +7,7 @@ export const RECENT_KEYS_STORAGE = "issue-peek-recent";
 export const COLLAPSED_STORAGE = "issue-peek-collapsed";
 export const MAX_RECENT_KEYS = 12;
 export const MAX_NAV_STACK = 8;
-export const DOCK_WIDTH_PX = 400;
+export const DOCK_WIDTH_PX = 560;
 export const DOCK_RAIL_PX = 44;
 
 /** Peek can set Fix Version on Epic or orphan Story/Bug. */
