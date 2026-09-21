@@ -67,7 +67,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div
             id="main-content"
             tabIndex={-1}
-            className="relative z-0 flex min-w-0 flex-1 flex-col gap-5 overflow-auto p-4 md:p-5"
+            className="relative z-0 flex min-h-0 min-w-0 flex-1 flex-col gap-5 overflow-auto p-4 md:p-5"
             dir="rtl"
           >
             {children}

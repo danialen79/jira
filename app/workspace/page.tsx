@@ -1,7 +1,6 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { Layers, Sparkles } from "lucide-react";
 import DraftInput from "@/components/DraftInput";
 import RefinedList from "@/components/RefinedList";
 import WorkshopInterview from "@/components/workshop/WorkshopInterview";
@@ -48,52 +47,54 @@ export default function WorkspacePage() {
   }, [refreshWorkspaceMeta]);
 
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-2">
-        <h2 className="text-2xl font-bold tracking-tight">{t.tabWorkspace}</h2>
-        <p className="text-sm text-muted-foreground">{t.heroSubtitle}</p>
-        <ToggleGroup
-          value={[mode]}
-          onValueChange={(values) => {
-            if (!values.length) return;
-            const next = values[0];
-            if (next === "interview" || next === "quick") setMode(next);
-          }}
-          variant="outline"
-          size="sm"
-          className="w-fit"
-        >
-          <ToggleGroupItem value="interview">مصاحبه</ToggleGroupItem>
-          <ToggleGroupItem value="quick">اصلاح سریع</ToggleGroupItem>
-        </ToggleGroup>
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <div className="flex shrink-0 flex-col gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-xl font-semibold tracking-tight">
+            {t.tabWorkspace}
+          </h2>
+          <ToggleGroup
+            value={[mode]}
+            onValueChange={(values) => {
+              if (!values.length) return;
+              const next = values[0];
+              if (next === "interview" || next === "quick") setMode(next);
+            }}
+            variant="outline"
+            size="sm"
+            className="w-fit"
+          >
+            <ToggleGroupItem value="interview">مصاحبه</ToggleGroupItem>
+            <ToggleGroupItem value="quick">اصلاح سریع</ToggleGroupItem>
+          </ToggleGroup>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
-        <div className="flex flex-col gap-4 lg:col-span-5">
-          <h3 className="text-muted-foreground flex items-center gap-1.5 px-1 text-xs font-bold tracking-widest uppercase">
-            <Sparkles className="text-primary size-4" />
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-12 lg:items-stretch">
+        <section className="flex min-h-[50dvh] flex-col lg:col-span-5 lg:min-h-0">
+          <p className="text-muted-foreground mb-2 shrink-0 px-1 text-sm">
             {t.draftSection}
-          </h3>
+          </p>
           {mode === "interview" ? (
             <WorkshopInterview
               onIssuesReady={(next: RefinedIssue[]) => setIssues(next)}
+              className="min-h-0 flex-1"
             />
           ) : (
-            <DraftInput
-              onRefine={handleRefine}
-              loading={refining}
-              draftText={importedDraftText}
-            />
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <DraftInput
+                onRefine={handleRefine}
+                loading={refining}
+                draftText={importedDraftText}
+              />
+            </div>
           )}
-        </div>
+        </section>
 
-        <div className="flex flex-col gap-4 lg:col-span-7">
-          <div className="flex items-center justify-between px-1">
-            <h3 className="text-muted-foreground flex items-center gap-1.5 text-xs font-bold tracking-widest uppercase">
-              <Layers className="text-primary size-4" />
-              {t.boardSection}
-            </h3>
-            {issues.length > 0 && (
+        <section className="flex min-h-[50dvh] flex-col lg:col-span-7 lg:min-h-0">
+          <div className="mb-2 flex shrink-0 items-center justify-between gap-2 px-1">
+            <p className="text-muted-foreground text-sm">{t.boardSection}</p>
+            {issues.length > 0 ? (
               <Button
                 type="button"
                 variant="ghost"
@@ -103,17 +104,18 @@ export default function WorkspacePage() {
               >
                 پاک کردن برد
               </Button>
-            )}
+            ) : null}
           </div>
 
           <Suspense
             fallback={
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="text-muted-foreground flex items-center gap-2 text-sm">
                 <Spinner />
               </div>
             }
           >
             <RefinedList
+              className="min-h-0 flex-1"
               issues={issues}
               onIssuesChange={setIssues}
               jiraUrl={jiraUrl}
@@ -133,7 +135,7 @@ export default function WorkspacePage() {
               onFetchSprints={fetchJiraSprints}
             />
           </Suspense>
-        </div>
+        </section>
       </div>
     </div>
   );

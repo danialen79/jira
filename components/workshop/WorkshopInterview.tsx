@@ -10,26 +10,14 @@ import {
 import {
   BookmarkPlus,
   CheckCircle2,
-  ChevronDown,
   Circle,
-  MessageSquareMore,
+  RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAiSettings } from "@/components/providers/ai-settings-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from "@/components/ui/toggle-group";
 import {
   AgentMentionComposer,
   type ComposerSendPayload,
@@ -81,26 +69,29 @@ const COVERAGE_LABELS: Array<{ key: keyof InterviewCoverage; label: string }> =
     { key: "risks", label: "ریسک" },
   ];
 
+const EMPTY_COVERAGE: InterviewCoverage = {
+  goal: false,
+  user: false,
+  acceptance: false,
+  outOfScope: false,
+  dependencies: false,
+  risks: false,
+};
+
 type WorkshopInterviewProps = {
   onIssuesReady: (issues: RefinedIssue[]) => void;
+  className?: string;
 };
 
 export default function WorkshopInterview({
   onIssuesReady,
+  className,
 }: WorkshopInterviewProps) {
   const { aiProvider, selectedModel } = useAiSettings();
   const { jiraUrl } = useJiraApp();
   const [draftText, setDraftText] = useState("");
-  const [draftOpen, setDraftOpen] = useState(true);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [coverage, setCoverage] = useState<InterviewCoverage>({
-    goal: false,
-    user: false,
-    acceptance: false,
-    outOfScope: false,
-    dependencies: false,
-    risks: false,
-  });
+  const [coverage, setCoverage] = useState<InterviewCoverage>(EMPTY_COVERAGE);
   const [outputMode, setOutputMode] = useState("both");
   const [input, setInput] = useState("");
   const [starting, setStarting] = useState(false);
@@ -143,7 +134,8 @@ export default function WorkshopInterview({
       sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
     });
 
-  const busy = status === "submitted" || status === "streaming";
+  const busy =
+    starting || status === "submitted" || status === "streaming";
   const pendingAskUser = useMemo(
     () => findPendingAskUser(messages),
     [messages]
@@ -272,7 +264,6 @@ export default function WorkshopInterview({
       if (data.session) {
         setSessionId(data.session.id);
         setDraftText(data.session.draftText || "");
-        if (data.session.messages?.length) setDraftOpen(false);
         if (data.session.coverage) setCoverage(data.session.coverage);
         if (Array.isArray(data.session.messages)) {
           setMessages(
@@ -299,54 +290,58 @@ export default function WorkshopInterview({
     void hydrateLatest();
   }, [hydrateLatest]);
 
-  const startInterview = async () => {
-    if (!draftText.trim()) {
-      toast.error("پیش‌نویس را بنویس");
-      return;
-    }
+  const beginSession = async (
+    draft: string,
+    payload: ComposerSendPayload
+  ) => {
     setStarting(true);
     metaRef.current.forceWrite = false;
-    metaRef.current.forcedDelegates = [];
+    metaRef.current.forcedDelegates = payload.forcedDelegates;
     try {
       const res = await fetch("/api/workshop/interview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "create",
-          draftText: draftText.trim(),
+          draftText: draft,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "ساخت جلسه ناموفق");
       setSessionId(data.session.id);
       metaRef.current.sessionId = data.session.id;
-      metaRef.current.draftText = draftText.trim();
+      metaRef.current.draftText = draft;
+      setDraftText(draft);
       setMessages([]);
-      setCoverage({
-        goal: false,
-        user: false,
-        acceptance: false,
-        outOfScope: false,
-        dependencies: false,
-        risks: false,
-      });
-      setDraftOpen(false);
-      await sendMessage({
-        text: `پیش‌نویس من:\n${draftText.trim()}\n\nسوالات روشن‌سازی بپرس.`,
-      });
+      setCoverage(EMPTY_COVERAGE);
+      const kickoff =
+        payload.forcedDelegates.length > 0
+          ? draft
+          : `پیش‌نویس من:\n${draft}\n\nسوالات روشن‌سازی بپرس.`;
+      await sendMessage({ text: kickoff });
       await refreshSession(data.session.id);
     } catch (e: any) {
       toast.error(e?.message || "خطا");
     } finally {
       setStarting(false);
+      metaRef.current.forcedDelegates = [];
     }
   };
 
   const onSend = async (payload: ComposerSendPayload) => {
     const text = payload.text.trim();
-    if ((!text && !payload.forcedDelegates.length) || busy || !sessionId)
-      return;
+    if ((!text && !payload.forcedDelegates.length) || busy) return;
     setInput("");
+
+    if (!sessionId) {
+      if (!text) {
+        toast.error("متن را بنویس");
+        return;
+      }
+      await beginSession(text, payload);
+      return;
+    }
+
     metaRef.current.forceWrite = false;
     metaRef.current.forcedDelegates = payload.forcedDelegates;
     try {
@@ -360,7 +355,10 @@ export default function WorkshopInterview({
   };
 
   const onForceWrite = async () => {
-    if (!sessionId || busy) return;
+    if (!sessionId || busy) {
+      toast.error(sessionId ? "صبر کن…" : "اول پیام بفرست");
+      return;
+    }
     metaRef.current.forceWrite = true;
     metaRef.current.forcedDelegates = [
       { agent: "stories", task: "استوری‌ها را روی برد بنویس" },
@@ -374,6 +372,19 @@ export default function WorkshopInterview({
       metaRef.current.forceWrite = false;
       metaRef.current.forcedDelegates = [];
     }
+  };
+
+  const restart = () => {
+    if (busy) return;
+    setSessionId(null);
+    metaRef.current.sessionId = null;
+    metaRef.current.draftText = "";
+    metaRef.current.forcedDelegates = [];
+    metaRef.current.forceWrite = false;
+    setDraftText("");
+    setMessages([]);
+    setCoverage(EMPTY_COVERAGE);
+    setInput("");
   };
 
   const [savingKnowledge, setSavingKnowledge] = useState(false);
@@ -408,95 +419,50 @@ export default function WorkshopInterview({
   };
 
   return (
-    <div className="flex min-h-[32rem] flex-col gap-3 lg:min-h-[36rem]">
-      <Collapsible open={draftOpen} onOpenChange={setDraftOpen}>
-        <div className="flex items-center justify-between gap-2">
-          <CollapsibleTrigger className="text-muted-foreground hover:text-foreground flex cursor-pointer items-center gap-1 rounded-md px-1 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
-            <ChevronDown
-              className={cn(
-                "size-4 transition-transform",
-                draftOpen ? "rotate-0" : "-rotate-90"
-              )}
-            />
-            پیش‌نویس
-          </CollapsibleTrigger>
-          <div className="flex items-center gap-1.5">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={!sessionId || savingKnowledge || busy}
-              onClick={() => void saveConversationToKnowledge(true)}
+    <div className={cn("flex min-h-0 flex-col gap-2", className)}>
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-1.5">
+          {COVERAGE_LABELS.map(({ key, label }) => (
+            <Badge
+              key={key}
+              variant={coverage[key] ? "success" : "secondary"}
+              className="gap-1"
             >
-              {savingKnowledge ? (
-                <Spinner data-icon="inline-start" />
+              {coverage[key] ? (
+                <CheckCircle2 className="size-3" />
               ) : (
-                <BookmarkPlus data-icon="inline-start" />
+                <Circle className="size-3" />
               )}
-              ذخیره دانش
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              disabled={starting || busy || !draftText.trim()}
-              onClick={() => void startInterview()}
-            >
-              {starting || busy ? (
-                <Spinner data-icon="inline-start" />
-              ) : (
-                <MessageSquareMore data-icon="inline-start" />
-              )}
-              {sessionId ? "شروع دوباره" : "شروع مصاحبه"}
-            </Button>
-          </div>
+              {label}
+            </Badge>
+          ))}
         </div>
-        <CollapsibleContent className="pt-2">
-          <FieldGroup>
-            <Field>
-              <FieldLabel>پیش‌نویس</FieldLabel>
-              <Textarea
-                rows={4}
-                value={draftText}
-                onChange={(e) => setDraftText(e.target.value)}
-                placeholder="گلوله یا نیاز را بنویس…"
-              />
-            </Field>
-            <Field>
-              <FieldLabel>خروجی</FieldLabel>
-              <ToggleGroup
-                value={[outputMode]}
-                onValueChange={(values) => {
-                  if (!values.length) return;
-                  setOutputMode(values[0]!);
-                }}
-                variant="outline"
-                size="sm"
-              >
-                <ToggleGroupItem value="both">همه</ToggleGroupItem>
-                <ToggleGroupItem value="epics">اپیک</ToggleGroupItem>
-                <ToggleGroupItem value="stories">استوری</ToggleGroupItem>
-                <ToggleGroupItem value="bugs">باگ</ToggleGroupItem>
-              </ToggleGroup>
-            </Field>
-          </FieldGroup>
-        </CollapsibleContent>
-      </Collapsible>
-
-      <div className="flex flex-wrap gap-1.5">
-        {COVERAGE_LABELS.map(({ key, label }) => (
-          <Badge
-            key={key}
-            variant={coverage[key] ? "success" : "secondary"}
-            className="gap-1"
+        <div className="flex items-center gap-1.5">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={!sessionId || savingKnowledge || busy}
+            onClick={() => void saveConversationToKnowledge(true)}
           >
-            {coverage[key] ? (
-              <CheckCircle2 className="size-3" />
+            {savingKnowledge ? (
+              <Spinner data-icon="inline-start" />
             ) : (
-              <Circle className="size-3" />
+              <BookmarkPlus data-icon="inline-start" />
             )}
-            {label}
-          </Badge>
-        ))}
+            ذخیره
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={busy || (!sessionId && !messages.length)}
+            onClick={restart}
+          >
+            <RotateCcw data-icon="inline-start" />
+            شروع دوباره
+          </Button>
+        </div>
       </div>
 
       <WorkshopChatThread
@@ -507,14 +473,17 @@ export default function WorkshopInterview({
       />
 
       {error ? (
-        <p className="text-destructive text-sm">{error.message}</p>
+        <p className="text-destructive shrink-0 text-sm">{error.message}</p>
       ) : null}
 
       <AgentMentionComposer
+        className="shrink-0"
         value={input}
         onChange={setInput}
-        disabled={!sessionId}
         busy={busy}
+        hasSession={!!sessionId}
+        outputMode={outputMode}
+        onOutputModeChange={setOutputMode}
         pendingAskUser={pendingAskUser}
         onAskUserAnswer={onAskUserAnswer}
         onSend={(payload) => void onSend(payload)}

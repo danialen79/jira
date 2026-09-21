@@ -9,5 +9,9 @@ export default function WorkspaceLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  return (
+    <div className="flex h-[calc(100dvh-3.5rem-2rem)] min-h-0 flex-col md:h-[calc(100dvh-3.5rem-2.5rem)]">
+      {children}
+    </div>
+  );
 }

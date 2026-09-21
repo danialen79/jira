@@ -87,6 +87,7 @@ interface RefinedListProps {
   availableSprints: JiraSprint[];
   fetchingSprints: boolean;
   onFetchSprints: () => Promise<void>;
+  className?: string;
 }
 
 const translations = {
@@ -238,6 +239,7 @@ export default function RefinedList({
   availableSprints,
   fetchingSprints,
   onFetchSprints,
+  className,
 }: RefinedListProps) {
   const t = translations;
   const { aiProvider, selectedModel } = useAiSettings();
@@ -787,9 +789,12 @@ export default function RefinedList({
   };
 
   return (
-    <div className="flex flex-col gap-4" id="refined-board-panel">
+    <div
+      className={cn("flex min-h-0 flex-col gap-3", className)}
+      id="refined-board-panel"
+    >
       {/* Header and Controls */}
-      <Card>
+      <Card className="shrink-0">
         <CardHeader>
           <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
             <div className="flex items-start gap-2.5">
@@ -1308,7 +1313,7 @@ export default function RefinedList({
       )}
 
       {/* Issue Cards */}
-      <div className="flex flex-col gap-3.5">
+      <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto pe-1">
         {filteredIssues.map((issue) => {
           const isEditing = editingId === issue.id;
           const isEpic = issue.issuetype === "Epic";

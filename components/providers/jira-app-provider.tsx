@@ -44,8 +44,8 @@ const appTranslations = {
   heroTitle: "جیرا AI",
   heroSubtitle: "پیش‌نویس، مصاحبه، دانش و انتشار.",
   supportSubtitle: "صف PS → بررسی، کامنت، ساخت یا لینک SIP.",
-  draftSection: "۱. پیش‌نویس و اصلاح",
-  boardSection: "۲. بازبینی و انتشار",
+  draftSection: "گفتگو",
+  boardSection: "برد اصلاح‌شده",
 } as const;
 
 type AppTranslations = typeof appTranslations;

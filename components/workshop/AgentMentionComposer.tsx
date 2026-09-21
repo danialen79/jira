@@ -23,6 +23,10 @@ import {
 } from "@/components/ui/popover";
 import { Spinner } from "@/components/ui/spinner";
 import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from "@/components/ui/toggle-group";
+import {
   InterviewQuestionCard,
   type AskUserToolPart,
 } from "@/components/workshop/InterviewQuestionCard";
@@ -92,8 +96,10 @@ function mentionChipsFromText(raw: string): ForcedDelegate[] {
 type AgentMentionComposerProps = {
   value: string;
   onChange: (value: string) => void;
-  disabled?: boolean;
   busy?: boolean;
+  hasSession?: boolean;
+  outputMode: string;
+  onOutputModeChange: (mode: string) => void;
   pendingAskUser: AskUserToolPart | null;
   onAskUserAnswer: (toolCallId: string, output: AskUserOutput) => void;
   onSend: (payload: ComposerSendPayload) => void;
@@ -104,8 +110,10 @@ type AgentMentionComposerProps = {
 export function AgentMentionComposer({
   value,
   onChange,
-  disabled,
   busy,
+  hasSession,
+  outputMode,
+  onOutputModeChange,
   pendingAskUser,
   onAskUserAnswer,
   onSend,
@@ -137,7 +145,6 @@ export function AgentMentionComposer({
     const start = el?.selectionStart ?? value.length;
     const end = el?.selectionEnd ?? value.length;
 
-    // If currently completing an @query, replace from that @
     let replaceFrom = start;
     const before = value.slice(0, start);
     const atIdx = before.lastIndexOf("@");
@@ -145,8 +152,7 @@ export function AgentMentionComposer({
       replaceFrom = atIdx;
     }
 
-    const next =
-      value.slice(0, replaceFrom) + token + value.slice(end);
+    const next = value.slice(0, replaceFrom) + token + value.slice(end);
     onChange(next);
     setMentionOpen(false);
     setMentionQuery("");
@@ -245,13 +251,20 @@ export function AgentMentionComposer({
         <InputGroup>
           <InputGroupTextarea
             ref={textareaRef}
-            rows={2}
+            rows={hasSession ? 2 : 3}
             value={value}
-            disabled={disabled || busy}
-            placeholder="جواب… یا @ برای ایجنت"
+            disabled={busy}
+            placeholder={
+              hasSession
+                ? "جواب… یا @ برای ایجنت"
+                : "نیاز یا پیش‌نویس را بنویس… Enter بفرست"
+            }
             onChange={(e) => handleChange(e.target.value)}
             onKeyDown={(e) => {
-              if (mentionOpen && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+              if (
+                mentionOpen &&
+                (e.key === "ArrowDown" || e.key === "ArrowUp")
+              ) {
                 return;
               }
               if (e.key === "Escape" && mentionOpen) {
@@ -266,62 +279,75 @@ export function AgentMentionComposer({
             }}
           />
           <InputGroupAddon align="block-end" className="justify-between gap-2">
-            <Popover open={buttonOpen} onOpenChange={setButtonOpen}>
-              <PopoverTrigger
-                render={
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    disabled={disabled || busy}
-                  />
-                }
+            <div className="flex flex-wrap items-center gap-2">
+              <Popover open={buttonOpen} onOpenChange={setButtonOpen}>
+                <PopoverTrigger
+                  render={
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      disabled={busy}
+                    />
+                  }
+                >
+                  <Bot data-icon="inline-start" />
+                  ایجنت
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-64 p-0">
+                  <Command>
+                    <CommandList>
+                      <CommandEmpty>یافت نشد</CommandEmpty>
+                      <CommandGroup>
+                        {WORKSHOP_AGENTS.map((a) => (
+                          <CommandItem
+                            key={a.key}
+                            value={`${a.label} ${a.hint}`}
+                            onSelect={() => insertMention(a.key)}
+                          >
+                            <span className="font-medium">{a.label}</span>
+                            <span className="text-muted-foreground ms-auto text-xs">
+                              {a.hint}
+                            </span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+
+              <ToggleGroup
+                value={[outputMode]}
+                onValueChange={(values) => {
+                  if (!values.length) return;
+                  onOutputModeChange(values[0]!);
+                }}
+                variant="outline"
+                size="sm"
               >
-                <Bot data-icon="inline-start" />
-                ایجنت
-              </PopoverTrigger>
-              <PopoverContent align="start" className="w-64 p-0">
-                <Command>
-                  <CommandList>
-                    <CommandEmpty>یافت نشد</CommandEmpty>
-                    <CommandGroup>
-                      {WORKSHOP_AGENTS.map((a) => (
-                        <CommandItem
-                          key={a.key}
-                          value={`${a.label} ${a.hint}`}
-                          onSelect={() => insertMention(a.key)}
-                        >
-                          <span className="font-medium">{a.label}</span>
-                          <span className="text-muted-foreground ms-auto text-xs">
-                            {a.hint}
-                          </span>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+                <ToggleGroupItem value="both">همه</ToggleGroupItem>
+                <ToggleGroupItem value="epics">اپیک</ToggleGroupItem>
+                <ToggleGroupItem value="stories">استوری</ToggleGroupItem>
+                <ToggleGroupItem value="bugs">باگ</ToggleGroupItem>
+              </ToggleGroup>
+            </div>
 
             <div className="flex items-center gap-2">
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
-                disabled={disabled || busy}
+                disabled={busy || !hasSession}
                 onClick={() => onForceWrite()}
               >
                 <PenLine data-icon="inline-start" />
-                کافی است، بنویس
+                بنویس روی برد
               </Button>
               <Button
                 type="button"
                 size="sm"
-                disabled={
-                  disabled ||
-                  busy ||
-                  (!value.trim() && !chips.length)
-                }
+                disabled={busy || (!value.trim() && !chips.length)}
                 onClick={() => submit()}
               >
                 {busy ? (
@@ -329,7 +355,7 @@ export function AgentMentionComposer({
                 ) : (
                   <Send data-icon="inline-start" />
                 )}
-                ارسال
+                {hasSession ? "ارسال" : "شروع"}
               </Button>
             </div>
           </InputGroupAddon>

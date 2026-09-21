@@ -186,9 +186,9 @@ export function WorkshopChatThread({
                     <EmptyMedia variant="icon">
                       <Bot />
                     </EmptyMedia>
-                    <EmptyTitle>هنوز گفتگویی نیست</EmptyTitle>
+                    <EmptyTitle>گفتگو را شروع کن</EmptyTitle>
                     <EmptyDescription>
-                      پیش‌نویس را بنویس و مصاحبه را شروع کن.
+                      پایین بنویس و Enter بزن.
                     </EmptyDescription>
                   </EmptyHeader>
                 </Empty>
