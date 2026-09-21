@@ -55,7 +55,6 @@ ${prompt}
       model,
       systemInstruction,
       userPrompt: userPromptText,
-      temperature: 0.2,
     });
 
     console.log(

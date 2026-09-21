@@ -1,21 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import {
-  CalendarIcon,
-  ExternalLinkIcon,
-  PackageIcon,
-  PencilIcon,
-  TagIcon,
-} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ExternalLinkIcon, PencilIcon } from "lucide-react";
 import { toast } from "sonner";
 import type { JiraVersion, VersionIssue, VersionProgressSummary } from "@/lib/types";
 import {
   countVersionLenses,
   flattenVersionIssues,
-  formatRoadmapDate,
   getVersionStatusLabel,
-  parseProductVersionParts,
 } from "@/lib/roadmap";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,6 +26,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import JalaliDateInput from "@/components/JalaliDateInput";
 import VersionIssueTree from "@/components/roadmap/VersionIssueTree";
+import VersionMetaChips from "@/components/roadmap/VersionMetaChips";
 import VersionStatsCharts from "@/components/roadmap/VersionStatsCharts";
 import ChangeVersionDialog from "@/components/roadmap/ChangeVersionDialog";
 import RoadmapIssueEditDialog from "@/components/roadmap/RoadmapIssueEditDialog";
@@ -52,8 +45,6 @@ const t = {
     loading: "در حال بارگذاری ایشوها…",
     start: "شروع",
     release: "انتشار",
-    product: "محصول",
-    productVer: "ورژن",
     todo: "انجام‌نشده",
     inProgress: "در حال انجام",
     done: "انجام‌شده",
@@ -101,29 +92,6 @@ function todayInputDate(): string {
   return `${y}-${m}-${day}`;
 }
 
-function MetaChip({
-  icon,
-  label,
-  value,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <Badge
-      variant="outline"
-      className="h-auto max-w-full gap-1.5 rounded-full border-border/80 bg-muted/40 px-2.5 py-1 font-normal"
-    >
-      <span className="text-muted-foreground [&_svg]:size-3">{icon}</span>
-      <span className="text-[0.65rem] text-muted-foreground">{label}</span>
-      <span className="truncate font-medium text-foreground" translate="no">
-        {value}
-      </span>
-    </Badge>
-  );
-}
-
 export default function VersionDetailSheet({
   open,
   onOpenChange,
@@ -131,7 +99,8 @@ export default function VersionDetailSheet({
   versions,
   jiraUrl,
   onVersionUpdated,
-}: Props) {  const [loading, setLoading] = useState(false);
+}: Props) {
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tree, setTree] = useState<VersionIssue[]>([]);
   const [total, setTotal] = useState(0);
@@ -240,14 +209,6 @@ export default function VersionDetailSheet({
     ? getVersionStatusLabel(draftVersion)
     : "unreleased";
 
-  const productParts = useMemo(
-    () =>
-      version
-        ? parseProductVersionParts(version.name)
-        : { product: "—", version: null },
-    [version]
-  );
-
   const dirty = useMemo(() => {
     if (!version) return false;
     return (
@@ -329,28 +290,10 @@ export default function VersionDetailSheet({
 
             {draftVersion && (
               <div className="flex w-full flex-col items-center gap-3">
-                <div className="flex w-full flex-wrap items-center justify-center gap-2">
-                  <MetaChip
-                    icon={<CalendarIcon />}
-                    label={t.start}
-                    value={formatRoadmapDate(draftVersion.startDate)}
-                  />
-                  <MetaChip
-                    icon={<CalendarIcon />}
-                    label={t.release}
-                    value={formatRoadmapDate(draftVersion.releaseDate)}
-                  />
-                  <MetaChip
-                    icon={<PackageIcon />}
-                    label={t.product}
-                    value={productParts.product}
-                  />
-                  <MetaChip
-                    icon={<TagIcon />}
-                    label={t.productVer}
-                    value={productParts.version || "—"}
-                  />
-                </div>
+                <VersionMetaChips
+                  version={draftVersion}
+                  className="w-full justify-center"
+                />
 
                 {version && (
                   <div className="flex flex-wrap items-center justify-center gap-2">

@@ -9,7 +9,6 @@ import {
   countVersionLenses,
   dedupeVersionIssuesByKey,
   flattenVersionIssues,
-  formatRoadmapDate,
   formatVersionProductLabel,
   getVersionStatusLabel,
   toDateOnly,
@@ -25,6 +24,7 @@ import {
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import VersionIssueTree from "@/components/roadmap/VersionIssueTree";
+import VersionMetaChips from "@/components/roadmap/VersionMetaChips";
 import VersionStatsCharts from "@/components/roadmap/VersionStatsCharts";
 
 type Props = {
@@ -49,8 +49,6 @@ const t = {
     emptyHint: "هیچ ورژنی شروع یا پایانش در این ماه نیست.",
     monthSummary: "جمع ماه",
     versions: "ورژن‌ها",
-    start: "شروع",
-    release: "پایان",
     todo: "انجام‌نشده",
     inProgress: "در حال انجام",
     done: "انجام‌شده",
@@ -100,7 +98,8 @@ function boundaryKind(
 
 export default function MonthlyVersionsPanel({
   versions,
-  monthAnchor,  jiraUrl,
+  monthAnchor,
+  jiraUrl,
   onOpenVersion,
 }: Props) {
   const [bundles, setBundles] = useState<Record<string, VersionBundle>>({});
@@ -256,13 +255,7 @@ export default function MonthlyVersionsPanel({
                 >
                   {title}
                 </h3>
-                <p className="text-xs text-muted-foreground" translate="no">
-                  {v.name}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {t.start}: {formatRoadmapDate(v.startDate)} ·{" "}
-                  {t.release}: {formatRoadmapDate(v.releaseDate)}
-                </p>
+                <VersionMetaChips version={v} />
               </div>
               <Button
                 size="sm"

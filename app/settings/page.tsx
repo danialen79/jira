@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { KeyRound, PlugZap, Save, Sparkles, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { KeyRound, PlugZap, Save, Sparkles, Trash2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import {
   useAiSettings,
@@ -27,6 +28,9 @@ import { Spinner } from "@/components/ui/spinner";
 import type { AIProvider } from "@/lib/ai-providers";
 import {
   AI_PROVIDER_IDS,
+  DEFAULT_EMBEDDING_MODELS,
+  DEFAULT_ORCHESTRATOR_MODELS,
+  DEFAULT_SUBAGENT_MODELS,
   OMNIROUTE_DEFAULT_BASE_URL,
 } from "@/lib/ai-providers";
 
@@ -66,12 +70,63 @@ export default function SettingsPage() {
     arvan: "Gemini-3-Flash-Preview",
     omniroute: "auto",
   });
+  const [embeddingModels, setEmbeddingModels] = useState({
+    gemini: DEFAULT_EMBEDDING_MODELS.gemini as string,
+    avalai: DEFAULT_EMBEDDING_MODELS.avalai as string,
+    arvan: DEFAULT_EMBEDDING_MODELS.arvan as string,
+    omniroute: DEFAULT_EMBEDDING_MODELS.omniroute as string,
+  });
+  const [orchestratorModels, setOrchestratorModels] = useState({
+    gemini: DEFAULT_ORCHESTRATOR_MODELS.gemini as string,
+    avalai: DEFAULT_ORCHESTRATOR_MODELS.avalai as string,
+    arvan: DEFAULT_ORCHESTRATOR_MODELS.arvan as string,
+    omniroute: DEFAULT_ORCHESTRATOR_MODELS.omniroute as string,
+  });
+  const [subagentModels, setSubagentModels] = useState({
+    gemini: DEFAULT_SUBAGENT_MODELS.gemini as string,
+    avalai: DEFAULT_SUBAGENT_MODELS.avalai as string,
+    arvan: DEFAULT_SUBAGENT_MODELS.arvan as string,
+    omniroute: DEFAULT_SUBAGENT_MODELS.omniroute as string,
+  });
+  const [tavilyApiKey, setTavilyApiKey] = useState("");
+  const [clearTavily, setClearTavily] = useState(false);
+  const [generation, setGeneration] = useState({
+    temperature: "",
+    topP: "",
+    maxTokens: "",
+  });
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState<AIProvider | null>(null);
+  const [testingEmbed, setTestingEmbed] = useState<AIProvider | null>(null);
 
   useEffect(() => {
     if (!settings) return;
     setDefaultModels(settings.defaultModels);
+    if (settings.embeddingModels) {
+      setEmbeddingModels(settings.embeddingModels);
+    }
+    if (settings.orchestratorModels) {
+      setOrchestratorModels(settings.orchestratorModels);
+    }
+    if (settings.subagentModels) {
+      setSubagentModels(settings.subagentModels);
+    }
+    setClearTavily(false);
+    setTavilyApiKey("");
+    setGeneration({
+      temperature:
+        settings.generation?.temperature != null
+          ? String(settings.generation.temperature)
+          : "",
+      topP:
+        settings.generation?.topP != null
+          ? String(settings.generation.topP)
+          : "",
+      maxTokens:
+        settings.generation?.maxTokens != null
+          ? String(settings.generation.maxTokens)
+          : "",
+    });
     setForms((prev) => {
       const next = { ...prev };
       for (const p of settings.providers) {
@@ -89,12 +144,26 @@ export default function SettingsPage() {
 
   const t = {
     title: "تنظیمات AI",
-    subtitle: "پروایدرها و کلیدها؛ ذخیره فقط روی سرور.",
+    subtitle: "پروایدرها، embedding و سرچ وب؛ ذخیره فقط روی سرور.",
     defaultProvider: "پروایدر پیش‌فرض",
     defaultModel: "مدل پیش‌فرض",
+    embeddingModel: "مدل embedding",
+    agentModelsTitle: "مدل‌های مصاحبه کارگاه",
+    agentModelsDesc: "ارکستراتور قوی‌تر؛ ساب‌ایجنت‌ها سبک‌تر.",
+    orchestratorModel: "مدل ارکستراتور",
+    subagentModel: "مدل ساب‌ایجنت",
+    modelHint: "مثل gpt-4o-mini — هر model id",
+    generationTitle: "پارامترهای درخواست",
+    generationDesc: "خالی = ارسال نشود (پیش‌فرض پروایدر).",
+    temperature: "Temperature",
+    topP: "Top P",
+    maxTokens: "Max tokens",
+    tavilyTitle: "سرچ وب (Tavily)",
+    tavilyDesc: "برای صفحه Research.",
     save: "ذخیره تنظیمات",
     saving: "در حال ذخیره…",
     test: "تست اتصال",
+    testEmbed: "تست embed",
     testing: "در حال تست…",
     apiKey: "API Key",
     apiKeyHint: "خالی بگذارید تا کلید فعلی عوض نشود",
@@ -107,6 +176,22 @@ export default function SettingsPage() {
     testOk: "اتصال برقرار شد",
     testFail: "تست اتصال ناموفق بود",
   };
+
+  const parseGenNumber = (raw: string): number | null => {
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+    const n = Number(trimmed);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const generationPayload = () => ({
+    temperature: parseGenNumber(generation.temperature),
+    topP: parseGenNumber(generation.topP),
+    maxTokens: (() => {
+      const n = parseGenNumber(generation.maxTokens);
+      return n == null ? null : Math.round(n);
+    })(),
+  });
 
   const providerMeta = (id: AIProvider): PublicAiProvider | undefined =>
     settings?.providers.find((p) => p.id === id);
@@ -134,7 +219,33 @@ export default function SettingsPage() {
 
       await saveSettings({
         defaultProvider: aiProvider,
-        defaultModels,
+        defaultModels: {
+          gemini: defaultModels.gemini.trim(),
+          avalai: defaultModels.avalai.trim(),
+          arvan: defaultModels.arvan.trim(),
+          omniroute: defaultModels.omniroute.trim(),
+        },
+        embeddingModels: {
+          gemini: embeddingModels.gemini.trim(),
+          avalai: embeddingModels.avalai.trim(),
+          arvan: embeddingModels.arvan.trim(),
+          omniroute: embeddingModels.omniroute.trim(),
+        },
+        orchestratorModels: {
+          gemini: orchestratorModels.gemini.trim(),
+          avalai: orchestratorModels.avalai.trim(),
+          arvan: orchestratorModels.arvan.trim(),
+          omniroute: orchestratorModels.omniroute.trim(),
+        },
+        subagentModels: {
+          gemini: subagentModels.gemini.trim(),
+          avalai: subagentModels.avalai.trim(),
+          arvan: subagentModels.arvan.trim(),
+          omniroute: subagentModels.omniroute.trim(),
+        },
+        tavilyApiKey: tavilyApiKey.trim() || undefined,
+        clearTavilyApiKey: clearTavily || undefined,
+        generation: generationPayload(),
         providers,
       });
       setForms({
@@ -143,6 +254,8 @@ export default function SettingsPage() {
         arvan: { ...forms.arvan, apiKey: "", clearApiKey: false },
         omniroute: { ...forms.omniroute, apiKey: "", clearApiKey: false },
       });
+      setTavilyApiKey("");
+      setClearTavily(false);
       await refresh();
       toast.success(t.saved);
     } catch (e: any) {
@@ -152,10 +265,10 @@ export default function SettingsPage() {
     }
   };
 
-  const handleTest = async (provider: AIProvider) => {
-    setTesting(provider);
+  const handleTest = async (provider: AIProvider, mode: "chat" | "embed" = "chat") => {
+    if (mode === "embed") setTestingEmbed(provider);
+    else setTesting(provider);
     try {
-      // Persist current form for this provider first so test uses latest values
       await saveSettings({
         providers: [
           {
@@ -169,22 +282,29 @@ export default function SettingsPage() {
           },
         ],
         defaultModels,
+        embeddingModels,
+        orchestratorModels,
+        subagentModels,
+        generation: generationPayload(),
       });
       const res = await fetch("/api/settings/ai/test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider }),
+        body: JSON.stringify({ provider, mode }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
         throw new Error(data.error || t.testFail);
       }
-      toast.success(`${t.testOk}: ${data.model || provider}`);
+      toast.success(
+        `${t.testOk}: ${data.model || provider}${data.dims ? ` (${data.dims}d)` : ""}`
+      );
       await refresh();
     } catch (e: any) {
       toast.error(e?.message || t.testFail);
     } finally {
       setTesting(null);
+      setTestingEmbed(null);
     }
   };
 
@@ -197,7 +317,14 @@ export default function SettingsPage() {
       ];
     }
     if (provider === "avalai") {
-      return [{ value: "gpt-4o-mini", label: "gpt-4o-mini" }];
+      return [
+        { value: "gpt-4o-mini", label: "gpt-4o-mini" },
+        { value: "gpt-4o", label: "gpt-4o" },
+        { value: "gpt-4.1", label: "gpt-4.1" },
+        { value: "gpt-4.1-mini", label: "gpt-4.1-mini" },
+        { value: "o4-mini", label: "o4-mini" },
+        { value: "claude-sonnet-4-20250514", label: "claude-sonnet-4" },
+      ];
     }
     if (provider === "omniroute") {
       return [
@@ -210,6 +337,92 @@ export default function SettingsPage() {
     return [
       { value: "Gemini-3-Flash-Preview", label: "Gemini-3-Flash-Preview" },
     ];
+  };
+
+  /** OpenAI-compatible gateways accept any model id — free text + suggestions. */
+  const allowsCustomModel = (provider: AIProvider) =>
+    provider === "avalai" || provider === "arvan" || provider === "omniroute";
+
+  const updateModel = (provider: AIProvider, model: string) => {
+    setDefaultModels((prev) => ({ ...prev, [provider]: model }));
+    if (provider === aiProvider) {
+      setSelectedModel(model);
+    }
+  };
+
+  const renderRoleModelField = (
+    provider: AIProvider,
+    value: string,
+    onChange: (model: string) => void,
+    listSuffix: string
+  ) => {
+    if (!allowsCustomModel(provider)) {
+      return (
+        <SearchableSelect
+          options={modelOptions(provider)}
+          value={value}
+          onChange={onChange}
+          showSearch={false}
+        />
+      );
+    }
+    const listId = `ai-model-${listSuffix}-${provider}`;
+    return (
+      <>
+        <Input
+          list={listId}
+          value={value}
+          placeholder={t.modelHint}
+          autoComplete="off"
+          spellCheck={false}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={() => {
+            const trimmed = value.trim();
+            if (trimmed !== value) onChange(trimmed);
+          }}
+        />
+        <datalist id={listId}>
+          {modelOptions(provider).map((opt) => (
+            <option key={opt.value} value={opt.value} />
+          ))}
+        </datalist>
+      </>
+    );
+  };
+
+  const renderModelField = (provider: AIProvider, value: string) => {
+    if (!allowsCustomModel(provider)) {
+      return (
+        <SearchableSelect
+          options={modelOptions(provider)}
+          value={value}
+          onChange={(val) => updateModel(provider, val)}
+          showSearch={false}
+        />
+      );
+    }
+    const listId = `ai-model-suggestions-${provider}`;
+    return (
+      <>
+        <Input
+          list={listId}
+          value={value}
+          placeholder={t.modelHint}
+          autoComplete="off"
+          spellCheck={false}
+          onChange={(e) => updateModel(provider, e.target.value)}
+          onBlur={() => {
+            const trimmed = value.trim();
+            if (trimmed !== value) updateModel(provider, trimmed);
+          }}
+        />
+        <datalist id={listId}>
+          {modelOptions(provider).map((opt) => (
+            <option key={opt.value} value={opt.value} />
+          ))}
+        </datalist>
+      </>
+    );
   };
 
   const baseUrlPlaceholder = (id: AIProvider) => {
@@ -262,20 +475,158 @@ export default function SettingsPage() {
                 </Field>
                 <Field>
                   <FieldLabel>{t.defaultModel}</FieldLabel>
-                  <SearchableSelect
-                    options={modelOptions(aiProvider)}
-                    value={selectedModel}
-                    onChange={(val) => {
-                      setSelectedModel(val);
-                      setDefaultModels((prev) => ({
+                  {renderModelField(aiProvider, selectedModel)}
+                </Field>
+              </FieldGroup>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">{t.agentModelsTitle}</CardTitle>
+              <CardDescription>{t.agentModelsDesc}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FieldGroup className="grid gap-4 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel>{t.orchestratorModel}</FieldLabel>
+                  {renderRoleModelField(
+                    aiProvider,
+                    orchestratorModels[aiProvider],
+                    (val) =>
+                      setOrchestratorModels((prev) => ({
                         ...prev,
                         [aiProvider]: val,
-                      }));
-                    }}
-                    showSearch={false}
+                      })),
+                    "orch"
+                  )}
+                </Field>
+                <Field>
+                  <FieldLabel>{t.subagentModel}</FieldLabel>
+                  {renderRoleModelField(
+                    aiProvider,
+                    subagentModels[aiProvider],
+                    (val) =>
+                      setSubagentModels((prev) => ({
+                        ...prev,
+                        [aiProvider]: val,
+                      })),
+                    "sub"
+                  )}
+                </Field>
+              </FieldGroup>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">{t.generationTitle}</CardTitle>
+              <CardDescription>{t.generationDesc}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FieldGroup className="grid gap-4 sm:grid-cols-3">
+                <Field>
+                  <FieldLabel>{t.temperature}</FieldLabel>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.1"
+                    min={0}
+                    max={2}
+                    placeholder="خالی"
+                    value={generation.temperature}
+                    onChange={(e) =>
+                      setGeneration((prev) => ({
+                        ...prev,
+                        temperature: e.target.value,
+                      }))
+                    }
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel>{t.topP}</FieldLabel>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.05"
+                    min={0}
+                    max={1}
+                    placeholder="خالی"
+                    value={generation.topP}
+                    onChange={(e) =>
+                      setGeneration((prev) => ({
+                        ...prev,
+                        topP: e.target.value,
+                      }))
+                    }
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel>{t.maxTokens}</FieldLabel>
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    step={1}
+                    min={1}
+                    placeholder="خالی"
+                    value={generation.maxTokens}
+                    onChange={(e) =>
+                      setGeneration((prev) => ({
+                        ...prev,
+                        maxTokens: e.target.value,
+                      }))
+                    }
                   />
                 </Field>
               </FieldGroup>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">{t.tavilyTitle}</CardTitle>
+              <CardDescription>{t.tavilyDesc}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge
+                  variant={settings?.tavilyConfigured ? "success" : "secondary"}
+                >
+                  {settings?.tavilyConfigured
+                    ? settings.tavilyApiKeyLast4 === "env"
+                      ? t.fromEnv
+                      : `${t.configured}${settings.tavilyApiKeyLast4 ? ` ••••${settings.tavilyApiKeyLast4}` : ""}`
+                    : t.missing}
+                </Badge>
+              </div>
+              <Field>
+                <FieldLabel className="flex items-center gap-1">
+                  <KeyRound className="size-3.5" />
+                  Tavily API Key
+                </FieldLabel>
+                <Input
+                  type="password"
+                  autoComplete="off"
+                  placeholder={t.apiKeyHint}
+                  value={tavilyApiKey}
+                  disabled={clearTavily}
+                  onChange={(e) => setTavilyApiKey(e.target.value)}
+                />
+              </Field>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-fit"
+                onClick={() => {
+                  setClearTavily((v) => !v);
+                  setTavilyApiKey("");
+                }}
+              >
+                <Trash2 data-icon="inline-start" />
+                {t.clearKey}
+                {clearTavily ? " ✓" : ""}
+              </Button>
             </CardContent>
           </Card>
 
@@ -291,13 +642,25 @@ export default function SettingsPage() {
                     <CardTitle className="text-base">
                       {PROVIDER_LABEL[id]}
                     </CardTitle>
-                    <Badge variant={meta?.configured ? "success" : "secondary"}>
-                      {meta?.configured
-                        ? meta.apiKeyLast4 === "env"
-                          ? t.fromEnv
-                          : `${t.configured}${meta.apiKeyLast4 ? ` ••••${meta.apiKeyLast4}` : ""}`
-                        : t.missing}
-                    </Badge>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {id === "avalai" ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          render={<Link href="/avalai/usage" />}
+                        >
+                          <Wallet data-icon="inline-start" />
+                          مصرف و اعتبار
+                        </Button>
+                      ) : null}
+                      <Badge variant={meta?.configured ? "success" : "secondary"}>
+                        {meta?.configured
+                          ? meta.apiKeyLast4 === "env"
+                            ? t.fromEnv
+                            : `${t.configured}${meta.apiKeyLast4 ? ` ••••${meta.apiKeyLast4}` : ""}`
+                          : t.missing}
+                      </Badge>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-4">
@@ -340,15 +703,53 @@ export default function SettingsPage() {
 
                   <Field>
                     <FieldLabel>{t.defaultModel}</FieldLabel>
-                    <SearchableSelect
-                      options={modelOptions(id)}
-                      value={defaultModels[id]}
-                      onChange={(val) =>
-                        setDefaultModels((prev) => ({ ...prev, [id]: val }))
+                    {renderModelField(id, defaultModels[id])}
+                  </Field>
+
+                  <Field>
+                    <FieldLabel>{t.embeddingModel}</FieldLabel>
+                    <Input
+                      value={embeddingModels[id]}
+                      placeholder={DEFAULT_EMBEDDING_MODELS[id]}
+                      autoComplete="off"
+                      spellCheck={false}
+                      onChange={(e) =>
+                        setEmbeddingModels((prev) => ({
+                          ...prev,
+                          [id]: e.target.value,
+                        }))
                       }
-                      showSearch={false}
                     />
                   </Field>
+
+                  <FieldGroup className="grid gap-4 sm:grid-cols-2">
+                    <Field>
+                      <FieldLabel>{t.orchestratorModel}</FieldLabel>
+                      {renderRoleModelField(
+                        id,
+                        orchestratorModels[id],
+                        (val) =>
+                          setOrchestratorModels((prev) => ({
+                            ...prev,
+                            [id]: val,
+                          })),
+                        `orch-${id}`
+                      )}
+                    </Field>
+                    <Field>
+                      <FieldLabel>{t.subagentModel}</FieldLabel>
+                      {renderRoleModelField(
+                        id,
+                        subagentModels[id],
+                        (val) =>
+                          setSubagentModels((prev) => ({
+                            ...prev,
+                            [id]: val,
+                          })),
+                        `sub-${id}`
+                      )}
+                    </Field>
+                  </FieldGroup>
 
                   <div className="flex flex-wrap gap-2">
                     <Button
@@ -375,7 +776,7 @@ export default function SettingsPage() {
                       variant="secondary"
                       size="sm"
                       disabled={testing === id}
-                      onClick={() => void handleTest(id)}
+                      onClick={() => void handleTest(id, "chat")}
                     >
                       {testing === id ? (
                         <Spinner data-icon="inline-start" />
@@ -383,6 +784,20 @@ export default function SettingsPage() {
                         <PlugZap data-icon="inline-start" />
                       )}
                       {testing === id ? t.testing : t.test}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={testingEmbed === id}
+                      onClick={() => void handleTest(id, "embed")}
+                    >
+                      {testingEmbed === id ? (
+                        <Spinner data-icon="inline-start" />
+                      ) : (
+                        <Sparkles data-icon="inline-start" />
+                      )}
+                      {testingEmbed === id ? t.testing : t.testEmbed}
                     </Button>
                   </div>
                 </CardContent>

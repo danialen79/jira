@@ -39,7 +39,6 @@ Please revise this ticket according to the custom instruction above.
       model,
       systemInstruction,
       userPrompt,
-      temperature: 0.3,
     });
 
     if (data.summary) data.summary = sanitizeJiraText(data.summary);

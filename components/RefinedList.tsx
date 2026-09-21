@@ -239,7 +239,8 @@ export default function RefinedList({
   fetchingSprints,
   onFetchSprints,
 }: RefinedListProps) {
-  const t = translations;  const { aiProvider, selectedModel } = useAiSettings();
+  const t = translations;
+  const { aiProvider, selectedModel } = useAiSettings();
   const searchParams = useSearchParams();
   const [, setFreqTick] = useState(0);
 
@@ -300,6 +301,7 @@ export default function RefinedList({
   const [bulkEpicKey, setBulkEpicKey] = useState<string>("");
   const [bulkPriority, setBulkPriority] = useState<string>("");
   const [bulkComponent, setBulkComponent] = useState<string>("");
+  const [bulkLens, setBulkLens] = useState<string>("");
   const [bulkSprint, setBulkSprint] = useState<string>("");
   const [bulkAssignee, setBulkAssignee] = useState<string>("");
   const [bulkRelease, setBulkRelease] = useState<string>("");
@@ -339,6 +341,22 @@ export default function RefinedList({
           newIssue.selectedComponent =
             bulkComponent === "CLEAR_FIELD" ? undefined : bulkComponent;
         }
+        if (bulkLens !== "") {
+          if (
+            issue.issuetype === "Story" ||
+            issue.issuetype === "Epic"
+          ) {
+            if (bulkLens === "CLEAR_FIELD") {
+              newIssue.selectedLens = undefined;
+            } else if (bulkLens === "mixed") {
+              if (issue.issuetype === "Epic") {
+                newIssue.selectedLens = "mixed";
+              }
+            } else if (isStoryLens(bulkLens)) {
+              newIssue.selectedLens = bulkLens;
+            }
+          }
+        }
         if (bulkSprint !== "") {
           newIssue.selectedSprint =
             bulkSprint === "CLEAR_FIELD" ? undefined : bulkSprint;
@@ -373,6 +391,7 @@ export default function RefinedList({
     setBulkEpicKey("");
     setBulkPriority("");
     setBulkComponent("");
+    setBulkLens("");
     setBulkSprint("");
     setBulkAssignee("");
     setBulkRelease("");
@@ -610,22 +629,20 @@ export default function RefinedList({
     }
   };
 
-  // Bulk publish implementation
+  // Bulk publish: epics first, then stories/bugs with resolved epic keys
   const handleBulkPublish = async () => {
     if (!jiraConnected) return;
     setBulkPublishing(true);
     let stateIssues = [...issues];
 
     try {
-      // 1. Publish all Epics first
       const epics = stateIssues.filter(
         (i) => i.issuetype === "Epic" && i.status !== "success"
       );
       for (const epic of epics) {
         try {
           const result = await publishSingleIssue(epic.id, stateIssues);
-          if (result && result.success) {
-            // Re-fetch state because publishSingleIssue updates it in React
+          if (result && result.success && result.key) {
             stateIssues = stateIssues.map((i) =>
               i.id === epic.id
                 ? { ...i, status: "success", createdKey: result.key }
@@ -637,15 +654,46 @@ export default function RefinedList({
         }
       }
 
-      // 2. Publish all Stories
-      const stories = stateIssues.filter(
-        (i) => i.issuetype === "Story" && i.status !== "success"
+      // Point child issues at newly created epic keys before publishing
+      stateIssues = stateIssues.map((i) => {
+        if (
+          (i.issuetype !== "Story" && i.issuetype !== "Bug") ||
+          i.selectedEpicKey ||
+          !i.epicReference
+        ) {
+          return i;
+        }
+        const parent = stateIssues.find(
+          (e) => e.id === i.epicReference && e.issuetype === "Epic"
+        );
+        if (parent?.createdKey) {
+          return {
+            ...i,
+            selectedEpicKey: parent.createdKey,
+            selectedRelease: undefined,
+          };
+        }
+        return i;
+      });
+      onIssuesChange(stateIssues);
+
+      const children = stateIssues.filter(
+        (i) =>
+          (i.issuetype === "Story" || i.issuetype === "Bug") &&
+          i.status !== "success"
       );
-      for (const story of stories) {
+      for (const child of children) {
         try {
-          await publishSingleIssue(story.id, stateIssues);
+          const result = await publishSingleIssue(child.id, stateIssues);
+          if (result && result.success && result.key) {
+            stateIssues = stateIssues.map((i) =>
+              i.id === child.id
+                ? { ...i, status: "success", createdKey: result.key }
+                : i
+            );
+          }
         } catch (e) {
-          console.error("Failed to publish Story:", story.summary, e);
+          console.error("Failed to publish child:", child.summary, e);
         }
       }
     } catch (err) {
@@ -1070,6 +1118,29 @@ export default function RefinedList({
                         onChange={(val) => setBulkComponent(val)}
                         showSearch={true}
                         />
+                    </Field>
+
+                    <Field>
+                      <FieldLabel>{t.lens}</FieldLabel>
+                      <SearchableSelect
+                        options={[
+                          {
+                            value: "",
+                            label: "تغییر داده نشود",
+                          },
+                          {
+                            value: "CLEAR_FIELD",
+                            label: t.lensNone,
+                          },
+                          ...EPIC_LENS_OPTIONS.map((o) => ({
+                            value: o.value,
+                            label: o.labelFa,
+                            sublabel: o.jiraLabel,
+                          })),
+                        ]}
+                        value={bulkLens}
+                        onChange={(val) => setBulkLens(val)}
+                      />
                     </Field>
 
                     {jiraConnected && (

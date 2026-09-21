@@ -4,15 +4,19 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Activity,
+  BookOpen,
+  Boxes,
   ClipboardList,
   GanttChart,
   Headset,
   IterationCcw,
   ListTodo,
   MessageSquare,
+  Search,
   Settings2,
   Sparkles,
   Tag,
+  Wallet,
 } from "lucide-react";
 import { useJiraApp } from "@/components/providers/jira-app-provider";
 import { Badge } from "@/components/ui/badge";
@@ -33,15 +37,15 @@ import {
 
 const navItems = [
   {
-    href: "/health",
-    icon: Activity,
-    labelKey: "tabHealth" as const,
-  },
-  {
     href: "/workspace",
     icon: Sparkles,
     labelKey: "tabWorkspace" as const,
     showBadge: true,
+  },
+  {
+    href: "/roadmap",
+    icon: GanttChart,
+    labelKey: "tabRoadmap" as const,
   },
   {
     href: "/daily-board",
@@ -64,9 +68,19 @@ const navItems = [
     labelKey: "tabSprint" as const,
   },
   {
-    href: "/roadmap",
-    icon: GanttChart,
-    labelKey: "tabRoadmap" as const,
+    href: "/products",
+    icon: Boxes,
+    labelKey: "tabProducts" as const,
+  },
+  {
+    href: "/knowledge",
+    icon: BookOpen,
+    labelKey: "tabKnowledge" as const,
+  },
+  {
+    href: "/research",
+    icon: Search,
+    labelKey: "tabResearch" as const,
   },
   {
     href: "/mattermost",
@@ -77,6 +91,16 @@ const navItems = [
     href: "/epic-sync",
     icon: Tag,
     labelKey: "tabEpicSync" as const,
+  },
+  {
+    href: "/avalai/usage",
+    icon: Wallet,
+    labelKey: "tabAvalaiUsage" as const,
+  },
+  {
+    href: "/health",
+    icon: Activity,
+    labelKey: "tabHealth" as const,
   },
   {
     href: "/settings",

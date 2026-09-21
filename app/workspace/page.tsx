@@ -1,15 +1,22 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Layers, Sparkles } from "lucide-react";
 import DraftInput from "@/components/DraftInput";
 import RefinedList from "@/components/RefinedList";
+import WorkshopInterview from "@/components/workshop/WorkshopInterview";
 import { useJiraApp } from "@/components/providers/jira-app-provider";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from "@/components/ui/toggle-group";
+import type { RefinedIssue } from "@/lib/types";
 
 export default function WorkspacePage() {
-  const { t,
+  const {
+    t,
     handleRefine,
     refining,
     importedDraftText,
@@ -34,6 +41,8 @@ export default function WorkspacePage() {
     refreshWorkspaceMeta,
   } = useJiraApp();
 
+  const [mode, setMode] = useState<"interview" | "quick">("interview");
+
   useEffect(() => {
     refreshWorkspaceMeta();
   }, [refreshWorkspaceMeta]);
@@ -43,6 +52,20 @@ export default function WorkspacePage() {
       <div className="flex flex-col gap-2">
         <h2 className="text-2xl font-bold tracking-tight">{t.tabWorkspace}</h2>
         <p className="text-sm text-muted-foreground">{t.heroSubtitle}</p>
+        <ToggleGroup
+          value={[mode]}
+          onValueChange={(values) => {
+            if (!values.length) return;
+            const next = values[0];
+            if (next === "interview" || next === "quick") setMode(next);
+          }}
+          variant="outline"
+          size="sm"
+          className="w-fit"
+        >
+          <ToggleGroupItem value="interview">مصاحبه</ToggleGroupItem>
+          <ToggleGroupItem value="quick">اصلاح سریع</ToggleGroupItem>
+        </ToggleGroup>
       </div>
 
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
@@ -51,11 +74,17 @@ export default function WorkspacePage() {
             <Sparkles className="text-primary size-4" />
             {t.draftSection}
           </h3>
-          <DraftInput
-            onRefine={handleRefine}
-            loading={refining}
-            draftText={importedDraftText}
-          />
+          {mode === "interview" ? (
+            <WorkshopInterview
+              onIssuesReady={(next: RefinedIssue[]) => setIssues(next)}
+            />
+          ) : (
+            <DraftInput
+              onRefine={handleRefine}
+              loading={refining}
+              draftText={importedDraftText}
+            />
+          )}
         </div>
 
         <div className="flex flex-col gap-4 lg:col-span-7">
@@ -72,7 +101,7 @@ export default function WorkspacePage() {
                 onClick={clearIssues}
                 className="text-muted-foreground hover:text-destructive"
               >
-                {"پاک کردن برد"}
+                پاک کردن برد
               </Button>
             )}
           </div>

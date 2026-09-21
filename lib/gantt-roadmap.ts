@@ -476,6 +476,16 @@ export function filterVersionsWithBoundaryInMonth(
     return startIn || endIn;
   });
   return matched.sort((a, b) => {
+    // Unreleased first, then released.
+    const aReleased = a.released ? 1 : 0;
+    const bReleased = b.released ? 1 : 0;
+    if (aReleased !== bReleased) return aReleased - bReleased;
+
+    // Within unreleased: overdue before the rest.
+    const aOverdue = getVersionStatusLabel(a) === "overdue" ? 0 : 1;
+    const bOverdue = getVersionStatusLabel(b) === "overdue" ? 0 : 1;
+    if (aOverdue !== bOverdue) return aOverdue - bOverdue;
+
     const aDate = a.startDate || a.releaseDate || "";
     const bDate = b.startDate || b.releaseDate || "";
     return aDate.localeCompare(bDate);

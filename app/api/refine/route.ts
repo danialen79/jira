@@ -47,7 +47,6 @@ ${draftText}
       model,
       systemInstruction,
       userPrompt,
-      temperature: 0.2,
     });
 
     if (data.issues && Array.isArray(data.issues)) {

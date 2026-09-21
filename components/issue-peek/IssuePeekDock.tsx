@@ -123,7 +123,6 @@ export function IssuePeekDock() {
   }
 
   const width = collapsed ? DOCK_RAIL_PX : dockWidth;
-  const chromeTitle = issueKey || t.title;
 
   return (
     <aside
@@ -173,11 +172,8 @@ export function IssuePeekDock() {
               className="size-4 shrink-0 text-muted-foreground"
               aria-hidden
             />
-            <p
-              className="min-w-0 flex-1 truncate text-sm font-medium font-mono"
-              translate={issueKey ? "no" : undefined}
-            >
-              {chromeTitle}
+            <p className="min-w-0 flex-1 truncate text-sm font-medium">
+              {t.title}
             </p>
             {issueKey ? (
               <Button

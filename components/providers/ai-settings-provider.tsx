@@ -28,6 +28,31 @@ export type PublicAiSettings = {
     arvan: string;
     omniroute: string;
   };
+  embeddingModels: {
+    gemini: string;
+    avalai: string;
+    arvan: string;
+    omniroute: string;
+  };
+  orchestratorModels: {
+    gemini: string;
+    avalai: string;
+    arvan: string;
+    omniroute: string;
+  };
+  subagentModels: {
+    gemini: string;
+    avalai: string;
+    arvan: string;
+    omniroute: string;
+  };
+  tavilyConfigured: boolean;
+  tavilyApiKeyLast4: string | null;
+  generation: {
+    temperature: number | null;
+    topP: number | null;
+    maxTokens: number | null;
+  };
   providers: PublicAiProvider[];
 };
 
@@ -43,6 +68,12 @@ type AiSettingsContextValue = {
     patch: Partial<{
       defaultProvider: AIProvider;
       defaultModels: Partial<PublicAiSettings["defaultModels"]>;
+      embeddingModels: Partial<PublicAiSettings["embeddingModels"]>;
+      orchestratorModels: Partial<PublicAiSettings["orchestratorModels"]>;
+      subagentModels: Partial<PublicAiSettings["subagentModels"]>;
+      tavilyApiKey: string | null;
+      clearTavilyApiKey: boolean;
+      generation: Partial<PublicAiSettings["generation"]>;
       providers: Array<{
         id: AIProvider;
         apiKey?: string | null;
@@ -151,6 +182,12 @@ export function AiSettingsProvider({
       patch: Partial<{
         defaultProvider: AIProvider;
         defaultModels: Partial<PublicAiSettings["defaultModels"]>;
+        embeddingModels: Partial<PublicAiSettings["embeddingModels"]>;
+        orchestratorModels: Partial<PublicAiSettings["orchestratorModels"]>;
+        subagentModels: Partial<PublicAiSettings["subagentModels"]>;
+        tavilyApiKey: string | null;
+        clearTavilyApiKey: boolean;
+        generation: Partial<PublicAiSettings["generation"]>;
         providers: Array<{
           id: AIProvider;
           apiKey?: string | null;

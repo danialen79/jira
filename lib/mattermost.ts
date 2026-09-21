@@ -62,7 +62,6 @@ ${draftText}
       kind: "mattermostRefine",
       systemInstruction,
       userPrompt,
-      temperature: 0.2,
     });
     let issuesList = data.issues || [];
     issuesList = issuesList.map((issue: any) => ({

@@ -9,9 +9,11 @@ import {
   refineSingleResponseSchema,
 } from "@/lib/gemini";
 import {
+  getAiGenerationParams,
   getResolvedAiConfig,
   getResolvedDefaultProvider,
   type AIProvider,
+  type AiGenerationParams,
 } from "@/lib/db/repos/ai";
 import { isAIProvider } from "@/lib/ai-providers";
 
@@ -224,7 +226,7 @@ async function generateWithGemini(params: {
   kind: AIResponseKind;
   systemInstruction: string;
   userPrompt: string;
-  temperature: number;
+  generation: AiGenerationParams;
 }): Promise<any> {
   const resolved = getResolvedAiConfig("gemini");
   const ai = getGeminiClient(resolved.apiKey || undefined);
@@ -237,15 +239,25 @@ async function generateWithGemini(params: {
           ? aiWorklogResponseSchema
           : mattermostRefineResponseSchema;
 
+  const config: Record<string, unknown> = {
+    systemInstruction: params.systemInstruction,
+    responseMimeType: "application/json",
+    responseSchema,
+  };
+  if (params.generation.temperature != null) {
+    config.temperature = params.generation.temperature;
+  }
+  if (params.generation.topP != null) {
+    config.topP = params.generation.topP;
+  }
+  if (params.generation.maxTokens != null) {
+    config.maxOutputTokens = params.generation.maxTokens;
+  }
+
   const aiResponse = await ai.models.generateContent({
     model: params.model,
     contents: params.userPrompt,
-    config: {
-      systemInstruction: params.systemInstruction,
-      temperature: params.temperature,
-      responseMimeType: "application/json",
-      responseSchema,
-    },
+    config,
   });
 
   if (!aiResponse || !aiResponse.text) {
@@ -261,7 +273,7 @@ async function generateWithOpenAICompatible(params: {
   kind: AIResponseKind;
   systemInstruction: string;
   userPrompt: string;
-  temperature: number;
+  generation: AiGenerationParams;
 }): Promise<any> {
   const resolved = getResolvedAiConfig(params.provider);
   const apiKey = resolved.apiKey;
@@ -318,16 +330,26 @@ async function generateWithOpenAICompatible(params: {
     "\n\nCRITICAL: Return JSON only (no Markdown, no extra text).\n" +
     getOpenAIJsonGuidance(params.kind);
 
+  const body: Record<string, unknown> = {
+    model,
+    messages: [
+      { role: "system", content: systemMsg },
+      { role: "user", content: params.userPrompt },
+    ],
+  };
+  if (params.generation.temperature != null) {
+    body.temperature = params.generation.temperature;
+  }
+  if (params.generation.topP != null) {
+    body.top_p = params.generation.topP;
+  }
+  if (params.generation.maxTokens != null) {
+    body.max_tokens = params.generation.maxTokens;
+  }
+
   let resp: any;
   try {
-    resp = await openai.chat.completions.create({
-      model,
-      temperature: params.temperature,
-      messages: [
-        { role: "system", content: systemMsg },
-        { role: "user", content: params.userPrompt },
-      ],
-    } as any);
+    resp = await openai.chat.completions.create(body as any);
   } catch (err: any) {
     throw formatOpenAICompatError(providerLabel, err);
   }
@@ -347,19 +369,44 @@ async function generateWithOpenAICompatible(params: {
   return parseJsonLoose(content);
 }
 
+function resolveGeneration(
+  override?: Partial<AiGenerationParams> | null
+): AiGenerationParams {
+  const base = getAiGenerationParams();
+  if (!override) return base;
+  return {
+    temperature:
+      override.temperature !== undefined
+        ? override.temperature
+        : base.temperature,
+    topP: override.topP !== undefined ? override.topP : base.topP,
+    maxTokens:
+      override.maxTokens !== undefined ? override.maxTokens : base.maxTokens,
+  };
+}
+
 export async function generateAIJson(params: {
   provider?: AIProvider | string;
   kind: AIResponseKind;
   model?: string;
   systemInstruction: string;
   userPrompt: string;
-  temperature: number;
+  /** Override settings; omit fields to use Settings → generation. */
+  generation?: Partial<AiGenerationParams> | null;
+  /** @deprecated use generation.temperature */
+  temperature?: number | null;
 }): Promise<{ data: any; successfulModel: string; provider: AIProvider }> {
   const provider = normalizeProvider(params.provider as string | undefined);
   const modelQueue = getModelQueue({
     provider,
     kind: params.kind,
     model: params.model,
+  });
+  const generation = resolveGeneration({
+    ...params.generation,
+    ...(params.temperature !== undefined
+      ? { temperature: params.temperature }
+      : {}),
   });
 
   let lastError: any = null;
@@ -372,7 +419,7 @@ export async function generateAIJson(params: {
               kind: params.kind,
               systemInstruction: params.systemInstruction,
               userPrompt: params.userPrompt,
-              temperature: params.temperature,
+              generation,
             })
           : await generateWithOpenAICompatible({
               provider: provider as "avalai" | "arvan" | "omniroute",
@@ -380,7 +427,7 @@ export async function generateAIJson(params: {
               kind: params.kind,
               systemInstruction: params.systemInstruction,
               userPrompt: params.userPrompt,
-              temperature: params.temperature,
+              generation,
             });
       return { data, successfulModel: currentModel, provider };
     } catch (e: any) {
