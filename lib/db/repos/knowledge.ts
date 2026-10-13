@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { getDb, nowIso } from "@/lib/db";
+import { normalizePersian } from "@/lib/knowledge/normalize";
 
 export type KnowledgeSource = "workshop" | "jira" | "manual" | "research";
 export type KnowledgeLayer = "raw" | "canonical";
@@ -351,6 +352,7 @@ export function replaceDocChunks(
   docId: string,
   chunks: Array<{
     text: string;
+    ftsText: string;
     embedding: Buffer;
     embeddingModel: string;
     dims: number;
@@ -391,7 +393,8 @@ export function replaceDocChunks(
         chunk.dims,
         chunk.tokenEst
       );
-      insertFts.run(chunk.text, id, docId);
+      const ftsText = chunk.ftsText.trim();
+      if (ftsText) insertFts.run(ftsText, id, docId);
     });
 
     db.prepare(
@@ -529,27 +532,35 @@ export function listAllChunks(): KnowledgeChunkRow[] {
   }));
 }
 
-export function ftsSearchChunkIds(query: string, limit = 40): string[] {
-  const q = query.trim();
+export type FtsHit = { chunkId: string; rank: number };
+
+/** BM25 order, best first. Rank is 1-based. FTS errors leave this channel empty. */
+export function ftsSearchChunks(query: string, limit = 50): FtsHit[] {
+  const q = normalizePersian(query);
   if (!q) return [];
-  // Escape FTS5 special chars lightly by quoting tokens
   const tokens = q
     .split(/\s+/)
-    .map((t) => t.replace(/["']/g, "").trim())
-    .filter(Boolean)
+    .map((t) => t.replace(/["'*()^:\\]/g, "").trim())
+    .filter((t) => t.length >= 2)
     .slice(0, 12);
   if (!tokens.length) return [];
   const match = tokens.map((t) => `"${t}"*`).join(" OR ");
   try {
     const rows = getDb()
       .prepare(
-        `SELECT chunk_id FROM knowledge_chunks_fts
+        `SELECT chunk_id, bm25(knowledge_chunks_fts) AS bm
+         FROM knowledge_chunks_fts
          WHERE knowledge_chunks_fts MATCH ?
+         ORDER BY bm
          LIMIT ?`
       )
-      .all(match, limit) as Array<{ chunk_id: string }>;
-    return rows.map((r) => r.chunk_id);
-  } catch {
+      .all(match, limit) as Array<{ chunk_id: string; bm: number }>;
+    return rows.map((row, index) => ({
+      chunkId: row.chunk_id,
+      rank: index + 1,
+    }));
+  } catch (err) {
+    console.error("knowledge FTS search failed", err);
     return [];
   }
 }

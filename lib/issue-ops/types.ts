@@ -25,6 +25,8 @@ export interface OpsIssue {
   effectiveFixVersionName?: string;
   /** When effective version comes from epic. */
   effectiveFixVersionFromEpic?: boolean;
+  /** Jira system due date `YYYY-MM-DD`. */
+  dueDate?: string;
 }
 
 export type OpsFilterValues = {

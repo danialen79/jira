@@ -4,6 +4,7 @@ import { useState } from "react";
 import { PencilIcon, Tag, User } from "lucide-react";
 import { toast } from "sonner";
 import {
+  appendDueDateMeta,
   IssueCard,
   IssueCardChildren,
   IssueCardFooter,
@@ -72,6 +73,7 @@ function versionIssueToOpsIssue(raw: VersionIssue): OpsIssue {
     fixVersionIds: [],
     fixVersionNames: [],
     ownsFixVersion: false,
+    dueDate: raw.dueDate,
   };
 }
 
@@ -149,17 +151,22 @@ function OpsIssueRow({
         }
       />
       <IssueCardFooter
-        meta={[
-          {
-            icon: User,
-            label:
-              issue.assigneeDisplayName || issue.assignee || issueListText.unassigned,
-            key: "assignee",
-          },
-          ...(versionLabel
-            ? [{ icon: Tag, label: versionLabel, key: "version" as const }]
-            : []),
-        ]}
+        meta={appendDueDateMeta(
+          [
+            {
+              icon: User,
+              label:
+                issue.assigneeDisplayName ||
+                issue.assignee ||
+                issueListText.unassigned,
+              key: "assignee",
+            },
+            ...(versionLabel
+              ? [{ icon: Tag, label: versionLabel, key: "version" as const }]
+              : []),
+          ],
+          issue
+        )}
         actions={
           <Button
             type="button"
@@ -335,25 +342,28 @@ export default function IssueList({
                   }
                 />
                 <IssueCardFooter
-                  meta={[
-                    {
-                      icon: User,
-                      label:
-                        issue.assigneeDisplayName ||
-                        issue.assignee ||
-                        issueListText.unassigned,
-                      key: "assignee",
-                    },
-                    ...(versionLabel
-                      ? [
-                          {
-                            icon: Tag,
-                            label: versionLabel,
-                            key: "version" as const,
-                          },
-                        ]
-                      : []),
-                  ]}
+                  meta={appendDueDateMeta(
+                    [
+                      {
+                        icon: User,
+                        label:
+                          issue.assigneeDisplayName ||
+                          issue.assignee ||
+                          issueListText.unassigned,
+                        key: "assignee",
+                      },
+                      ...(versionLabel
+                        ? [
+                            {
+                              icon: Tag,
+                              label: versionLabel,
+                              key: "version" as const,
+                            },
+                          ]
+                        : []),
+                    ],
+                    issue
+                  )}
                   actions={
                     <Button
                       type="button"

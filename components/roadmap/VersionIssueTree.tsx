@@ -10,6 +10,7 @@ import { getIssueTypeBadgeClass } from "@/lib/issue-type-badge";
 import { isEpicIssueType } from "@/lib/fix-version-policy";
 import { jiraBrowseUrl, normalizeJiraBase } from "@/lib/jira-browse";
 import {
+  appendDueDateMeta,
   IssueCard,
   IssueCardChildren,
   IssueCardFooter,
@@ -171,13 +172,16 @@ function TreeIssueCard({
         badges={issueBadges(issue, jiraBase)}
       />
       <IssueCardFooter
-        meta={[
-          {
-            icon: User,
-            label: issue.assigneeDisplayName || t.unassigned,
-            key: "assignee",
-          },
-        ]}
+        meta={appendDueDateMeta(
+          [
+            {
+              icon: User,
+              label: issue.assigneeDisplayName || t.unassigned,
+              key: "assignee",
+            },
+          ],
+          issue
+        )}
         actions={hasActions ? actions : undefined}
       />
       {expandable ? (

@@ -27,7 +27,7 @@ type Props = { issue: PeekIssue };
 
 export function EpicLayout({ issue }: Props) {
   const epicKey = issue.key;
-  const { openIssue } = useIssuePeek();
+  const { openIssue, epicChildrenRefreshToken } = useIssuePeek();
   const [children, setChildren] = useState<VersionIssue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +57,7 @@ export function EpicLayout({ issue }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [epicKey]);
+  }, [epicKey, epicChildrenRefreshToken]);
 
   const stats = useMemo(() => {
     let todo = 0;

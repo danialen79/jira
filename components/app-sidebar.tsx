@@ -12,6 +12,7 @@ import {
   IterationCcw,
   ListTodo,
   MessageSquare,
+  ScatterChart,
   Search,
   Settings2,
   Sparkles,
@@ -46,6 +47,11 @@ const navItems = [
     href: "/roadmap",
     icon: GanttChart,
     labelKey: "tabRoadmap" as const,
+  },
+  {
+    href: "/matrix",
+    icon: ScatterChart,
+    labelKey: "tabMatrix" as const,
   },
   {
     href: "/daily-board",

@@ -1,3 +1,4 @@
+import { parseJiraDueDate } from "@/lib/due-date";
 import { parseLensFromLabels } from "@/lib/lens";
 import { issueOwnsFixVersion } from "@/lib/fix-version-policy";
 import type { OpsIssue } from "@/lib/issue-ops/types";
@@ -89,6 +90,7 @@ export function mapRawToOpsIssue(
     effectiveFixVersionId: owns ? fixVersionIds[0] : undefined,
     effectiveFixVersionName: owns ? fixVersionNames[0] : undefined,
     effectiveFixVersionFromEpic: false,
+    dueDate: parseJiraDueDate(fields.duedate),
   };
 }
 
@@ -102,4 +104,5 @@ export const OPS_ISSUE_SEARCH_FIELDS = [
   "labels",
   "fixVersions",
   "parent",
+  "duedate",
 ] as const;

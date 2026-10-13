@@ -3,6 +3,8 @@
 import type { ReactNode } from "react";
 import type { PeekIssue } from "@/lib/issue-peek";
 import { formatJiraSeconds } from "@/lib/issue-peek";
+import { formatDueRemaining } from "@/lib/due-date";
+import { formatIsoAsJalali, formatJalaliDate } from "@/lib/jalali";
 import { lensDisplayLabel } from "@/lib/lens";
 import { cn } from "@/lib/utils";
 
@@ -11,6 +13,7 @@ const t = {
   component: "کامپوننت",
   parent: "والد",
   lens: "لنز",
+  due: "سررسید",
   created: "ایجاد",
   updated: "به‌روزرسانی",
   spent: "صرف‌شده",
@@ -19,13 +22,15 @@ const t = {
   none: "نیست",
 } as const;
 
-function formatDate(iso: string | undefined, locale: string): string {
+function formatDateTimeJalali(iso: string | undefined): string {
   if (!iso) return t.none;
   try {
-    return new Intl.DateTimeFormat(locale, {
-      dateStyle: "medium",
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    const time = new Intl.DateTimeFormat("fa-IR", {
       timeStyle: "short",
-    }).format(new Date(iso));
+    }).format(d);
+    return `${formatJalaliDate(d)}، ${time}`;
   } catch {
     return iso;
   }
@@ -36,6 +41,7 @@ export type KvOmit =
   | "component"
   | "parent"
   | "lens"
+  | "due"
   | "created"
   | "updated"
   | "spent"
@@ -59,7 +65,6 @@ export function IssuePeekKv({
   className,
   onOpenKey,
 }: Props) {
-  const locale = "fa-IR";
   const skip = new Set(omit);
 
   const keyLink = (key: string) =>
@@ -120,18 +125,30 @@ export function IssuePeekKv({
       value: lensDisplayLabel(issue.selectedLens),
     });
   }
+  if (!skip.has("due") && issue.dueDate) {
+    const remaining = formatDueRemaining(issue.dueDate, {
+      statusCategoryKey: issue.statusCategoryKey,
+    });
+    rows.push({
+      id: "due",
+      label: t.due,
+      value: remaining
+        ? `${formatIsoAsJalali(issue.dueDate)} (${remaining.label})`
+        : formatIsoAsJalali(issue.dueDate),
+    });
+  }
   if (!skip.has("created")) {
     rows.push({
       id: "created",
       label: t.created,
-      value: formatDate(issue.created, locale),
+      value: formatDateTimeJalali(issue.created),
     });
   }
   if (!skip.has("updated")) {
     rows.push({
       id: "updated",
       label: t.updated,
-      value: formatDate(issue.updated, locale),
+      value: formatDateTimeJalali(issue.updated),
     });
   }
   if (!skip.has("spent")) {

@@ -1,62 +1,141 @@
-/** Rough token estimate: ~4 chars per token for mixed FA/EN. */
+export type TextChunk = {
+  text: string;
+  heading: string;
+};
+
+const ARABIC_SCRIPT =
+  /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+
+/** Persian-script chars are ~2.2 chars/token; Latin stays ~4. */
 export function estimateTokens(text: string): number {
-  return Math.max(1, Math.ceil(text.length / 4));
+  let arabic = 0;
+  let other = 0;
+  for (const ch of text) {
+    if (/\s/.test(ch)) continue;
+    if (ARABIC_SCRIPT.test(ch)) arabic += 1;
+    else other += 1;
+  }
+  return Math.max(1, Math.ceil(arabic / 2.2 + other / 4));
+}
+
+function charsForTokens(sample: string, tokens: number): number {
+  const est = estimateTokens(sample);
+  const ratio = sample.length / est;
+  return Math.max(1, Math.floor(tokens * ratio));
+}
+
+type Unit = { text: string; heading: string };
+
+function splitUnits(text: string): Unit[] {
+  const lines = text.split("\n");
+  let heading = "";
+  const units: Unit[] = [];
+  let buf: string[] = [];
+
+  const flushBuf = () => {
+    const block = buf.join("\n").trim();
+    buf = [];
+    if (!block) return;
+    const sentences = block
+      .split(/(?<=[.!?؟])\s+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    for (const part of sentences.length ? sentences : [block]) {
+      units.push({ text: part, heading });
+    }
+  };
+
+  for (const line of lines) {
+    const headingMatch = /^(#{1,6})\s+(\S.*)$/.exec(line.trim());
+    if (headingMatch) {
+      flushBuf();
+      heading = headingMatch[2]!.trim();
+      continue;
+    }
+    if (!line.trim()) {
+      flushBuf();
+      continue;
+    }
+    buf.push(line.trim());
+  }
+  flushBuf();
+  return units;
 }
 
 /**
- * Split text into overlapping chunks by approximate token budget.
+ * Split text into overlapping chunks. Display text stays original;
+ * `heading` is the latest markdown heading for the embed prefix.
  */
 export function chunkText(
   text: string,
   opts?: { targetTokens?: number; overlapTokens?: number }
-): string[] {
+): TextChunk[] {
   const target = opts?.targetTokens ?? 600;
   const overlap = opts?.overlapTokens ?? 80;
   const cleaned = text.replace(/\r\n/g, "\n").trim();
   if (!cleaned) return [];
 
-  const paragraphs = cleaned.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
-  const units =
-    paragraphs.length > 1
-      ? paragraphs
-      : cleaned.split(/(?<=[.!?\n])\s+/).map((s) => s.trim()).filter(Boolean);
+  const units = splitUnits(cleaned);
+  if (!units.length) return [{ text: cleaned, heading: "" }];
 
-  const chunks: string[] = [];
-  let current = "";
+  const chunks: TextChunk[] = [];
+  let current: string[] = [];
+  let currentHeading = units[0]!.heading;
   let currentTokens = 0;
 
-  const flush = () => {
-    const t = current.trim();
-    if (t) chunks.push(t);
-    current = "";
+  const flush = (keepOverlap: boolean) => {
+    const body = current.join("\n\n").trim();
+    const heading = currentHeading;
+    current = [];
     currentTokens = 0;
+    if (!body) return;
+    chunks.push({ text: body, heading });
+    if (!keepOverlap || overlap <= 0) return;
+    const tail = body.slice(-charsForTokens(body, overlap)).trim();
+    if (!tail || tail === body) return;
+    current = [tail];
+    currentTokens = estimateTokens(tail);
   };
 
   for (const unit of units) {
-    const unitTokens = estimateTokens(unit);
-    if (unitTokens > target * 1.5) {
-      // Hard-split long unit by characters
-      const charBudget = target * 4;
-      for (let i = 0; i < unit.length; i += charBudget - overlap * 4) {
-        const slice = unit.slice(i, i + charBudget).trim();
-        if (slice) chunks.push(slice);
+    if (current.length && unit.heading !== currentHeading) {
+      flush(false);
+    }
+    currentHeading = unit.heading;
+
+    if (estimateTokens(unit.text) > target * 1.5) {
+      if (current.length) flush(true);
+      currentHeading = unit.heading;
+      const budget = charsForTokens(unit.text, target);
+      const step = Math.max(1, budget - charsForTokens(unit.text, overlap));
+      for (let i = 0; i < unit.text.length; i += step) {
+        const slice = unit.text.slice(i, i + budget).trim();
+        if (slice) chunks.push({ text: slice, heading: unit.heading });
       }
+      current = [];
+      currentTokens = 0;
       continue;
     }
-    if (currentTokens + unitTokens > target && current) {
-      flush();
-      // overlap: keep last portion of previous chunk
-      if (chunks.length && overlap > 0) {
-        const prev = chunks[chunks.length - 1]!;
-        const overlapChars = overlap * 4;
-        const tail = prev.slice(-overlapChars);
-        current = tail;
-        currentTokens = estimateTokens(tail);
-      }
+
+    const unitTokens = estimateTokens(unit.text);
+    if (current.length && currentTokens + unitTokens > target) {
+      flush(true);
+      currentHeading = unit.heading;
     }
-    current = current ? `${current}\n\n${unit}` : unit;
-    currentTokens = estimateTokens(current);
+    current.push(unit.text);
+    currentTokens = estimateTokens(current.join("\n\n"));
   }
-  flush();
+  flush(false);
   return chunks;
+}
+
+/** Text sent to the embedding model: title, heading, normalized body. */
+export function buildEmbedText(
+  title: string,
+  chunk: TextChunk,
+  normalizedBody: string
+): string {
+  return [title.trim(), chunk.heading.trim(), normalizedBody.trim()]
+    .filter(Boolean)
+    .join("\n");
 }

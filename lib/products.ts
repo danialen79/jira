@@ -1,3 +1,4 @@
+import { parseJiraDueDate } from "@/lib/due-date";
 import { isBacklogExcludedStatus } from "@/lib/issue-ops/backlog";
 import { resolveEpicKey, isSubtaskIssueType } from "@/lib/issue-ops/map";
 import { parseLensFromLabels, type IssueLens } from "@/lib/lens";
@@ -34,6 +35,8 @@ export type ProductIssue = {
   fixVersionIds: string[];
   fixVersionNames: string[];
   isEpic: boolean;
+  /** Jira system due date `YYYY-MM-DD`. */
+  dueDate?: string;
 };
 
 export type ProductGroupBy = "none" | "epic" | "status" | "type" | "version";
@@ -134,6 +137,7 @@ export function mapRawToProductIssue(
     fixVersionIds: fixVersions.map((v: { id: string }) => String(v.id)),
     fixVersionNames: fixVersions.map((v: { name: string }) => v.name as string),
     isEpic,
+    dueDate: parseJiraDueDate(fields.duedate),
   };
 }
 

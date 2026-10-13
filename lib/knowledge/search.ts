@@ -10,9 +10,10 @@ import {
 import {
   createKnowledgeDoc,
   findDocByContentHash,
-  ftsSearchChunkIds,
+  ftsSearchChunks,
   getDocTitlesByIds,
   getKnowledgeDoc,
+  knowledgeStats,
   listKnowledgeDocs,
   listSearchableChunks,
   replaceDocChunks,
@@ -20,9 +21,16 @@ import {
   type KnowledgeLayer,
   type KnowledgeSource,
 } from "@/lib/db/repos/knowledge";
-import { chunkText, estimateTokens } from "@/lib/knowledge/chunk";
+import {
+  buildEmbedText,
+  chunkText,
+  estimateTokens,
+  type TextChunk,
+} from "@/lib/knowledge/chunk";
 import { hashKnowledgeText } from "@/lib/knowledge/hash";
-import { mmrRerank } from "@/lib/knowledge/mmr";
+import { normalizePersian } from "@/lib/knowledge/normalize";
+import { reciprocalRankFusion } from "@/lib/knowledge/rrf";
+import { rerankByRelevance } from "@/lib/knowledge/rerank";
 
 export type KnowledgeHit = {
   chunkId: string;
@@ -33,7 +41,17 @@ export type KnowledgeHit = {
   score: number;
 };
 
+export type KnowledgeSearchOutcome = {
+  hits: KnowledgeHit[];
+  stale: boolean;
+};
+
 const NEAR_DUP_THRESHOLD = 0.92;
+const DENSE_K = 50;
+const SPARSE_K = 50;
+const COSINE_FLOOR = 0.32;
+const BM25_KEEP_RANK = 8;
+const RERANK_POOL = 20;
 
 export async function ingestDocument(input: {
   title: string;
@@ -74,16 +92,20 @@ export async function ingestDocument(input: {
 
   const { provider, model } = resolveEmbeddingModel(input.provider);
 
-  let pieces: string[] = [];
+  let pieces: TextChunk[] = [];
   let vectors: number[][] = [];
   if (shouldEmbed) {
     pieces = chunkText(text);
     if (!pieces.length) throw new Error("No chunks produced");
 
+    const embedInputs = pieces.map((piece) =>
+      buildEmbedText(input.title, piece, normalizePersian(piece.text))
+    );
+
     const batchSize = 8;
-    for (let i = 0; i < pieces.length; i += batchSize) {
-      const batch = pieces.slice(i, i + batchSize);
-      const result = await embedTexts(batch, provider);
+    for (let i = 0; i < embedInputs.length; i += batchSize) {
+      const batch = embedInputs.slice(i, i + batchSize);
+      const result = await embedTexts(batch, provider, "document");
       vectors.push(...result.vectors);
     }
 
@@ -136,11 +158,14 @@ export async function ingestDocument(input: {
     replaceDocChunks(
       doc.id,
       pieces.map((piece, i) => ({
-        text: piece,
+        text: piece.text,
+        ftsText: normalizePersian(
+          [piece.heading, piece.text].filter(Boolean).join("\n")
+        ),
         embedding: embeddingToBlob(vectors[i]!),
         embeddingModel: model,
         dims: vectors[i]!.length,
-        tokenEst: estimateTokens(piece),
+        tokenEst: estimateTokens(piece.text),
       }))
     );
   }
@@ -192,59 +217,105 @@ export async function reembedAllDocuments(provider?: string): Promise<{
   return { docs: docs.length, chunks, model };
 }
 
+function queryList(query: string | string[]): string[] {
+  const raw = Array.isArray(query) ? query : [query];
+  const out: string[] = [];
+  for (const item of raw) {
+    const text = item.trim();
+    if (!text || out.includes(text)) continue;
+    out.push(text);
+  }
+  return out;
+}
+
 export async function searchKnowledge(
-  query: string,
-  opts?: { k?: number; provider?: string; alpha?: number; mmrLambda?: number }
-): Promise<KnowledgeHit[]> {
-  const q = query.trim();
-  if (!q) return [];
+  query: string | string[],
+  opts?: { k?: number; provider?: string }
+): Promise<KnowledgeSearchOutcome> {
+  const queries = queryList(query);
+  if (!queries.length) return { hits: [], stale: false };
 
   const k = opts?.k ?? 8;
-  const alpha = opts?.alpha ?? 0.7;
-  const mmrLambda = opts?.mmrLambda ?? 0.7;
   const { model } = resolveEmbeddingModel(opts?.provider);
-
-  const queryEmb = await embedText(q, opts?.provider);
   const pool = listSearchableChunks(model);
-  if (!pool.length) return [];
+  if (!pool.length) {
+    const stats = knowledgeStats();
+    const stale = stats.chunks > 0 && !stats.models.includes(model);
+    return { hits: [], stale };
+  }
 
-  const ftsIds = new Set(ftsSearchChunkIds(q, 50));
-  const scored = pool.map((chunk) => {
-    const vec = bufferToFloat32(chunk.embedding);
-    const cos =
-      vec.length === queryEmb.vector.length
-        ? cosineSimilarity(queryEmb.vector, vec)
-        : 0;
-    const ftsBoost = ftsIds.has(chunk.id) ? 1 : 0;
-    const score = alpha * cos + (1 - alpha) * ftsBoost;
-    return { chunk, score, vector: vec };
-  });
+  const decoded = pool.map((chunk) => ({
+    chunk,
+    vector: bufferToFloat32(chunk.embedding),
+  }));
 
-  scored.sort((a, b) => b.score - a.score);
-  const candidateCap = Math.max(k * 4, 24);
-  const reranked = mmrRerank(
-    scored.slice(0, candidateCap).map((s) => ({
-      item: s,
-      score: s.score,
-      vector: s.vector,
-    })),
-    k,
-    mmrLambda
-  );
+  const cosineById = new Map<string, number>();
+  const bm25ById = new Map<string, number>();
+  const denseLists: string[][] = [];
+  const sparseLists: string[][] = [];
 
-  const docMeta = getDocTitlesByIds(reranked.map((t) => t.chunk.docId));
+  for (const rawQuery of queries) {
+    const normalized = normalizePersian(rawQuery);
+    if (!normalized) continue;
 
-  return reranked.map(({ chunk, score }) => {
+    const queryEmb = await embedText(normalized, opts?.provider, "query");
+    const dense = decoded
+      .map((row) => {
+        const cos =
+          row.vector.length === queryEmb.vector.length
+            ? cosineSimilarity(row.vector, queryEmb.vector)
+            : 0;
+        const prev = cosineById.get(row.chunk.id) ?? 0;
+        if (cos > prev) cosineById.set(row.chunk.id, cos);
+        return { id: row.chunk.id, cos };
+      })
+      .sort((a, b) => b.cos - a.cos)
+      .slice(0, DENSE_K)
+      .map((row) => row.id);
+    if (dense.length) denseLists.push(dense);
+
+    const fts = ftsSearchChunks(normalized, SPARSE_K);
+    if (fts.length) sparseLists.push(fts.map((hit) => hit.chunkId));
+    for (const hit of fts) {
+      const prev = bm25ById.get(hit.chunkId);
+      if (prev == null || hit.rank < prev) bm25ById.set(hit.chunkId, hit.rank);
+    }
+  }
+
+  const fused = reciprocalRankFusion([...denseLists, ...sparseLists]);
+  const byId = new Map(decoded.map((row) => [row.chunk.id, row.chunk]));
+  const gated = fused
+    .filter((item) => {
+      const cos = cosineById.get(item.id) ?? 0;
+      const rank = bm25ById.get(item.id);
+      return cos >= COSINE_FLOOR || (rank != null && rank <= BM25_KEEP_RANK);
+    })
+    .slice(0, RERANK_POOL);
+
+  const docMeta = getDocTitlesByIds(gated.map((item) => byId.get(item.id)?.docId || ""));
+  const candidates: KnowledgeHit[] = gated.flatMap((item) => {
+    const chunk = byId.get(item.id);
+    if (!chunk) return [];
     const meta = docMeta.get(chunk.docId);
-    return {
-      chunkId: chunk.id,
-      docId: chunk.docId,
-      title: meta?.title || "Untitled",
-      source: meta?.source || "manual",
-      text: chunk.text,
-      score,
-    };
+    return [
+      {
+        chunkId: chunk.id,
+        docId: chunk.docId,
+        title: meta?.title || "Untitled",
+        source: meta?.source || "manual",
+        text: chunk.text,
+        score: item.score,
+      },
+    ];
   });
+
+  const hits = await rerankByRelevance(
+    queries.join(" | "),
+    candidates,
+    k,
+    opts?.provider
+  );
+  return { hits, stale: false };
 }
 
 export function formatHitsForPrompt(hits: KnowledgeHit[]): string {
@@ -256,3 +327,6 @@ export function formatHitsForPrompt(hits: KnowledgeHit[]): string {
     )
     .join("\n\n");
 }
+
+export const STALE_KNOWLEDGE_PROMPT =
+  "(knowledge index is stale — re-embed documents in Knowledge before trusting memory)";

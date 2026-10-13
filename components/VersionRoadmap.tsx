@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
+  FileDownIcon,
   GanttChart,
   Layers,
   PlusIcon,
@@ -34,7 +35,9 @@ import VersionDetailSheet from "@/components/VersionDetailSheet";
 import VersionGantt from "@/components/roadmap/VersionGantt";
 import CurrentVersionsPanel from "@/components/roadmap/CurrentVersionsPanel";
 import CreateVersionDialog from "@/components/roadmap/CreateVersionDialog";
-import MonthlyVersionsPanel from "@/components/roadmap/MonthlyVersionsPanel";
+import MonthlyVersionsPanel, {
+  type MonthPdfExportState,
+} from "@/components/roadmap/MonthlyVersionsPanel";
 
 type Props = {
   jiraUrl: string;
@@ -60,6 +63,8 @@ const t = {
     scaleLabel: "نمایش",
     prevPeriod: "دوره قبل",
     nextPeriod: "دوره بعد",
+    pdf: "PDF",
+    pdfLabel: "خروجی PDF",
   } as const;
 
 export default function VersionRoadmap({
@@ -77,6 +82,12 @@ export default function VersionRoadmap({
   const [selected, setSelected] = useState<JiraVersion | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const exportPdfRef = useRef<(() => void) | null>(null);
+  const [pdfReady, setPdfReady] = useState(false);
+  const onPdfState = useCallback((state: MonthPdfExportState | null) => {
+    exportPdfRef.current = state?.exportPdf ?? null;
+    setPdfReady(Boolean(state?.ready));
+  }, []);
 
   const visibleVersions = useMemo(
     () => (showArchived ? versions : versions.filter((v) => !v.archived)),
@@ -187,7 +198,20 @@ export default function VersionRoadmap({
               <ToggleGroupItem value="year">{t.year}</ToggleGroupItem>
             </ToggleGroup>
 
-            <div className="flex items-center gap-1" dir="ltr">
+            <div className="flex flex-wrap items-center gap-2">
+              {scaleMode === "month" ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!pdfReady}
+                  aria-label={t.pdfLabel}
+                  onClick={() => exportPdfRef.current?.()}
+                >
+                  <FileDownIcon data-icon="inline-start" />
+                  {t.pdf}
+                </Button>
+              ) : null}
+              <div className="flex items-center gap-1" dir="ltr">
               <Button
                 size="sm"
                 variant="outline"
@@ -215,6 +239,7 @@ export default function VersionRoadmap({
               >
                 <ChevronRightIcon />
               </Button>
+              </div>
             </div>
           </div>
           {fetchingVersions && versions.length === 0 ? (
@@ -242,6 +267,7 @@ export default function VersionRoadmap({
               monthAnchor={anchorDate}
               jiraUrl={jiraUrl}
               onOpenVersion={openVersion}
+              onPdfState={onPdfState}
             />
           ) : (
             <VersionGantt

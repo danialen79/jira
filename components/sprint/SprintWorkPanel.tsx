@@ -5,6 +5,7 @@ import { ListTreeIcon, User } from "lucide-react";
 import { toast } from "sonner";
 import SearchableSelect from "@/components/SearchableSelect";
 import {
+  appendDueDateMeta,
   IssueCard,
   IssueCardFooter,
   IssueCardHeader,
@@ -40,7 +41,8 @@ import type { JiraSprint, SprintIssue } from "@/lib/types";
 
 type StatusFilter = "ALL" | "todo" | "inProgress" | "done";
 
-type Props = {  jiraUrl: string;
+type Props = {
+  jiraUrl: string;
   issues: SprintIssue[];
   loading: boolean;
   futureSprints: JiraSprint[];
@@ -125,13 +127,15 @@ function filterRoots(
   return out;
 }
 
-export default function SprintWorkPanel({  jiraUrl,
+export default function SprintWorkPanel({
+  jiraUrl,
   issues,
   loading,
   futureSprints,
   currentSprintId,
   onMoved,
-}: Props) {  const [status, setStatus] = useState<StatusFilter>("ALL");
+}: Props) {
+  const [status, setStatus] = useState<StatusFilter>("ALL");
   const [q, setQ] = useState("");
   const [dest, setDest] = useState("");
   const [moving, setMoving] = useState(false);
@@ -316,14 +320,17 @@ export default function SprintWorkPanel({  jiraUrl,
                     <IssueCardFooter
                       meta={
                         !issue.placeholder
-                          ? [
-                              {
-                                icon: User,
-                                label:
-                                  issue.assigneeDisplayName || t.unassigned,
-                                key: "assignee",
-                              },
-                            ]
+                          ? appendDueDateMeta(
+                              [
+                                {
+                                  icon: User,
+                                  label:
+                                    issue.assigneeDisplayName || t.unassigned,
+                                  key: "assignee",
+                                },
+                              ],
+                              issue
+                            )
                           : undefined
                       }
                       actions={
@@ -396,14 +403,17 @@ export default function SprintWorkPanel({  jiraUrl,
                         }
                       />
                       <IssueCardFooter
-                        meta={[
-                          {
-                            icon: User,
-                            label:
-                              child.assigneeDisplayName || t.unassigned,
-                            key: "assignee",
-                          },
-                        ]}
+                        meta={appendDueDateMeta(
+                          [
+                            {
+                              icon: User,
+                              label:
+                                child.assigneeDisplayName || t.unassigned,
+                              key: "assignee",
+                            },
+                          ],
+                          child
+                        )}
                       />
                     </IssueCard>
                   </li>

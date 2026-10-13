@@ -1,5 +1,6 @@
 import type { IssueLens } from "@/lib/lens";
 import { issueOwnsFixVersion } from "@/lib/fix-version-policy";
+import { canHaveSubtasks } from "@/lib/issue-ops/map";
 import { normalizeIssueTypeName } from "@/lib/issue-type-badge";
 
 export const ISSUE_KEY_RE = /^[A-Z][A-Z0-9]+-\d+$/i;
@@ -24,6 +25,14 @@ export function peekCanSetFixVersion(issue: {
   return issueOwnsFixVersion(issue.issuetype, Boolean(issue.epicKey));
 }
 
+/** Peek can set Impact/Effort on the same owners as Fix Version. */
+export function peekCanSetImpactEffort(issue: {
+  issuetype: string;
+  epicKey?: string;
+}): boolean {
+  return issueOwnsFixVersion(issue.issuetype, Boolean(issue.epicKey));
+}
+
 /** Peek can move Story / Bug / Task between sprints. */
 export function peekCanSetSprint(issuetype: string): boolean {
   const t = normalizeIssueTypeName(issuetype);
@@ -34,6 +43,25 @@ export function peekCanSetSprint(issuetype: string): boolean {
 export function peekCanSetEpicLink(issuetype: string): boolean {
   const t = normalizeIssueTypeName(issuetype);
   return t === "story" || t === "bug";
+}
+
+/** Parent types that can own sub-tasks in bulk-create flow. */
+export function peekCanHaveSubtasks(issuetype: string): boolean {
+  return canHaveSubtasks(issuetype);
+}
+
+/** Epic can bulk-create Stories. */
+export function peekCanBulkStories(issuetype: string): boolean {
+  return normalizeIssueTypeName(issuetype) === "epic";
+}
+
+/** First component name from peek issue (required by many Jira projects). */
+export function peekComponentName(issue: {
+  component?: string;
+  components?: string[];
+}): string {
+  const fromList = issue.components?.find((c) => String(c || "").trim());
+  return String(fromList || issue.component || "").trim();
 }
 
 export function pushNavStack(
@@ -73,6 +101,12 @@ export type PeekIssue = {
   fixVersionNames: string[];
   created?: string;
   updated?: string;
+  /** Jira system due date `YYYY-MM-DD`. */
+  dueDate?: string;
+  /** Impact custom field 1–10 (owners only). */
+  impact?: number | null;
+  /** Effort custom field 1–10 (owners only). */
+  effort?: number | null;
   timespent?: number;
   timeestimate?: number;
   timeoriginalestimate?: number;

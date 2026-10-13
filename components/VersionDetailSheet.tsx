@@ -5,9 +5,11 @@ import { ExternalLinkIcon, PencilIcon } from "lucide-react";
 import { toast } from "sonner";
 import type { JiraVersion, VersionIssue, VersionProgressSummary } from "@/lib/types";
 import {
+  buildVersionName,
   countVersionLenses,
   flattenVersionIssues,
   getVersionStatusLabel,
+  parseProductVersionParts,
 } from "@/lib/roadmap";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,7 +21,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
@@ -45,6 +52,10 @@ const t = {
     loading: "در حال بارگذاری ایشوها…",
     start: "شروع",
     release: "انتشار",
+    name: "نام Fix Version",
+    nameHint: "مثلاً Q3.3-Desk2.2",
+    useSuggested: "اعمال پیشنهاد",
+    suggested: "پیشنهاد از تاریخ شروع",
     todo: "انجام‌نشده",
     inProgress: "در حال انجام",
     done: "انجام‌شده",
@@ -60,7 +71,9 @@ const t = {
     saving: "در حال ذخیره…",
     saved: "ورژن بروزرسانی شد.",
     saveFailed: "بروزرسانی ورژن نشد.",
+    nameRequired: "نام ورژن را وارد کنید.",
     issues: "ایشوها",
+    close: "بستن",
   } as const;
 
 function statusBadgeVariant(
@@ -106,6 +119,7 @@ export default function VersionDetailSheet({
   const [total, setTotal] = useState(0);
   const [progress, setProgress] = useState<VersionProgressSummary | null>(null);
 
+  const [name, setName] = useState("");
   const [startDate, setStartDate] = useState("");
   const [releaseDate, setReleaseDate] = useState("");
   const [released, setReleased] = useState(false);
@@ -147,6 +161,7 @@ export default function VersionDetailSheet({
 
   useEffect(() => {
     if (!version) return;
+    setName(version.name);
     setStartDate(toInputDate(version.startDate));
     setReleaseDate(toInputDate(version.releaseDate));
     setReleased(!!version.released);
@@ -199,24 +214,37 @@ export default function VersionDetailSheet({
     if (!version) return null;
     return {
       ...version,
+      name: name.trim() || version.name,
       startDate: startDate || undefined,
       releaseDate: releaseDate || undefined,
       released,
     };
-  }, [version, startDate, releaseDate, released]);
+  }, [version, name, startDate, releaseDate, released]);
 
   const statusLabel = draftVersion
     ? getVersionStatusLabel(draftVersion)
     : "unreleased";
 
+  const suggestedName = useMemo(() => {
+    if (!version || !startDate) return null;
+    const parts = parseProductVersionParts(version.name);
+    if (!parts.version || parts.product === "Other") return null;
+    return buildVersionName({
+      startDate,
+      product: parts.product,
+      version: parts.version,
+    });
+  }, [version, startDate]);
+
   const dirty = useMemo(() => {
     if (!version) return false;
     return (
+      version.name.trim() !== name.trim() ||
       toInputDate(version.startDate) !== startDate ||
       toInputDate(version.releaseDate) !== releaseDate ||
       !!version.released !== released
     );
-  }, [version, startDate, releaseDate, released]);
+  }, [version, name, startDate, releaseDate, released]);
 
   const lensCounts = useMemo(
     () => countVersionLenses(flattenVersionIssues(tree)),
@@ -234,6 +262,11 @@ export default function VersionDetailSheet({
 
   const handleSave = async () => {
     if (!version || !dirty) return;
+    const nextName = name.trim();
+    if (!nextName) {
+      toast.error(t.nameRequired);
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch("/api/jira/update-version", {
@@ -241,6 +274,7 @@ export default function VersionDetailSheet({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           versionId: version.id,
+          name: nextName,
           startDate: startDate || null,
           releaseDate: releaseDate || null,
           released,
@@ -252,6 +286,7 @@ export default function VersionDetailSheet({
         return;
       }
       const updated = data.version as JiraVersion;
+      setName(updated.name);
       setStartDate(toInputDate(updated.startDate));
       setReleaseDate(toInputDate(updated.releaseDate));
       setReleased(!!updated.released);
@@ -301,7 +336,13 @@ export default function VersionDetailSheet({
                       variant="outline"
                       size="sm"
                       disabled={!!version.archived}
-                      onClick={() => setEditOpen(true)}
+                      onClick={() => {
+                        setName(version.name);
+                        setStartDate(toInputDate(version.startDate));
+                        setReleaseDate(toInputDate(version.releaseDate));
+                        setReleased(!!version.released);
+                        setEditOpen(true);
+                      }}
                     >
                       <PencilIcon data-icon="inline-start" />
                       {t.edit}
@@ -401,6 +442,39 @@ export default function VersionDetailSheet({
 
           {version && (
             <FieldGroup className="gap-3">
+              <Field data-invalid={!name.trim() || undefined}>
+                <FieldLabel htmlFor="version-name">{t.name}</FieldLabel>
+                <Input
+                  id="version-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  disabled={saving || !!version.archived}
+                  aria-invalid={!name.trim() || undefined}
+                  translate="no"
+                  autoComplete="off"
+                  placeholder={t.nameHint}
+                />
+                {suggestedName && suggestedName !== name.trim() ? (
+                  <FieldDescription className="flex flex-wrap items-center gap-2">
+                    <span>
+                      {t.suggested}:{" "}
+                      <span translate="no">{suggestedName}</span>
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-auto px-1.5 py-0.5"
+                      disabled={saving || !!version.archived}
+                      onClick={() => setName(suggestedName)}
+                    >
+                      {t.useSuggested}
+                    </Button>
+                  </FieldDescription>
+                ) : (
+                  <FieldDescription>{t.nameHint}</FieldDescription>
+                )}
+              </Field>
               <Field>
                 <FieldLabel htmlFor="version-start">{t.start}</FieldLabel>
                 <JalaliDateInput
@@ -439,10 +513,12 @@ export default function VersionDetailSheet({
               onClick={() => setEditOpen(false)}
               disabled={saving}
             >
-              بستن
+              {t.close}
             </Button>
             <Button
-              disabled={!dirty || saving || !!version?.archived}
+              disabled={
+                !dirty || saving || !!version?.archived || !name.trim()
+              }
               onClick={() => void handleSave()}
             >
               {saving ? (

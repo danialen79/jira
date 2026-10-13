@@ -11,6 +11,13 @@ import {
 } from "@/lib/db/repos/ai";
 import { getGeminiClient } from "@/lib/gemini";
 
+export type EmbedPurpose = "document" | "query";
+
+const GEMINI_TASK_TYPE: Record<EmbedPurpose, string> = {
+  document: "RETRIEVAL_DOCUMENT",
+  query: "RETRIEVAL_QUERY",
+};
+
 export type EmbedResult = {
   vectors: number[][];
   model: string;
@@ -71,7 +78,8 @@ export function resolveEmbeddingModel(provider?: string): {
 async function embedWithGemini(
   apiKey: string,
   model: string,
-  texts: string[]
+  texts: string[],
+  purpose: EmbedPurpose
 ): Promise<number[][]> {
   const ai = getGeminiClient(apiKey);
   const vectors: number[][] = [];
@@ -79,6 +87,7 @@ async function embedWithGemini(
     const res = await ai.models.embedContent({
       model,
       contents: text,
+      config: { taskType: GEMINI_TASK_TYPE[purpose] },
     });
     const values =
       res.embeddings?.[0]?.values ||
@@ -125,7 +134,8 @@ async function embedWithOpenAICompat(
 
 export async function embedTexts(
   texts: string[],
-  provider?: string
+  provider?: string,
+  purpose: EmbedPurpose = "document"
 ): Promise<EmbedResult> {
   const cleaned = texts.map((t) => t.trim()).filter(Boolean);
   if (!cleaned.length) {
@@ -141,7 +151,7 @@ export async function embedTexts(
 
   let vectors: number[][];
   if (id === "gemini") {
-    vectors = await embedWithGemini(config.apiKey, model, cleaned);
+    vectors = await embedWithGemini(config.apiKey, model, cleaned, purpose);
   } else {
     if ((id === "arvan" || id === "omniroute") && !config.baseUrl) {
       throw new Error(`${id} base URL is not configured for embeddings`);
@@ -163,9 +173,10 @@ export async function embedTexts(
 
 export async function embedText(
   text: string,
-  provider?: string
+  provider?: string,
+  purpose: EmbedPurpose = "query"
 ): Promise<{ vector: number[]; model: string; dims: number; provider: AIProvider }> {
-  const result = await embedTexts([text], provider);
+  const result = await embedTexts([text], provider, purpose);
   return {
     vector: result.vectors[0]!,
     model: result.model,

@@ -13,6 +13,7 @@ import { IssueStatusBadge } from "@/components/IssueStatusBadge";
 import { getIssueTypeBadgeClass } from "@/lib/issue-type-badge";
 import { jiraBrowseUrl, normalizeJiraBase } from "@/lib/jira-browse";
 import {
+  appendDueDateMeta,
   IssueCard,
   IssueCardFooter,
   IssueCardHeader,
@@ -100,57 +101,60 @@ function ProductIssueRow({
         }
       />
       <IssueCardFooter
-        meta={[
-          {
-            key: "type",
-            label: (
-              <Badge
-                variant="outline"
-                className={cn(
-                  "font-normal",
-                  getIssueTypeBadgeClass(issue.issuetype)
-                )}
-              >
-                {issue.issuetype}
-              </Badge>
-            ),
-          },
-          ...(issue.priority
-            ? [
-                {
-                  key: "priority",
-                  label: (
-                    <Badge variant="secondary" className="font-normal">
-                      {issue.priority}
-                    </Badge>
-                  ),
-                },
-              ]
-            : []),
-          ...(issue.lens
-            ? [
-                {
-                  key: "lens",
-                  label: (
-                    <Badge variant="outline" className="font-normal">
-                      {lensDisplayLabel(issue.lens)}
-                    </Badge>
-                  ),
-                },
-              ]
-            : []),
-          {
-            key: "assignee",
-            icon: User,
-            label:
-              issue.assigneeDisplayName || issue.assignee || t.unassigned,
-          },
-          {
-            key: "version",
-            icon: PackageIcon,
-            label: issue.fixVersionNames[0] || t.noVersion,
-          },
-        ]}
+        meta={appendDueDateMeta(
+          [
+            {
+              key: "type",
+              label: (
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "font-normal",
+                    getIssueTypeBadgeClass(issue.issuetype)
+                  )}
+                >
+                  {issue.issuetype}
+                </Badge>
+              ),
+            },
+            ...(issue.priority
+              ? [
+                  {
+                    key: "priority",
+                    label: (
+                      <Badge variant="secondary" className="font-normal">
+                        {issue.priority}
+                      </Badge>
+                    ),
+                  },
+                ]
+              : []),
+            ...(issue.lens
+              ? [
+                  {
+                    key: "lens",
+                    label: (
+                      <Badge variant="outline" className="font-normal">
+                        {lensDisplayLabel(issue.lens)}
+                      </Badge>
+                    ),
+                  },
+                ]
+              : []),
+            {
+              key: "assignee",
+              icon: User,
+              label:
+                issue.assigneeDisplayName || issue.assignee || t.unassigned,
+            },
+            {
+              key: "version",
+              icon: PackageIcon,
+              label: issue.fixVersionNames[0] || t.noVersion,
+            },
+          ],
+          issue
+        )}
       />
     </IssueCard>
   );

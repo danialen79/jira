@@ -12,7 +12,10 @@ import {
   loadOrchestratorSkill,
   loadStoryDescriptionProtocol,
 } from "@/lib/ai/agents/skill-loader";
-import { ISSUE_DESCRIPTION_FORMAT_RULES } from "@/lib/ai/issue-description-format";
+import {
+  ISSUE_DESCRIPTION_FORMAT_RULES,
+  validateProposedIssues,
+} from "@/lib/ai/issue-description-format";
 import { getSdkGenerationOptions } from "@/lib/ai/sdk-model";
 import {
   formatForcedDelegatesPrompt,
@@ -86,7 +89,7 @@ export function createInterviewOrchestratorTools(opts: {
 
     proposeStories: tool({
       description:
-        "Propose final Jira epics/stories/bugs when ready. Call consultJira intent=similar first. Every issue needs unique id; Stories/Bugs need epicReference. Each description MUST use the Scrum plain-Persian structure (داستان کاربر / معیارهای پذیرش for Story; مراحل بازتولید for Bug; هدف کلی for Epic) — no markdown or Jira wiki.",
+        "Propose final Jira epics/stories/bugs when ready. Call consultJira intent=similar first. Every issue needs unique id; Stories/Bugs need epicReference. Each description MUST use the Scrum plain-Persian structure (داستان کاربر / معیارهای پذیرش for Story, 2–8 bullets; محیط + مراحل بازتولید for Bug; هدف کلی for Epic) — no markdown or Jira wiki. Invalid descriptions return ok:false; fix them and call again.",
       inputSchema: z.object({
         issues: z.array(proposedIssueSchema).min(1),
         coverage: coverageSchema,
@@ -96,8 +99,12 @@ export function createInterviewOrchestratorTools(opts: {
           .describe("Include duplicate gate: reuse/extend/net-new notes"),
       }),
       execute: async ({ issues, coverage, notes }) => {
+        const sanitized = sanitizeProposedIssues(issues);
+        const errors = validateProposedIssues(sanitized);
+        if (errors.length) return { ok: false as const, errors };
         return {
-          issues: sanitizeProposedIssues(issues),
+          ok: true as const,
+          issues: sanitized,
           coverage,
           notes: notes || "",
         };

@@ -13,7 +13,12 @@ import {
   getSdkLanguageModel,
 } from "@/lib/ai/sdk-model";
 import { serializeKnowledgeCitations } from "@/lib/knowledge/citations";
-import { formatHitsForPrompt, searchKnowledge } from "@/lib/knowledge/search";
+import { planKnowledgeQueries } from "@/lib/knowledge/queries";
+import {
+  formatHitsForPrompt,
+  searchKnowledge,
+  STALE_KNOWLEDGE_PROMPT,
+} from "@/lib/knowledge/search";
 
 export const maxDuration = 120;
 
@@ -59,12 +64,18 @@ export async function POST(request: Request) {
     try {
       const q = lastUserText(messages);
       if (q) {
-        const hits = await searchKnowledge(q, {
+        const queries = await planKnowledgeQueries({
+          userText: q,
+          provider: resolvedProvider,
+        });
+        const outcome = await searchKnowledge(queries.length ? queries : q, {
           k: 6,
           provider: resolvedProvider,
         });
-        knowledgeContext = formatHitsForPrompt(hits);
-        knowledgeCitations = serializeKnowledgeCitations(hits);
+        knowledgeContext = outcome.stale
+          ? STALE_KNOWLEDGE_PROMPT
+          : formatHitsForPrompt(outcome.hits);
+        knowledgeCitations = serializeKnowledgeCitations(outcome.hits);
       }
     } catch {
       knowledgeContext = "(knowledge search unavailable)";

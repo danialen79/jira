@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { parseJiraDueDate } from "@/lib/due-date";
+import { parseScore } from "@/lib/impact-effort";
+import { parseJiraSprintField } from "@/lib/jira-sprint";
 import { parseLensFromLabels } from "@/lib/lens";
 import { getJiraClient, JiraEnvError } from "@/lib/jira";
 
@@ -15,6 +18,8 @@ export async function POST(req: Request) {
     const { jiraUrl, headers, config } = getJiraClient();
     const epicLinkField = config.epicLinkField || "customfield_10014";
     const sprintField = config.sprintFieldId || "customfield_10010";
+    const impactField = config.impactFieldId;
+    const effortField = config.effortFieldId;
     const fieldList = [
       "summary",
       "description",
@@ -28,11 +33,14 @@ export async function POST(req: Request) {
       "parent",
       "created",
       "updated",
+      "duedate",
       "timespent",
       "timeestimate",
       "timeoriginalestimate",
       epicLinkField,
       sprintField,
+      ...(impactField ? [impactField] : []),
+      ...(effortField ? [effortField] : []),
     ].join(",");
 
     const fetchUrl = `${jiraUrl}/rest/api/2/issue/${encodeURIComponent(String(issueKey).trim())}?fields=${encodeURIComponent(fieldList)}`;
@@ -57,26 +65,9 @@ export async function POST(req: Request) {
     const resolvedEpicKey =
       (typeof epicLink === "string" ? epicLink : epicLink?.key) || undefined;
 
-    const sprintRaw = f[sprintField];
-    let selectedSprint: string | undefined;
-    let sprintName: string | undefined;
-    if (typeof sprintRaw === "number") {
-      selectedSprint = String(sprintRaw);
-    } else if (typeof sprintRaw === "string") {
-      const idMatch = sprintRaw.match(/id=(\d+)/);
-      selectedSprint = idMatch?.[1] || undefined;
-      const nameMatch = sprintRaw.match(/name=([^,\]]+)/);
-      sprintName = nameMatch?.[1]?.trim() || undefined;
-    } else if (Array.isArray(sprintRaw) && sprintRaw.length > 0) {
-      const active =
-        sprintRaw.find((s: { state?: string }) => s.state === "active") ||
-        sprintRaw[sprintRaw.length - 1];
-      if (active?.id != null) selectedSprint = String(active.id);
-      if (active?.name) sprintName = String(active.name);
-    } else if (sprintRaw && typeof sprintRaw === "object" && sprintRaw.id) {
-      selectedSprint = String(sprintRaw.id);
-      if (sprintRaw.name) sprintName = String(sprintRaw.name);
-    }
+    const { selectedSprint, sprintName } = parseJiraSprintField(
+      f[sprintField]
+    );
 
     const fixVersions = Array.isArray(f.fixVersions) ? f.fixVersions : [];
     const selectedRelease =
@@ -112,6 +103,9 @@ export async function POST(req: Request) {
         ),
         created: f.created || undefined,
         updated: f.updated || undefined,
+        dueDate: parseJiraDueDate(f.duedate),
+        impact: impactField ? parseScore(f[impactField]) : null,
+        effort: effortField ? parseScore(f[effortField]) : null,
         timespent:
           typeof f.timespent === "number" ? f.timespent : undefined,
         timeestimate:

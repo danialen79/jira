@@ -1,6 +1,9 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { ISSUE_DESCRIPTION_FIELD_HINT } from "@/lib/ai/issue-description-format";
+import {
+  ISSUE_DESCRIPTION_FIELD_HINT,
+  validateProposedIssues,
+} from "@/lib/ai/issue-description-format";
 import { getResolvedTavilyApiKey } from "@/lib/db/repos/ai";
 import { ingestDocument, searchKnowledge } from "@/lib/knowledge/search";
 import { sanitizeJiraText } from "@/lib/jira";
@@ -125,12 +128,13 @@ export function createAgentTools(opts?: {
         k: z.number().int().min(1).max(12).optional(),
       }),
       execute: async ({ query, k }) => {
-        const hits = await searchKnowledge(query, {
+        const outcome = await searchKnowledge(query, {
           k: k ?? 6,
           provider: opts?.provider,
         });
         return {
-          hits: hits.map((h) => ({
+          stale: outcome.stale,
+          hits: outcome.hits.map((h) => ({
             title: h.title,
             source: h.source,
             score: Number(h.score.toFixed(4)),
@@ -225,8 +229,12 @@ export function createAgentTools(opts?: {
         notes: z.string().optional(),
       }),
       execute: async ({ issues, coverage, notes }) => {
+        const sanitized = sanitizeProposedIssues(issues);
+        const errors = validateProposedIssues(sanitized);
+        if (errors.length) return { ok: false as const, errors };
         return {
-          issues: sanitizeProposedIssues(issues),
+          ok: true as const,
+          issues: sanitized,
           coverage,
           notes: notes || "",
         };

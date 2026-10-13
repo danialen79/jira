@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { parseJiraDueDate } from "@/lib/due-date";
 import { getJiraClient, JiraEnvError } from "@/lib/jira";
 import { parseLensFromLabels } from "@/lib/lens";
 import { sortIssuesForRoadmap } from "@/lib/roadmap";
@@ -14,6 +15,7 @@ const ISSUE_FIELDS = [
   "labels",
   "parent",
   "epic",
+  "duedate",
 ] as const;
 
 function mapRawIssue(issue: any, epicLinkField: string): VersionIssue {
@@ -46,6 +48,7 @@ function mapRawIssue(issue: any, epicLinkField: string): VersionIssue {
     epicKey,
     parentKey,
     inVersion: false,
+    dueDate: parseJiraDueDate(fields.duedate),
   };
 }
 

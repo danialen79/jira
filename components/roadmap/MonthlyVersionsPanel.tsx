@@ -5,12 +5,23 @@ import { CalendarIcon, Layers } from "lucide-react";
 import type { JiraVersion, VersionIssue, VersionProgressSummary } from "@/lib/types";
 import { isSameJalaliMonth } from "@/lib/jalali";
 import {
+  buildMonthlyRoadmapPdfHtml,
+  faDigits,
+  monthPdfFileTitle,
+  monthPdfIssues,
+  monthPdfPeriodTitle,
+  printHtmlDocument,
+  type MonthPdfVersion,
+} from "@/lib/roadmap-month-pdf";
+import {
   computeVersionProgress,
   countVersionLenses,
   dedupeVersionIssuesByKey,
   flattenVersionIssues,
+  formatRoadmapDate,
   formatVersionProductLabel,
   getVersionStatusLabel,
+  parseProductVersionParts,
   toDateOnly,
 } from "@/lib/roadmap";
 import { Badge } from "@/components/ui/badge";
@@ -27,11 +38,17 @@ import VersionIssueTree from "@/components/roadmap/VersionIssueTree";
 import VersionMetaChips from "@/components/roadmap/VersionMetaChips";
 import VersionStatsCharts from "@/components/roadmap/VersionStatsCharts";
 
+export type MonthPdfExportState = {
+  ready: boolean;
+  exportPdf: () => void;
+};
+
 type Props = {
   versions: JiraVersion[];
   monthAnchor: Date;
   jiraUrl: string;
   onOpenVersion: (v: JiraVersion) => void;
+  onPdfState?: (state: MonthPdfExportState | null) => void;
 };
 
 type VersionBundle =
@@ -96,11 +113,47 @@ function boundaryKind(
   return null;
 }
 
+function toPdfVersion(
+  version: JiraVersion,
+  monthAnchor: Date,
+  bundle: VersionBundle | undefined
+): MonthPdfVersion {
+  const parts = parseProductVersionParts(version.name);
+  const loaded = bundle?.state === "ok" ? bundle : null;
+  const tree = loaded?.tree ?? [];
+  const shown = tree.reduce(
+    (n, issue) => n + 1 + (issue.children?.length || 0),
+    0
+  );
+  return {
+    title: formatVersionProductLabel(version.name),
+    status: getVersionStatusLabel(version),
+    boundary: boundaryKind(version, monthAnchor),
+    startLabel: faDigits(formatRoadmapDate(version.startDate)),
+    releaseLabel: faDigits(formatRoadmapDate(version.releaseDate)),
+    product: parts.product,
+    version: parts.version || "—",
+    progress: loaded?.progress
+      ? {
+          todo: loaded.progress.todo,
+          inProgress: loaded.progress.inProgress,
+          done: loaded.progress.done,
+          canceled: loaded.progress.canceled,
+        }
+      : null,
+    issues: monthPdfIssues(tree),
+    loadError: bundle?.state === "error",
+    truncated:
+      loaded && loaded.total > shown ? { shown, total: loaded.total } : null,
+  };
+}
+
 export default function MonthlyVersionsPanel({
   versions,
   monthAnchor,
   jiraUrl,
   onOpenVersion,
+  onPdfState,
 }: Props) {
   const [bundles, setBundles] = useState<Record<string, VersionBundle>>({});
 
@@ -178,6 +231,28 @@ export default function MonthlyVersionsPanel({
       lensCounts: countVersionLenses(flat),
     };
   }, [versions, bundles, aggregateLoading]);
+
+  const exportPdf = useCallback(() => {
+    const fileTitle = monthPdfFileTitle(monthAnchor);
+    const html = buildMonthlyRoadmapPdfHtml({
+      periodTitle: monthPdfPeriodTitle(monthAnchor),
+      fileTitle,
+      fontHref: `${window.location.origin}/fonts/IRANYekanXVF.woff2`,
+      versionCount: versions.length,
+      versions: versions.map((version) =>
+        toPdfVersion(version, monthAnchor, bundles[version.id])
+      ),
+    });
+    printHtmlDocument(html, fileTitle);
+  }, [bundles, monthAnchor, versions]);
+
+  useEffect(() => {
+    onPdfState?.({ ready: !aggregateLoading && versions.length > 0, exportPdf });
+  }, [aggregateLoading, exportPdf, onPdfState, versions.length]);
+
+  useEffect(() => {
+    return () => onPdfState?.(null);
+  }, [onPdfState]);
 
   if (versions.length === 0) {
     return (

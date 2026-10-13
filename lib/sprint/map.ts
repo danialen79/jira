@@ -1,3 +1,4 @@
+import { parseJiraDueDate } from "@/lib/due-date";
 import type { JiraSprint, SprintIssue } from "@/lib/types";
 
 export function mapAgileSprint(
@@ -50,6 +51,7 @@ export function mapSprintIssue(issue: Record<string, unknown>): SprintIssue {
     parentKey,
     parentSummary,
     isSubtask,
+    dueDate: parseJiraDueDate(fields.duedate),
   };
 }
 
@@ -169,7 +171,7 @@ export async function fetchAllSprintIssues(
   const maxResults = 50;
 
   for (;;) {
-    const url = `${jiraUrl}/rest/agile/1.0/board/${boardId}/sprint/${sprintId}/issue?startAt=${startAt}&maxResults=${maxResults}&fields=summary,status,issuetype,priority,assignee,timeoriginalestimate,timeestimate,timespent,parent`;
+    const url = `${jiraUrl}/rest/agile/1.0/board/${boardId}/sprint/${sprintId}/issue?startAt=${startAt}&maxResults=${maxResults}&fields=summary,status,issuetype,priority,assignee,timeoriginalestimate,timeestimate,timespent,parent,duedate`;
     const res = await fetch(url, { method: "GET", headers });
     if (!res.ok) {
       const text = await res.text();

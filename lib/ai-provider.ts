@@ -1,6 +1,8 @@
 import OpenAI from "openai";
 import {
   aiWorklogResponseSchema,
+  subtaskBulkPlanResponseSchema,
+  storyBulkPlanResponseSchema,
   buildRefineModelQueue,
   buildRefineSingleModelQueue,
   getGeminiClient,
@@ -22,6 +24,8 @@ export type AIResponseKind =
   | "refineIssues"
   | "refineSingle"
   | "aiWorklogPlan"
+  | "subtaskBulkPlan"
+  | "storyBulkPlan"
   | "mattermostRefine";
 
 function normalizeProvider(provider?: string): AIProvider {
@@ -154,6 +158,31 @@ function getOpenAIJsonGuidance(kind: AIResponseKind): string {
     }
   ]
 }`;
+    case "subtaskBulkPlan":
+      return `Return ONLY a valid JSON object with this shape:
+{
+  "items": [
+    {
+      "summary": "string",
+      "description": "string",
+      "suggestedAssignee": "string",
+      "duplicateOfExistingKey": "string"
+    }
+  ]
+}`;
+    case "storyBulkPlan":
+      return `Return ONLY a valid JSON object with this shape:
+{
+  "items": [
+    {
+      "summary": "string",
+      "description": "string",
+      "suggestedAssignee": "string",
+      "selectedLens": "strategy" | "vision" | "customer" | "business" | "",
+      "duplicateOfExistingKey": "string"
+    }
+  ]
+}`;
     case "mattermostRefine":
       return `Return ONLY a valid JSON object with this shape:
 {
@@ -237,7 +266,11 @@ async function generateWithGemini(params: {
         ? refineSingleResponseSchema
         : params.kind === "aiWorklogPlan"
           ? aiWorklogResponseSchema
-          : mattermostRefineResponseSchema;
+          : params.kind === "subtaskBulkPlan"
+            ? subtaskBulkPlanResponseSchema
+            : params.kind === "storyBulkPlan"
+              ? storyBulkPlanResponseSchema
+              : mattermostRefineResponseSchema;
 
   const config: Record<string, unknown> = {
     systemInstruction: params.systemInstruction,

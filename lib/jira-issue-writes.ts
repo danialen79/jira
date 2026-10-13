@@ -1,3 +1,9 @@
+import {
+  normalizeScoreWrite,
+  ownsImpactEffort,
+  parseScore,
+  toSelectFieldValue,
+} from "@/lib/impact-effort";
 import { applyLensToLabels, isIssueLens, isStoryLens, type IssueLens } from "@/lib/lens";
 import {
   fixVersionValidationError,
@@ -146,6 +152,129 @@ export async function writeIssueAssignee(
   const put = await putIssueFields(client, issueKey, fields);
   if (!put.ok) return { ok: false, error: put.error };
   return { ok: true };
+}
+
+/** Set or clear system `duedate` (`YYYY-MM-DD` or null). */
+export async function writeIssueDueDate(
+  client: JiraWriteClient,
+  issueKey: string,
+  dueDate: string | null
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const put = await putIssueFields(client, issueKey, { duedate: dueDate });
+  if (!put.ok) return { ok: false, error: put.error };
+  return { ok: true };
+}
+
+/**
+ * Set or clear Impact / Effort Select fields (options "1"…"10") on Fix Version owners.
+ * Pass `undefined` for a key to leave it unchanged; `null` clears.
+ */
+export async function writeIssueImpactEffort(
+  client: JiraWriteClient,
+  issueKey: string,
+  opts: {
+    impactFieldId: string;
+    effortFieldId: string;
+    epicLinkField: string;
+    impact?: number | null;
+    effort?: number | null;
+  }
+): Promise<
+  | { ok: true; impact: number | null; effort: number | null }
+  | { ok: false; error: string }
+> {
+  const impactField = opts.impactFieldId.trim();
+  const effortField = opts.effortFieldId.trim();
+  if (!impactField || !effortField) {
+    return {
+      ok: false,
+      error: "JIRA_IMPACT_FIELD and JIRA_EFFORT_FIELD must be configured.",
+    };
+  }
+
+  const hasImpact = opts.impact !== undefined;
+  const hasEffort = opts.effort !== undefined;
+  if (!hasImpact && !hasEffort) {
+    return { ok: false, error: "Provide impact and/or effort." };
+  }
+
+  let nextImpact: number | null | undefined = opts.impact;
+  let nextEffort: number | null | undefined = opts.effort;
+
+  if (hasImpact) {
+    const n = normalizeScoreWrite(opts.impact);
+    if (!n.ok) return { ok: false, error: `Impact: ${n.error}` };
+    nextImpact = n.value;
+  }
+  if (hasEffort) {
+    const n = normalizeScoreWrite(opts.effort);
+    if (!n.ok) return { ok: false, error: `Effort: ${n.error}` };
+    nextEffort = n.value;
+  }
+
+  const loaded = await getIssueFields(client, issueKey, [
+    "issuetype",
+    "parent",
+    "epic",
+    opts.epicLinkField,
+    impactField,
+    effortField,
+  ]);
+  if (!loaded.ok) {
+    return { ok: false, error: loaded.error };
+  }
+
+  const issuetype = String(loaded.fields.issuetype?.name || "");
+  const epicKey = resolveEpicKeyFromFields(
+    loaded.fields,
+    opts.epicLinkField
+  );
+  if (!ownsImpactEffort(issuetype, Boolean(epicKey))) {
+    return {
+      ok: false,
+      error: "Impact/Effort apply only to epics and orphan stories/bugs.",
+    };
+  }
+
+  // Jira Select custom fields require { value: "N" }, not a bare number.
+  const fields: Record<string, unknown> = {};
+  if (hasImpact) fields[impactField] = toSelectFieldValue(nextImpact ?? null);
+  if (hasEffort) fields[effortField] = toSelectFieldValue(nextEffort ?? null);
+
+  const put = await putIssueFields(client, issueKey, fields);
+  if (!put.ok) return { ok: false, error: put.error };
+
+  const currentImpact = hasImpact
+    ? (nextImpact as number | null)
+    : parseScore(loaded.fields[impactField]);
+  const currentEffort = hasEffort
+    ? (nextEffort as number | null)
+    : parseScore(loaded.fields[effortField]);
+
+  return { ok: true, impact: currentImpact, effort: currentEffort };
+}
+
+/** Update summary; for Epic also syncs epic-name custom field. */
+export async function writeIssueSummary(
+  client: JiraWriteClient,
+  issueKey: string,
+  summary: string,
+  opts?: { issuetype?: string; epicNameField?: string }
+): Promise<{ ok: true; summary: string } | { ok: false; error: string }> {
+  const trimmed = summary.trim();
+  if (!trimmed) {
+    return { ok: false, error: "Summary is required." };
+  }
+  const fields: Record<string, unknown> = { summary: trimmed };
+  if (
+    (opts?.issuetype || "").toLowerCase() === "epic" &&
+    opts?.epicNameField
+  ) {
+    fields[opts.epicNameField] = trimmed;
+  }
+  const put = await putIssueFields(client, issueKey, fields);
+  if (!put.ok) return { ok: false, error: put.error };
+  return { ok: true, summary: trimmed };
 }
 
 export async function writeIssueFixVersion(

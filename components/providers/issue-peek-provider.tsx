@@ -45,6 +45,14 @@ type IssuePeekContextValue = {
   patchIssue: (patch: Partial<PeekIssue>) => void;
   rewriteOpen: boolean;
   setRewriteOpen: (open: boolean) => void;
+  subtaskBulkOpen: boolean;
+  setSubtaskBulkOpen: (open: boolean) => void;
+  subtasksRefreshToken: number;
+  bumpSubtasks: () => void;
+  storyBulkOpen: boolean;
+  setStoryBulkOpen: (open: boolean) => void;
+  epicChildrenRefreshToken: number;
+  bumpEpicChildren: () => void;
 };
 
 const IssuePeekContext = createContext<IssuePeekContextValue | null>(null);
@@ -113,7 +121,19 @@ export function IssuePeekProvider({ children }: { children: React.ReactNode }) {
   const [navStack, setNavStack] = useState<string[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [rewriteOpen, setRewriteOpen] = useState(false);
+  const [subtaskBulkOpen, setSubtaskBulkOpen] = useState(false);
+  const [subtasksRefreshToken, setSubtasksRefreshToken] = useState(0);
+  const [storyBulkOpen, setStoryBulkOpen] = useState(false);
+  const [epicChildrenRefreshToken, setEpicChildrenRefreshToken] = useState(0);
   const loadGen = useRef(0);
+
+  const bumpSubtasks = useCallback(() => {
+    setSubtasksRefreshToken((n) => n + 1);
+  }, []);
+
+  const bumpEpicChildren = useCallback(() => {
+    setEpicChildrenRefreshToken((n) => n + 1);
+  }, []);
   const urlSyncSkip = useRef(false);
 
   useEffect(() => {
@@ -253,7 +273,7 @@ export function IssuePeekProvider({ children }: { children: React.ReactNode }) {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       if (collapsed) return;
-      if (rewriteOpen) return;
+      if (rewriteOpen || subtaskBulkOpen || storyBulkOpen) return;
       if (isTypingTarget(e.target)) return;
       if (isEscBlocked()) return;
       e.preventDefault();
@@ -261,7 +281,7 @@ export function IssuePeekProvider({ children }: { children: React.ReactNode }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [collapsed, rewriteOpen, setCollapsed]);
+  }, [collapsed, rewriteOpen, subtaskBulkOpen, storyBulkOpen, setCollapsed]);
 
   // Alt+← pops nav stack (browser-like), regardless of UI dir.
   useEffect(() => {
@@ -301,6 +321,14 @@ export function IssuePeekProvider({ children }: { children: React.ReactNode }) {
       patchIssue,
       rewriteOpen,
       setRewriteOpen,
+      subtaskBulkOpen,
+      setSubtaskBulkOpen,
+      subtasksRefreshToken,
+      bumpSubtasks,
+      storyBulkOpen,
+      setStoryBulkOpen,
+      epicChildrenRefreshToken,
+      bumpEpicChildren,
     }),
     [
       issueKey,
@@ -318,6 +346,12 @@ export function IssuePeekProvider({ children }: { children: React.ReactNode }) {
       refresh,
       patchIssue,
       rewriteOpen,
+      subtaskBulkOpen,
+      subtasksRefreshToken,
+      bumpSubtasks,
+      storyBulkOpen,
+      epicChildrenRefreshToken,
+      bumpEpicChildren,
     ]
   );
 

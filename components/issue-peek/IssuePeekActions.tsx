@@ -7,6 +7,7 @@ import {
   ExternalLinkIcon,
   FlagIcon,
   LinkIcon,
+  ListPlusIcon,
   MoreHorizontalIcon,
   RefreshCwIcon,
   SparklesIcon,
@@ -14,6 +15,7 @@ import {
   UserIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import JalaliDateInput from "@/components/JalaliDateInput";
 import SearchableSelect from "@/components/SearchableSelect";
 import { useIssuePeek } from "@/components/providers/issue-peek-provider";
 import { useJiraApp } from "@/components/providers/jira-app-provider";
@@ -42,14 +44,24 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { jiraBrowseUrl } from "@/lib/jira-browse";
+import { scoreSelectItems } from "@/lib/impact-effort";
 import { selectableFixVersions } from "@/lib/fix-version-policy";
 import {
+  peekCanBulkStories,
+  peekCanHaveSubtasks,
   peekCanSetEpicLink,
   peekCanSetFixVersion,
+  peekCanSetImpactEffort,
   peekCanSetSprint,
   type PeekIssue,
 } from "@/lib/issue-peek";
 import { cn } from "@/lib/utils";
+
+const SCORE_NONE = "__none__";
+const SCORE_ITEMS = [
+  { value: SCORE_NONE, label: "—" },
+  ...scoreSelectItems(),
+];
 
 const t = {
   assign: "اختصاص",
@@ -62,15 +74,22 @@ const t = {
   copyKey: "کپی کلید",
   refresh: "تازه‌سازی",
   rewrite: "بازنویسی با AI",
+  subtasksBulk: "ساب‌تسک گروهی",
+  storiesBulk: "استوری گروهی",
   more: "بیشتر",
   version: "ورژن",
   sprint: "اسپرینت",
   epic: "اپیک",
+  due: "سررسید",
+  impact: "Impact",
+  effort: "Effort",
   status: "وضعیت",
   backlog: "بک‌لاگ",
   pickVersion: "ورژن",
   pickSprint: "اسپرینت",
   pickEpic: "اپیک",
+  pickDue: "تاریخ سررسید…",
+  pickScore: "—",
   noneVersion: "بدون ورژن",
   noEpic: "بدون اپیک",
   transitionOk: "وضعیت به‌روز شد.",
@@ -79,6 +98,9 @@ const t = {
   versionOk: "ورژن به‌روز شد.",
   sprintOk: "اسپرینت به‌روز شد.",
   epicOk: "لینک اپیک به‌روز شد.",
+  dueOk: "سررسید به‌روز شد.",
+  impactOk: "Impact به‌روز شد.",
+  effortOk: "Effort به‌روز شد.",
   copied: "کپی شد.",
   failed: "عملیات ناموفق.",
 } as const;
@@ -91,6 +113,7 @@ type Props = {
 export function IssuePeekActions({ issue, className }: Props) {
   const {
     jiraUrl,
+    config,
     jiraUsers,
     fetchJiraUsers,
     fetchingUsers,
@@ -102,11 +125,22 @@ export function IssuePeekActions({ issue, className }: Props) {
     fetchExistingEpics,
     fetchingEpics,
   } = useJiraApp();
-  const { refresh, patchIssue, setRewriteOpen } = useIssuePeek();
+  const {
+    refresh,
+    patchIssue,
+    setRewriteOpen,
+    setSubtaskBulkOpen,
+    setStoryBulkOpen,
+  } = useIssuePeek();
 
   const canVersion = peekCanSetFixVersion(issue);
   const canSprint = peekCanSetSprint(issue.issuetype);
   const canEpic = peekCanSetEpicLink(issue.issuetype);
+  const canScores =
+    peekCanSetImpactEffort(issue) &&
+    Boolean(config.impactFieldId && config.effortFieldId);
+  const canBulkSubtasks = peekCanHaveSubtasks(issue.issuetype);
+  const canBulkStories = peekCanBulkStories(issue.issuetype);
 
   const [statuses, setStatuses] = useState<string[]>([]);
   const [busyStatus, setBusyStatus] = useState<string | null>(null);
@@ -122,6 +156,9 @@ export function IssuePeekActions({ issue, className }: Props) {
   const [settingVersion, setSettingVersion] = useState(false);
   const [settingSprint, setSettingSprint] = useState(false);
   const [settingEpic, setSettingEpic] = useState(false);
+  const [settingDue, setSettingDue] = useState(false);
+  const [settingImpact, setSettingImpact] = useState(false);
+  const [settingEffort, setSettingEffort] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -398,6 +435,77 @@ export function IssuePeekActions({ issue, className }: Props) {
     }
   };
 
+  const setDueDate = async (iso: string) => {
+    const next = iso.trim() || null;
+    const prev = issue.dueDate || null;
+    if (next === prev) return;
+    setSettingDue(true);
+    try {
+      const res = await fetch("/api/jira/issues/due-date", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          issueKey: issue.key,
+          dueDate: next,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) {
+        throw new Error(data.error || t.failed);
+      }
+      patchIssue({ dueDate: next || undefined });
+      toast.success(t.dueOk);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t.failed);
+    } finally {
+      setSettingDue(false);
+    }
+  };
+
+  const setScore = async (field: "impact" | "effort", raw: string | null) => {
+    if (!canScores) return;
+    const next =
+      raw == null || raw === "" || raw === SCORE_NONE
+        ? null
+        : Number(raw);
+    const prev = field === "impact" ? issue.impact ?? null : issue.effort ?? null;
+    if (next === prev) return;
+    if (next != null && (!Number.isInteger(next) || next < 1 || next > 10)) {
+      return;
+    }
+    const setBusy = field === "impact" ? setSettingImpact : setSettingEffort;
+    setBusy(true);
+    const optimistic =
+      field === "impact" ? { impact: next } : { effort: next };
+    patchIssue(optimistic);
+    try {
+      const res = await fetch("/api/jira/issues/impact-effort", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          issueKey: issue.key,
+          [field]: next,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) {
+        throw new Error(data.error || t.failed);
+      }
+      patchIssue({
+        impact: data.impact ?? null,
+        effort: data.effort ?? null,
+      });
+      toast.success(field === "impact" ? t.impactOk : t.effortOk);
+    } catch (e) {
+      patchIssue(
+        field === "impact" ? { impact: prev } : { effort: prev }
+      );
+      toast.error(e instanceof Error ? e.message : t.failed);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const submitLog = async () => {
     if (!timeSpent.trim()) return;
     setLogging(true);
@@ -524,6 +632,83 @@ export function IssuePeekActions({ issue, className }: Props) {
           </Popover>
         </div>
       ) : null}
+
+      <div className="grid grid-cols-[4.5rem_1fr] items-center gap-2">
+        <span className="text-muted-foreground">{t.due}</span>
+        <JalaliDateInput
+          value={issue.dueDate || ""}
+          onChange={(v) => void setDueDate(v)}
+          disabled={settingDue}
+          allowEmpty
+          placeholder={t.pickDue}
+          className="h-7 px-1.5 text-xs"
+        />
+      </div>
+
+      {canScores ? (
+        <>
+          <div className="grid grid-cols-[4.5rem_1fr] items-center gap-2">
+            <span className="text-muted-foreground">{t.impact}</span>
+            <Select
+              items={SCORE_ITEMS}
+              value={
+                issue.impact != null ? String(issue.impact) : SCORE_NONE
+              }
+              onValueChange={(v) => {
+                if (v != null) void setScore("impact", String(v));
+              }}
+              disabled={settingImpact}
+            >
+              <SelectTrigger
+                size="sm"
+                className="h-7 tabular-nums"
+                aria-label={t.impact}
+              >
+                <SelectValue placeholder={t.pickScore} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {SCORE_ITEMS.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-[4.5rem_1fr] items-center gap-2">
+            <span className="text-muted-foreground">{t.effort}</span>
+            <Select
+              items={SCORE_ITEMS}
+              value={
+                issue.effort != null ? String(issue.effort) : SCORE_NONE
+              }
+              onValueChange={(v) => {
+                if (v != null) void setScore("effort", String(v));
+              }}
+              disabled={settingEffort}
+            >
+              <SelectTrigger
+                size="sm"
+                className="h-7 tabular-nums"
+                aria-label={t.effort}
+              >
+                <SelectValue placeholder={t.pickScore} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {SCORE_ITEMS.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 
@@ -579,6 +764,30 @@ export function IssuePeekActions({ issue, className }: Props) {
             )}
           </PopoverContent>
         </Popover>
+
+        {canBulkSubtasks ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setSubtaskBulkOpen(true)}
+          >
+            <ListPlusIcon data-icon="inline-start" />
+            {t.subtasksBulk}
+          </Button>
+        ) : null}
+
+        {canBulkStories ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setStoryBulkOpen(true)}
+          >
+            <ListPlusIcon data-icon="inline-start" />
+            {t.storiesBulk}
+          </Button>
+        ) : null}
 
         <Popover open={logOpen} onOpenChange={setLogOpen}>
           <PopoverTrigger

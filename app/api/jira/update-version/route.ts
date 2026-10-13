@@ -5,10 +5,13 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 type VersionUpdateBody = {
   versionId?: string;
+  name?: string;
   startDate?: string | null;
   releaseDate?: string | null;
   released?: boolean;
 };
+
+const NAME_MAX = 255;
 
 function normalizeDate(
   value: unknown
@@ -34,6 +37,29 @@ export async function POST(req: Request) {
     }
 
     const updateData: Record<string, string | boolean | null> = {};
+
+    if ("name" in body) {
+      if (typeof body.name !== "string") {
+        return NextResponse.json(
+          { error: "name must be a string." },
+          { status: 400 }
+        );
+      }
+      const name = body.name.trim();
+      if (!name) {
+        return NextResponse.json(
+          { error: "name cannot be empty." },
+          { status: 400 }
+        );
+      }
+      if (name.length > NAME_MAX) {
+        return NextResponse.json(
+          { error: `name must be at most ${NAME_MAX} characters.` },
+          { status: 400 }
+        );
+      }
+      updateData.name = name;
+    }
 
     if ("startDate" in body) {
       const startDate = normalizeDate(body.startDate);

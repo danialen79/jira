@@ -2,6 +2,7 @@
 
 import { AlertTriangleIcon } from "lucide-react";
 import { IssuePeekDescription } from "@/components/issue-peek/IssuePeekDescription";
+import { IssuePeekSubtaskList } from "@/components/issue-peek/IssuePeekSubtaskList";
 import { useIssuePeek } from "@/components/providers/issue-peek-provider";
 import type { PeekIssue } from "@/lib/issue-peek";
 
@@ -58,6 +59,7 @@ export function BugLayout({ issue }: Props) {
       )}
 
       <IssuePeekDescription issue={issue} label={t.repro} />
+      <IssuePeekSubtaskList parentKey={issue.key} />
     </div>
   );
 }

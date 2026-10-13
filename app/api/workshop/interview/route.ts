@@ -21,9 +21,11 @@ import {
   type InterviewMessage,
 } from "@/lib/db/repos/knowledge";
 import { serializeKnowledgeCitations } from "@/lib/knowledge/citations";
+import { planKnowledgeQueries } from "@/lib/knowledge/queries";
 import {
   formatHitsForPrompt,
   searchKnowledge,
+  STALE_KNOWLEDGE_PROMPT,
   type KnowledgeHit,
 } from "@/lib/knowledge/search";
 import {
@@ -162,13 +164,22 @@ export async function POST(request: Request) {
     let knowledgeContext = "";
     let ragHits: KnowledgeHit[] = [];
     try {
-      const seed = [session.draftText, userText].filter(Boolean).join("\n");
-      if (seed.trim()) {
-        ragHits = await searchKnowledge(seed, {
+      const queries = await planKnowledgeQueries({
+        draft: session.draftText,
+        userText,
+        provider,
+      });
+      if (queries.length) {
+        const outcome = await searchKnowledge(queries, {
           k: 5,
           provider,
         });
-        knowledgeContext = formatHitsForPrompt(ragHits);
+        if (outcome.stale) {
+          knowledgeContext = STALE_KNOWLEDGE_PROMPT;
+        } else {
+          ragHits = outcome.hits;
+          knowledgeContext = formatHitsForPrompt(ragHits);
+        }
       }
     } catch {
       knowledgeContext = "(knowledge search unavailable)";
@@ -254,7 +265,12 @@ export async function POST(request: Request) {
             if (name === "updateCoverage" && out?.coverage) {
               coverage = out.coverage;
             }
-            if (name === "proposeStories" && out?.issues) {
+            if (
+              name === "proposeStories" &&
+              out?.ok !== false &&
+              Array.isArray(out?.issues) &&
+              out.issues.length
+            ) {
               output = out;
               status = "ready";
               if (out.coverage) coverage = out.coverage;

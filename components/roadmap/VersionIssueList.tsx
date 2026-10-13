@@ -8,6 +8,7 @@ import { jiraBrowseUrl, normalizeJiraBase } from "@/lib/jira-browse";
 import { lensDisplayLabel } from "@/lib/lens";
 import { cn } from "@/lib/utils";
 import {
+  appendDueDateMeta,
   IssueCard,
   IssueCardFooter,
   IssueCardHeader,
@@ -26,7 +27,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 type Props = {
   issues: VersionIssue[];
   total?: number;
-  jiraUrl: string;  compact?: boolean;
+  jiraUrl: string;
+  compact?: boolean;
   className?: string;
 };
 
@@ -40,9 +42,11 @@ const t = {
 export default function VersionIssueList({
   issues,
   total,
-  jiraUrl,  compact = false,
+  jiraUrl,
+  compact = false,
   className,
-}: Props) {  const base = normalizeJiraBase(jiraUrl);
+}: Props) {
+  const base = normalizeJiraBase(jiraUrl);
   const shownTotal = total ?? issues.length;
   const density = compact ? "compact" : "comfortable";
 
@@ -108,13 +112,16 @@ export default function VersionIssueList({
                 />
                 {!compact ? (
                   <IssueCardFooter
-                    meta={[
-                      {
-                        icon: User,
-                        label: issue.assigneeDisplayName || t.unassigned,
-                        key: "assignee",
-                      },
-                    ]}
+                    meta={appendDueDateMeta(
+                      [
+                        {
+                          icon: User,
+                          label: issue.assigneeDisplayName || t.unassigned,
+                          key: "assignee",
+                        },
+                      ],
+                      issue
+                    )}
                   />
                 ) : null}
               </IssueCard>

@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { parseJiraDueDate } from "@/lib/due-date";
+import { parseScore } from "@/lib/impact-effort";
 import { getJiraClient, JiraEnvError } from "@/lib/jira";
 import { parseLensFromLabels } from "@/lib/lens";
 import {
@@ -17,6 +19,7 @@ const ISSUE_FIELDS = [
   "labels",
   "parent",
   "epic",
+  "duedate",
 ] as const;
 
 function isEpicType(name: string): boolean {
@@ -26,7 +29,9 @@ function isEpicType(name: string): boolean {
 function mapRawIssue(
   issue: any,
   epicLinkField: string,
-  inVersion: boolean
+  inVersion: boolean,
+  impactField?: string,
+  effortField?: string
 ): VersionIssue {
   const fields = issue.fields || {};
   const epicLink = fields[epicLinkField];
@@ -57,6 +62,9 @@ function mapRawIssue(
     epicKey,
     parentKey,
     inVersion,
+    dueDate: parseJiraDueDate(fields.duedate),
+    impact: impactField ? parseScore(fields[impactField]) : null,
+    effort: effortField ? parseScore(fields[effortField]) : null,
   };
 }
 
@@ -101,8 +109,11 @@ async function fetchEpicChildren(opts: {
   epicKeys: string[];
   epicLinkField: string;
   fields: string[];
+  impactField?: string;
+  effortField?: string;
 }): Promise<VersionIssue[]> {
-  const { epicKeys, epicLinkField, projectKey } = opts;
+  const { epicKeys, epicLinkField, projectKey, impactField, effortField } =
+    opts;
   if (epicKeys.length === 0) return [];
 
   const children: VersionIssue[] = [];
@@ -135,7 +146,9 @@ async function fetchEpicChildren(opts: {
           maxResults: 200,
         });
         for (const raw of issues) {
-          children.push(mapRawIssue(raw, epicLinkField, false));
+          children.push(
+            mapRawIssue(raw, epicLinkField, false, impactField, effortField)
+          );
         }
         loaded = true;
         break;
@@ -230,7 +243,14 @@ export async function GET(req: Request) {
 
     const { jiraUrl, headers, projectKey, config } = getJiraClient();
     const epicLinkField = config.epicLinkField || "customfield_10014";
-    const fields = [...ISSUE_FIELDS, epicLinkField];
+    const impactField = config.impactFieldId;
+    const effortField = config.effortFieldId;
+    const fields = [
+      ...ISSUE_FIELDS,
+      epicLinkField,
+      ...(impactField ? [impactField] : []),
+      ...(effortField ? [effortField] : []),
+    ];
 
     const fixClause = versionId
       ? `fixVersion = ${versionId}`
@@ -247,7 +267,9 @@ export async function GET(req: Request) {
     });
 
     const versionIssues = sortIssuesForRoadmap(
-      rawVersionIssues.map((issue) => mapRawIssue(issue, epicLinkField, true))
+      rawVersionIssues.map((issue) =>
+        mapRawIssue(issue, epicLinkField, true, impactField, effortField)
+      )
     );
 
     const epicKeys = versionIssues
@@ -261,6 +283,8 @@ export async function GET(req: Request) {
       epicKeys,
       epicLinkField,
       fields,
+      impactField,
+      effortField,
     });
 
     const tree = buildIssueTree(

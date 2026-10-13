@@ -36,6 +36,7 @@ const appTranslations = {
   tabMattermost: "مترموست",
   tabEpicSync: "همگام‌سازی اپیک",
   tabRoadmap: "رودمپ",
+  tabMatrix: "ماتریس",
   tabProducts: "پروداکت‌ها",
   tabKnowledge: "دانش",
   tabResearch: "Research",

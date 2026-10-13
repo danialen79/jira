@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test lib/knowledge/normalize.test.ts lib/knowledge/rrf.test.ts lib/knowledge/chunk.test.ts lib/knowledge/query-heuristic.test.ts lib/ai/issue-description-format.test.ts lib/due-date.test.ts lib/jira-sprint.test.ts lib/subtask-bulk.test.ts lib/roadmap-month-pdf.test.ts lib/story-bulk.test.ts",
     "postinstall": "node scripts/fix-svar-exports.mjs"
   },
   "dependencies": {

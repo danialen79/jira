@@ -29,6 +29,7 @@ export async function GET(req: Request) {
       "labels",
       "fixVersions",
       "parent",
+      "duedate",
       epicLinkField,
     ];
 

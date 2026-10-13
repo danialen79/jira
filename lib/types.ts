@@ -69,6 +69,8 @@ export interface SprintIssue {
   children?: SprintIssue[];
   /** True when this row is a placeholder for a parent not in the sprint. */
   placeholder?: boolean;
+  /** Jira system due date `YYYY-MM-DD`. */
+  dueDate?: string;
 }
 
 export interface JiraVersion {
@@ -102,6 +104,12 @@ export interface VersionIssue {
   /** False when shown as epic child but not on this Fix Version. */
   inVersion?: boolean;
   children?: VersionIssue[];
+  /** Jira system due date `YYYY-MM-DD`. */
+  dueDate?: string;
+  /** Impact custom field 1–10 (owners only). */
+  impact?: number | null;
+  /** Effort custom field 1–10 (owners only). */
+  effort?: number | null;
 }
 
 export interface VersionProgressSummary {
@@ -141,6 +149,10 @@ export interface ConnectionConfig {
   epicNameField: string;
   epicLinkField: string;
   sprintFieldId?: string;
+  /** Jira Number custom field id for Impact (1–10). From JIRA_IMPACT_FIELD. */
+  impactFieldId?: string;
+  /** Jira Number custom field id for Effort (1–10). From JIRA_EFFORT_FIELD. */
+  effortFieldId?: string;
 }
 
 export interface EpicAuditChildIssue {

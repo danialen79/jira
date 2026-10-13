@@ -34,7 +34,7 @@ export const DEFAULT_SUBAGENT_MODELS = {
 
 /** Embedding models per chat provider (same API key / base URL). */
 export const DEFAULT_EMBEDDING_MODELS = {
-  gemini: "text-embedding-004",
+  gemini: "gemini-embedding-001",
   avalai: "text-embedding-3-small",
   arvan: "text-embedding-004",
   omniroute: "text-embedding-3-small",

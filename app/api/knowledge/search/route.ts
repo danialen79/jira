@@ -8,11 +8,11 @@ export async function POST(request: Request) {
     if (!query) {
       return NextResponse.json({ error: "query required" }, { status: 400 });
     }
-    const hits = await searchKnowledge(query, {
+    const outcome = await searchKnowledge(query, {
       k: typeof body?.k === "number" ? body.k : 8,
       provider: body?.provider,
     });
-    return NextResponse.json({ hits });
+    return NextResponse.json({ hits: outcome.hits, stale: outcome.stale });
   } catch (err: any) {
     return NextResponse.json(
       { error: err?.message || "Search failed" },

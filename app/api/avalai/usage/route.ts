@@ -24,6 +24,7 @@ export async function GET(request: Request) {
     const summaryHours = clampInt(searchParams.get("summaryHours"), 24, 1, 24);
     const txHours = clampInt(searchParams.get("txHours"), 24, 1, 720);
     const pageSize = clampInt(searchParams.get("pageSize"), 40, 1, 100);
+    const page = clampInt(searchParams.get("page"), 1, 1, 10000);
     const groupBy = searchParams.get("groupBy") || "model";
 
     const [credit, summary, transactions] = await Promise.all([
@@ -34,7 +35,7 @@ export async function GET(request: Request) {
       }),
       avalaiUserGet<AvalaiTransactionsResponse>("/transactions", {
         hours_ago: txHours,
-        page: 1,
+        page,
         page_size: pageSize,
       }),
     ]);
@@ -46,6 +47,7 @@ export async function GET(request: Request) {
       meta: {
         summaryHours,
         txHours,
+        page,
         pageSize,
         groupBy,
       },

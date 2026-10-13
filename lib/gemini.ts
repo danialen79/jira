@@ -209,6 +209,81 @@ export const aiWorklogResponseSchema = {
   required: ["proposals"],
 };
 
+export const subtaskBulkPlanResponseSchema = {
+  type: Type.OBJECT,
+  properties: {
+    items: {
+      type: Type.ARRAY,
+      description: "Sub-tasks to create under the fixed parent issue.",
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          summary: {
+            type: Type.STRING,
+            description:
+              "Concise sub-task title. No Sub-task / ساب‌تسک prefix.",
+          },
+          description: {
+            type: Type.STRING,
+            description: "Short plain-text context (1–3 lines).",
+          },
+          suggestedAssignee: {
+            type: Type.STRING,
+            description: "Jira username if known, else empty.",
+          },
+          duplicateOfExistingKey: {
+            type: Type.STRING,
+            description:
+              "Existing sub-task key if this duplicates one, else empty.",
+          },
+        },
+        required: ["summary", "description"],
+      },
+    },
+  },
+  required: ["items"],
+};
+
+export const storyBulkPlanResponseSchema = {
+  type: Type.OBJECT,
+  properties: {
+    items: {
+      type: Type.ARRAY,
+      description: "Stories to create under the fixed Epic.",
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          summary: {
+            type: Type.STRING,
+            description: "Concise Story title.",
+          },
+          description: {
+            type: Type.STRING,
+            description:
+              "Full Scrum Story body: داستان کاربر + معیارهای پذیرش (plain text).",
+          },
+          suggestedAssignee: {
+            type: Type.STRING,
+            description: "Jira username if known, else empty.",
+          },
+          selectedLens: {
+            type: Type.STRING,
+            description:
+              "One of strategy, vision, customer, business — or empty.",
+          },
+          duplicateOfExistingKey: {
+            type: Type.STRING,
+            description:
+              "Existing child story key if this duplicates one, else empty.",
+          },
+        },
+        required: ["summary", "description"],
+      },
+    },
+  },
+  required: ["items"],
+};
+
 /** Compact schema used by Mattermost webhook (matches server.ts). */
 export const mattermostRefineResponseSchema = {
   type: Type.OBJECT,

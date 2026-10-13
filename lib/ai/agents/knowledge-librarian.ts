@@ -21,7 +21,7 @@ IMPORTANT: When finished, respond with ONLY a JSON ResearchBrief object (summary
       searchKnowledge: base.searchKnowledge,
       saveToKnowledge: base.saveToKnowledge,
     },
-    stopWhen: stepCountIs(5),
+    stopWhen: stepCountIs(8),
     ...generation,
   });
 }

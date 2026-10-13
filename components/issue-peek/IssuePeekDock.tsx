@@ -12,7 +12,10 @@ import { IssuePeekActions } from "@/components/issue-peek/IssuePeekActions";
 import { IssuePeekBody } from "@/components/issue-peek/IssuePeekBody";
 import { IssuePeekKv } from "@/components/issue-peek/IssuePeekKv";
 import { IssuePeekRewriteDialog } from "@/components/issue-peek/IssuePeekRewriteDialog";
+import { StoryBulkDialog } from "@/components/issue-peek/StoryBulkDialog";
+import { SubtaskBulkDialog } from "@/components/issue-peek/SubtaskBulkDialog";
 import { IssuePeekSearch } from "@/components/issue-peek/IssuePeekSearch";
+import { IssuePeekSummary } from "@/components/issue-peek/IssuePeekSummary";
 import { IssuePeekTrail } from "@/components/issue-peek/IssuePeekTrail";
 import { IssueStatusBadge } from "@/components/IssueStatusBadge";
 import { useIssuePeek } from "@/components/providers/issue-peek-provider";
@@ -62,6 +65,10 @@ export function IssuePeekDock() {
     openIssue,
     rewriteOpen,
     setRewriteOpen,
+    subtaskBulkOpen,
+    setSubtaskBulkOpen,
+    storyBulkOpen,
+    setStoryBulkOpen,
   } = useIssuePeek();
 
   const [dockWidth, setDockWidth] = useState(400);
@@ -247,9 +254,7 @@ export function IssuePeekDock() {
                         statusCategoryKey={issue.statusCategoryKey}
                       />
                     </div>
-                    <h2 className="text-sm font-medium leading-snug text-pretty">
-                      {issue.summary}
-                    </h2>
+                    <IssuePeekSummary issue={issue} />
                   </div>
                   <IssuePeekActions issue={issue} />
                 </div>
@@ -311,11 +316,23 @@ export function IssuePeekDock() {
         </div>
       )}
       {issue ? (
-        <IssuePeekRewriteDialog
-          open={rewriteOpen}
-          onOpenChange={setRewriteOpen}
-          issue={issue}
-        />
+        <>
+          <IssuePeekRewriteDialog
+            open={rewriteOpen}
+            onOpenChange={setRewriteOpen}
+            issue={issue}
+          />
+          <SubtaskBulkDialog
+            open={subtaskBulkOpen}
+            onOpenChange={setSubtaskBulkOpen}
+            issue={issue}
+          />
+          <StoryBulkDialog
+            open={storyBulkOpen}
+            onOpenChange={setStoryBulkOpen}
+            issue={issue}
+          />
+        </>
       ) : null}
     </aside>
   );

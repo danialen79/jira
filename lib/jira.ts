@@ -65,6 +65,8 @@ export function getJiraSupportProjectKey(): string {
 }
 
 export function getJiraEnvConfig(): ConnectionConfig {
+  const impactFieldId = process.env.JIRA_IMPACT_FIELD?.trim() || undefined;
+  const effortFieldId = process.env.JIRA_EFFORT_FIELD?.trim() || undefined;
   return {
     epicNameField:
       process.env.JIRA_EPIC_NAME_FIELD?.trim() || "customfield_10008",
@@ -72,6 +74,8 @@ export function getJiraEnvConfig(): ConnectionConfig {
       process.env.JIRA_EPIC_LINK_FIELD?.trim() || "customfield_10014",
     sprintFieldId:
       process.env.JIRA_SPRINT_FIELD?.trim() || "customfield_10010",
+    ...(impactFieldId ? { impactFieldId } : {}),
+    ...(effortFieldId ? { effortFieldId } : {}),
   };
 }
 

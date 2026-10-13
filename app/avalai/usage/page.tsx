@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { RefreshCw, Settings2, Wallet } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
+  Settings2,
+  Wallet,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +54,7 @@ type UsagePayload = {
   meta: {
     summaryHours: number;
     txHours: number;
+    page: number;
     pageSize: number;
     groupBy: string;
   };
@@ -81,19 +88,47 @@ function formatDate(iso?: string | null): string {
   }).format(d);
 }
 
+const SUMMARY_MAX_HOURS = 24;
+const TX_MAX_HOURS = 720;
+const TX_PAGE_SIZE = 40;
+
+const RANGE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "6", label: "۶س" },
+  { value: "12", label: "۱۲س" },
+  { value: "24", label: "۲۴س" },
+  { value: "168", label: "۷ر" },
+  { value: "720", label: "۳۰ر" },
+];
+
+function formatRangeLabel(hours: number): string {
+  if (hours >= 24 && hours % 24 === 0) {
+    const days = hours / 24;
+    return `${days.toLocaleString("fa-IR")} روز`;
+  }
+  return `${hours.toLocaleString("fa-IR")} ساعت`;
+}
+
 export default function AvalaiUsagePage() {
   const [hours, setHours] = useState("24");
+  const [page, setPage] = useState(1);
   const [data, setData] = useState<UsagePayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const selectedHours = Number.parseInt(hours, 10) || 24;
+  const txHours = Math.min(Math.max(selectedHours, 1), TX_MAX_HOURS);
+  const summaryHours = Math.min(txHours, SUMMARY_MAX_HOURS);
+  const summaryCapped = txHours > SUMMARY_MAX_HOURS;
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const h = Number.parseInt(hours, 10) || 24;
+      const nextTx = Math.min(Math.max(h, 1), TX_MAX_HOURS);
+      const nextSummary = Math.min(nextTx, SUMMARY_MAX_HOURS);
       const res = await fetch(
-        `/api/avalai/usage?summaryHours=${h}&txHours=${h}&pageSize=40&groupBy=model`
+        `/api/avalai/usage?summaryHours=${nextSummary}&txHours=${nextTx}&page=${page}&pageSize=${TX_PAGE_SIZE}&groupBy=model`
       );
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "بارگذاری ناموفق");
@@ -106,7 +141,7 @@ export default function AvalaiUsagePage() {
     } finally {
       setLoading(false);
     }
-  }, [hours]);
+  }, [hours, page]);
 
   useEffect(() => {
     void load();
@@ -118,6 +153,29 @@ export default function AvalaiUsagePage() {
   const byModel = summary?.by_model || [];
   const packages = credit?.credit_sources?.packages || [];
   const grants = credit?.credit_sources?.grants || [];
+  const effectiveTxHours = data?.meta?.txHours ?? txHours;
+  const effectiveSummaryHours = data?.meta?.summaryHours ?? summaryHours;
+  const txTotalRaw = data?.transactions?.total;
+  const txTotal =
+    txTotalRaw === undefined || txTotalRaw === null
+      ? null
+      : Number(txTotalRaw);
+  const txPageSizeRaw = data?.transactions?.page_size;
+  const txPageSize =
+    txPageSizeRaw === undefined || txPageSizeRaw === null
+      ? TX_PAGE_SIZE
+      : Number(txPageSizeRaw) || TX_PAGE_SIZE;
+  const totalPages =
+    txTotal != null && Number.isFinite(txTotal)
+      ? Math.max(1, Math.ceil(txTotal / txPageSize))
+      : null;
+  const apiHasMore = data?.transactions?.has_more;
+  const pageFull = txs.length >= TX_PAGE_SIZE;
+  // Prefer total when present. If AvalAI omits pagination meta, a full page means "try next".
+  const hasNext =
+    (totalPages != null && page < totalPages) ||
+    (totalPages == null && (pageFull || apiHasMore === true));
+  const showPager = txs.length > 0 || page > 1;
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:p-6">
@@ -139,13 +197,16 @@ export default function AvalaiUsagePage() {
             onValueChange={(values) => {
               if (!values.length) return;
               setHours(values[0]);
+              setPage(1);
             }}
             variant="outline"
             size="sm"
           >
-            <ToggleGroupItem value="6">۶س</ToggleGroupItem>
-            <ToggleGroupItem value="12">۱۲س</ToggleGroupItem>
-            <ToggleGroupItem value="24">۲۴س</ToggleGroupItem>
+            {RANGE_OPTIONS.map((opt) => (
+              <ToggleGroupItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </ToggleGroupItem>
+            ))}
           </ToggleGroup>
           <Button
             type="button"
@@ -227,7 +288,10 @@ export default function AvalaiUsagePage() {
 
             <Card>
               <CardHeader className="pb-2">
-                <CardDescription>هزینه بازه ({hours}س)</CardDescription>
+                <CardDescription>
+                  هزینه خلاصه ({formatRangeLabel(effectiveSummaryHours)})
+                  {summaryCapped ? " · سقف API" : ""}
+                </CardDescription>
                 <CardTitle className="text-2xl tabular-nums">
                   {formatIrt(summary?.totals?.cost?.paid_irt)}{" "}
                   <span className="text-sm font-normal text-muted-foreground">
@@ -303,7 +367,9 @@ export default function AvalaiUsagePage() {
             <CardHeader>
               <CardTitle className="text-base">مصرف بر اساس مدل</CardTitle>
               <CardDescription>
-                خلاصه {hours} ساعت اخیر (حداکثر ۲۴س در API خلاصه)
+                {summaryCapped
+                  ? `خلاصه ${formatRangeLabel(effectiveSummaryHours)} (API خلاصه بیش از ۲۴ ساعت نمی‌دهد)`
+                  : `خلاصه ${formatRangeLabel(effectiveSummaryHours)} اخیر`}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -353,9 +419,10 @@ export default function AvalaiUsagePage() {
             <CardHeader>
               <CardTitle className="text-base">آخرین تراکنش‌ها</CardTitle>
               <CardDescription>
+                بازه {formatRangeLabel(effectiveTxHours)}
                 {data.transactions?.total != null
-                  ? `${formatIrt(data.transactions.total)} مورد در بازه`
-                  : "لیست اخیر"}
+                  ? ` · ${formatIrt(data.transactions.total)} مورد`
+                  : ""}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -408,6 +475,36 @@ export default function AvalaiUsagePage() {
                   </TableBody>
                 </Table>
               )}
+              {showPager ? (
+                <div className="mt-4 flex items-center justify-between">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                    disabled={page <= 1 || loading}
+                  >
+                    <ChevronRight data-icon="inline-start" />
+                    صفحه قبل
+                  </Button>
+                  <span className="text-xs font-medium tabular-nums">
+                    صفحه {page.toLocaleString("fa-IR")}
+                    {totalPages != null
+                      ? ` از ${totalPages.toLocaleString("fa-IR")}`
+                      : ""}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setPage((prev) => prev + 1)}
+                    disabled={!hasNext || loading}
+                  >
+                    صفحه بعد
+                    <ChevronLeft data-icon="inline-end" />
+                  </Button>
+                </div>
+              ) : null}
             </CardContent>
           </Card>
 
